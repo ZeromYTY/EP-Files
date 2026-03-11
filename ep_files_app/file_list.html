@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Файлы</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .file-item { margin: 10px 0; }
+        .modal {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 800px;
+            border-radius: 8px;
+        }
+        textarea {
+            width: 100%;
+            height: 400px;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+        .error { color: red; margin: 10px 0; }
+        .saving { margin-left: 10px; color: #666; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>Список файлов</h1>
+    <div id="file-list">
+        {% for file in files %}
+            <div class="file-item">
+                {{ file.name }}
+                <button onclick="editFile({id})">Редактировать</button>
+            </div>
+        {% empty %}
+            <p>Нет файлов. Загрузите их через <a href="/admin/ep_files_app/file/">админку</a>.</p>
+        {% endfor %}
+    </div>
+    <div id="editorModal" class="modal">
+        <div class="modal-content">
+            <h2>Редактирование: <span id="fileName"></span></h2>
+            <div id="error" class="error"></div>
+            <textarea id="fileContent" placeholder="Загрузка..."></textarea>
+            <div style="margin-top: 10px;">
+                <button id="saveBtn">Сохранить</button>
+                <button id="cancelBtn">Отменить</button>
+                <span id="savingIndicator" class="saving" style="display: none;">Сохранение...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFileId = null;
+        const modal = document.getElementById('editorModal');
+        const fileNameSpan = document.getElementById('fileName');
+        const fileContent = document.getElementById('fileContent');
+        const errorDiv = document.getElementById('error');
+        const saveBtn = document.getElementById('saveBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const savingIndicator = document.getElementById('savingIndicator');
+
+        function editFile(fileId) {
+            currentFileId = fileId;
+            modal.style.display = 'block';
+            errorDiv.textContent = '';
+            fileContent.value = 'Загрузка...';
+            fileNameSpan.textContent = '...';
+
+            fetch(`/files/api/files/${fileId}/content/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        errorDiv.textContent = 'Ошибка: ' + data.error;
+                        fileContent.value = '';
+                    } else {
+                        fileContent.value = data.content;
+                        fileNameSpan.textContent = data.name;
+                    }
+                })
+                .catch(err => {
+                    errorDiv.textContent = 'Ошибка загрузки: ' + err.message;
+                    fileContent.value = '';
+                });
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            currentFileId = null;
+        }
+
+        saveBtn.addEventListener('click', () => {
+            if (!currentFileId) return;
+            const content = fileContent.value;
+            saveBtn.disabled = true;
+            cancelBtn.disabled = true;
+            savingIndicator.style.display = 'inline';
+            errorDiv.textContent = '';
+
+            fetch(`/files/api/files/${currentFileId}/save/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    errorDiv.textContent = 'Ошибка сохранения: ' + data.error;
+                } else {
+                    closeModal();
+                    alert('Файл успешно сохранён');
+                }
+            })
+            .catch(err => {
+                errorDiv.textContent = 'Ошибка соединения: ' + err.message;
+            })
+            .finally(() => {
+                saveBtn.disabled = false;
+                cancelBtn.disabled = false;
+                savingIndicator.style.display = 'none';
+            });
+        });
+
+        cancelBtn.addEventListener('click', closeModal);
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
+    </script>
+</body>
+</html>
