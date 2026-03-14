@@ -10,7 +10,7 @@ from main import settings
 
 def upload_file(request):
     if request.method == "POST":
-        uploaded_file = request.FILES.get["file"]
+        uploaded_file = request.FILES.get("file")
         if not uploaded_file:
             return JsonResponse({"error": "No such file"}, status=400)
         if uploaded_file.size > settings.MAX_FILE_SIZE:
@@ -24,12 +24,12 @@ def upload_file(request):
             file.save()
             return JsonResponse({
                 'message': 'Файл успешно загружен!',
-                'id': file.id
+                'file_id': file.id
             }, status=201)
 
-def download_file(request, id):
+def download_file(request, file_id):
     try:
-        file_rec = File.objects.get(id=id)
+        file_rec = File.objects.get(id=file_id)
     except File.DoesNotExist:
         raise Http404
 
@@ -37,6 +37,6 @@ def download_file(request, id):
 
     response = FileResponse(file_file)
 
-    response['Content-Disposition'] = f'attachment; filename="{file_rec.original_name}"'
+    response['Content-Disposition'] = f'attachment; filename="{file_rec.name}"'
 
     return response
