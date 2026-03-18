@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 from django.contrib.auth.models import User
 # Create your models here.
@@ -21,5 +23,6 @@ class File(models.Model):
             if not self.size:
                 self.size = self.file.size
             if not self.name:
-                self.name = self.file.name
+                self.name = os.path.basename(self.file.name)
+
         super().save(*args, **kwargs)
