@@ -1,3 +1,5 @@
+import os
+
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.http import FileResponse, Http404
@@ -6,7 +8,6 @@ from main import settings
 
 
 # Create your views here.
-
 
 def upload_file(request):
     if request.method == "POST":
@@ -17,9 +18,9 @@ def upload_file(request):
             return JsonResponse({'error': 'Файл слишком большой!'}, status=400)
         else:
             file = File(file=uploaded_file,
-                        original_filename=uploaded_file.name,
-                        size=uploaded_file.size
-                        # owner = request.user
+                        name=uploaded_file.name,
+                        size=uploaded_file.size,
+                        owner = request.user
                         )
             file.save()
             return JsonResponse({
@@ -36,7 +37,8 @@ def download_file(request, file_id):
     file_file = open(file_rec.file.path, 'rb')
 
     response = FileResponse(file_file)
-
-    response['Content-Disposition'] = f'attachment; filename="{file_rec.name}"'
+    
+    filename = os.path.basename(file_rec.file.name)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     return response
