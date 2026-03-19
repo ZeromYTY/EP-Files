@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+
 import os
 from pathlib import Path
+from ep_files_app.core import config as app_config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,3 +124,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# --- CUSTOM APP SETTINGS ---
+
+# Лимит размера загружаемого файла (используем значение из конфига)
+DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
+FILE_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
+
+# Путь к папке хранения файлов
+MEDIA_ROOT = app_config.STORAGE_PATH
+MEDIA_URL = '/media/'
