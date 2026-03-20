@@ -4,7 +4,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from ep_files_app import views
+from ep_files_app.api import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -14,7 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.http import FileResponse, Http404
-from ep_files_app.models import File
+from ep_files_app.models.models import File
 from main import settings
 
 
