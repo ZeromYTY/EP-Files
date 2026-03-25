@@ -3,6 +3,7 @@ from .models import File  # Импортируй свою модель
 
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'size', 'owner')
     exclude = ('owner', 'name', 'size')
 
     def save_model(self, request, obj, form, change):

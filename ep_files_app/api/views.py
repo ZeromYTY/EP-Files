@@ -2,9 +2,9 @@ import os
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render
-from django.http import FileResponse, Http404
-from ep_files_app.models import File
+from django.shortcuts import render, get_object_or_404
+from django.http import FileResponse, Http404, HttpResponse
+from ep_files_app.models import File, PreviewFactory, TextPreview, ImagePreview
 from main import settings
 
 
@@ -40,4 +40,20 @@ def download_file(request, file_id):
 
     return response
 
+def file_preview(request, file_id):
+    file = get_object_or_404(File, id=file_id)
 
+    file.file.seek(0)
+
+    strategy = PreviewFactory.get_strategy(file.name)
+
+    data = file.file.read()
+
+    preview = strategy.preview(data)
+
+    if isinstance(strategy, ImagePreview):
+        if not preview:
+            return HttpResponse("Ошибка обработки изображения", status=500)
+        return HttpResponse(preview, content_type="image/jpeg")
+
+    return HttpResponse(preview, content_type="text/plain; charset=utf-8")
