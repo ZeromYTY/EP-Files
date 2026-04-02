@@ -47,7 +47,7 @@ class TextPreview(PreviewStrategy):
     def preview(self, file: bytes) -> str:
         text = file.decode("utf-8", errors="ignore")
 
-        lines = text.split()[:20]
+        lines = text.splitlines()[:20]
         preview = "\n".join(lines)
 
         return html.escape(preview)
