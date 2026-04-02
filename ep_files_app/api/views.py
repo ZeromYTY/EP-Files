@@ -40,14 +40,14 @@ def download_file(request, file_id):
 
     return response
 
+
 def file_preview(request, file_id):
     file = get_object_or_404(File, id=file_id)
 
-    file.file.seek(0)
+    with file.file.open('rb') as f:
+        data = f.read()
 
     strategy = PreviewFactory.get_strategy(file.name)
-
-    data = file.file.read()
 
     preview = strategy.preview(data)
 
@@ -55,5 +55,8 @@ def file_preview(request, file_id):
         if not preview:
             return HttpResponse("Ошибка обработки изображения", status=500)
         return HttpResponse(preview, content_type="image/jpeg")
+
+    if isinstance(preview, bytes):
+        preview = preview.decode('utf-8', errors='replace')
 
     return HttpResponse(preview, content_type="text/plain; charset=utf-8")
