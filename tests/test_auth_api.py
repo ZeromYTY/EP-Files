@@ -64,3 +64,35 @@ def test_login_wrong_password_returns_401(api_client, user_factory):
 
     assert response.status_code == 401
     assert response.data["error"] == "Неверные данные"
+
+
+def test_protected_endpoint_without_token_returns_401(api_client):
+    response = api_client.get(reverse("test_auth"))
+
+    assert response.status_code == 401
+
+
+def test_protected_endpoint_with_invalid_token_returns_401(api_client):
+    response = api_client.get(
+        reverse("test_auth"),
+        HTTP_AUTHORIZATION="Bearer definitely.invalid.token",
+    )
+
+    assert response.status_code == 401
+
+
+def test_protected_endpoint_with_valid_token_returns_200(
+    api_client,
+    user_factory,
+    token_factory,
+):
+    user = user_factory(email="secured@example.com", password="StrongPass123")
+    access_token = token_factory(user)
+
+    response = api_client.get(
+        reverse("test_auth"),
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 200
+    assert response.data["message"] == "Доступ разрешен! JWT работает."
