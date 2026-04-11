@@ -12,6 +12,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Пользователь с такой почтой уже есть.")
         return value
+    
+    def validate_password(self, value):
+        if len(value) < 6:
+            raise serializers.ValidationError("Пароль должен содержать минимум 6 символов.")
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop('password')
