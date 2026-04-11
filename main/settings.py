@@ -10,11 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+from ep_files_app.core import config as app_config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -27,6 +28,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+MEDIA_URL = '/media/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # Application definition
 
@@ -38,6 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ep_files_app',
+    'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -118,3 +126,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# --- CUSTOM APP SETTINGS ---
+
+# Лимит размера загружаемого файла (используем значение из конфига)
+DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
+FILE_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
+
+# Путь к папке хранения файлов
+MEDIA_ROOT = app_config.STORAGE_PATH
+MEDIA_URL = '/media/'
+
+# --- JWT & REST FRAMEWORK SETTINGS ---
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': app_config.ACCESS_TOKEN_LIFETIME,
+    'SIGNING_KEY': app_config.JWT_SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
