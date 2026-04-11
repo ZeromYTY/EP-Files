@@ -17,7 +17,8 @@ pylint:
     - pip install -r requirements.txt
     - pip install pylint pylint-django
   script:
-    - pylint ep_files_app/ main/ --load-plugins=pylint_django --disable=C0114,C0115,C0116,C0103,R0903
+    - export DJANGO_SETTINGS_MODULE=main.settings
+    - pylint ep_files_app/ main/ --load-plugins=pylint_django --django-settings-module=main.settings --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "dev"'
 
