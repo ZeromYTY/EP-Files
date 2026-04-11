@@ -10,12 +10,11 @@ from ep_files_app.models.models import User
 from .serializers import UserRegistrationSerializer
 import os
 
-from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render
 from django.http import FileResponse, Http404
 from ep_files_app.models.models import File
 from main import settings
+from ep_files_app.services.file_service import FileService
 
 
 
@@ -52,34 +51,43 @@ class LoginView(APIView):
 @permission_classes([IsAuthenticated])
 def protected_test_view(request):
     return Response({"message": "Доступ разрешен! JWT работает."})
-@login_required
+
+
+# 4. Загрузка файла (с JWT авторизацией)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def upload_file(request):
     if request.method == "POST":
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
-            return JsonResponse({"error": "No such file"}, status=400)
-        if uploaded_file.size > settings.MAX_FILE_SIZE:
-            return JsonResponse({'error': 'Файл слишком большой!'}, status=400)
-        else:
-            file = File(file=uploaded_file, owner=request.user)
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        file_service = FileService()
+        file_obj, processing_info = file_service.handle_upload(uploaded_file, request.user)
+        
+        if file_obj is None:
+            return Response({"error": processing_info}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({
+            'message': 'Файл успешно загружен!',
+            'file_id': file_obj.id,
+            'file_name': file_obj.name,
+            'file_size': file_obj.size,
+            'processing_info': processing_info
+        }, status=status.HTTP_201_CREATED)
 
-            file.save()
-            return JsonResponse({
-                'message': 'Файл успешно загружен!',
-                'file_id': file.id
-            }, status=201)
 
+# 5. Скачивание файла
+@api_view(['GET'])
 def download_file(request, file_id):
     try:
         file_rec = File.objects.get(id=file_id)
     except File.DoesNotExist:
-        raise Http404
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
     response = FileResponse(file_rec.file.open('rb'))
-
     filename = os.path.basename(file_rec.file.name)
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
     return response
 
 
