@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import File  # Импортируй свою модель
+from .models.models import File
 
 @admin.register(File)
 class FileAdmin(admin.ModelAdmin):
