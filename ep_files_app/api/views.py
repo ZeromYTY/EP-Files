@@ -18,14 +18,12 @@ from ep_files_app.services.file_service import FileService
 
 
 
-# 1. Регистрация
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = UserRegistrationSerializer
 
 
-# 2. Логин (выдача токена для кастомной модели)
 class LoginView(APIView):
     permission_classes = (AllowAny,)
 
@@ -36,7 +34,6 @@ class LoginView(APIView):
         user = User.objects.filter(email=email).first()
 
         if user and check_password(password, user.password_hash):
-            # Генерируем токены вручную
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
@@ -46,17 +43,38 @@ class LoginView(APIView):
         return Response({'error': 'Неверные данные'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-# 3. Тестовый эндпоинт для проверки защиты
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def protected_test_view(request):
     return Response({"message": "Доступ разрешен! JWT работает."})
 
 
-# 4. Загрузка файла (с JWT авторизацией)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_file(request):
+    """
+        Обрабатывает HTTP POST запрос на загрузку файла.
+
+        Использует `FileService` для валидации и сохранения файла. Доступ разрешен
+        только аутентифицированным пользователям.
+
+        Args:
+            request (rest_framework.request.Request): Объект запроса DRF.
+                Ожидает файл в `request.FILES` под ключом "file".
+
+        Returns:
+            rest_framework.response.Response: JSON с данными:
+                - message (str): Подтверждение успеха.
+                - file_id (int): ID созданного файла.
+                - file_name (str): Имя файла.
+                - file_size (int): Размер в байтах.
+                - processing_info (str): Дополнительная информация от сервиса.
+
+        Responses:
+            201: Файл успешно создан.
+            400: Ошибка валидации (нет файла или файл отклонен сервисом).
+            401: Пользователь не авторизован.
+        """
     if request.method == "POST":
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
@@ -77,9 +95,28 @@ def upload_file(request):
         }, status=status.HTTP_201_CREATED)
 
 
-# 5. Скачивание файла
 @api_view(['GET'])
 def download_file(request, file_id):
+    """
+        Обрабатывает HTTP GET запрос на скачивание файла по его ID.
+
+        Находит запись в базе данных и возвращает поток байтов файла
+        с заголовком Content-Disposition для инициирования скачивания в браузере.
+
+        Args:
+            request (rest_framework.request.Request): Объект запроса DRF.
+            file_id (int): Уникальный идентификатор файла из URL.
+
+        Returns:
+            django.http.FileResponse: Бинарный поток файла.
+
+        Raises:
+            Http404: Если файл с указанным ID не найден в базе данных.
+
+        Responses:
+            200: Успешная отдача файла.
+            404: Файл не найден.
+        """
     try:
         file_rec = File.objects.get(id=file_id)
     except File.DoesNotExist:
