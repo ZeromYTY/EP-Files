@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password
 
 class User(models.Model):
     email = models.EmailField(unique=True)
+    name = models.CharField(max_length=100, blank=True, default='')
     password_hash = models.CharField(max_length=128)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
