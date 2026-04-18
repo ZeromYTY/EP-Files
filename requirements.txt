@@ -4,3 +4,5 @@ pydantic-settings
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
+python-magic
+pillow
