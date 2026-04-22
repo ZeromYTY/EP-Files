@@ -11,3 +11,5 @@
 - `docker-compose up` (после настройки)
 - Backend: `uvicorn main:app --reload`
 - Frontend: `npm run dev`
+
+* [Обоснование архитектурных паттернов (Observer, Strategy, Facade)](./patterns.txt)
