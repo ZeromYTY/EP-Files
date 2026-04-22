@@ -55,7 +55,7 @@ export default function Register() {
       navigate('/files');
     } catch (err) {
       setError(
-        err.response?.data?.message || 'Ошибка при регистрации'
+        err.response?.data?.error || err.response?.data?.message || 'Ошибка при регистрации'
       );
     }
   };

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// 👇 ИЗМЕНИТЕ НА АДРЕС ВАШЕГО БЭКЕНДА
-const API_URL = 'http://localhost:3000/api';
+// 👇 Адрес локального бэкенда Django
+const API_URL = 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_URL,
