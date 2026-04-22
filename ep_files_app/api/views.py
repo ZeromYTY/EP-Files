@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.http import FileResponse, Http404, HttpResponse
-from ep_files_app.models import File, PreviewFactory, TextPreview, ImagePreview
+from ep_files_app.models.models import File, PreviewFactory, TextPreview, ImagePreview
 from main import settings
 
 
@@ -42,13 +42,27 @@ def download_file(request, file_id):
 
 
 def file_preview(request, file_id):
-    file = get_object_or_404(File, id=file_id)
+    """
+    Отображает превью файла по его идентификатору.
 
+    Функция получает файл из базы данных, определяет стратегию генерации
+    превью в зависимости от расширения и возвращает HTTP-ответ с контентом.
+
+    Args:
+        request: Объект HTTP-запроса.
+        file_id (int): Идентификатор файла в базе данных.
+
+    Returns:
+        HttpResponse: Ответ с содержимым превью (изображение или текст).
+
+    Raises:
+        Http404: Если файл с указанным ID не найден.
+    """
+    file = get_object_or_404(File, id=file_id)
     with file.file.open('rb') as f:
         data = f.read()
 
     strategy = PreviewFactory.get_strategy(file.name)
-
     preview = strategy.preview(data)
 
     if isinstance(strategy, ImagePreview):
@@ -58,5 +72,4 @@ def file_preview(request, file_id):
 
     if isinstance(preview, bytes):
         preview = preview.decode('utf-8', errors='replace')
-
     return HttpResponse(preview, content_type="text/plain; charset=utf-8")
