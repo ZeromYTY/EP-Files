@@ -1,26 +1,37 @@
-from rest_framework import status, generics
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-from django.contrib.auth.hashers import check_password
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.core.exceptions import ValidationError
-from django.db.models import Sum, Count, Q
-from django.utils import timezone
-from datetime import timedelta
-
-from ep_files_app.models.models import User, File
-from .serializers import UserRegistrationSerializer, UserSerializer, FileSerializer
-from ep_files_app.permissions import IsFileOwner, CanUploadFiles
-from ep_files_app.validators import (
-    validate_file_extension,
-    validate_file_size,
-    validate_filename,
-    sanitize_filename
-)
 import os
 import logging
+import io  # Добавил, так как он нужен для работы PreviewFactory/Image из первого контекста
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import check_password
+from django.core.exceptions import ValidationError
+from django.db.models import Sum, Count, Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import render, get_object_or_404
+from django.utils import timezone
+
+from rest_framework import status, generics
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from ep_files_app.models.models import (
+    User, File, FileOperationFacade,
+    PreviewFactory, TextPreview, ImagePreview
+)
+from ep_files_app.permissions import IsFileOwner, CanUploadFiles
+from ep_files_app.validators import (
+    validate_file_extension, validate_file_size,
+    validate_filename, sanitize_filename
+)
+from .serializers import (
+    UserRegistrationSerializer, UserSerializer, FileSerializer
+)
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +232,39 @@ def delete_file(request, file_id):
         )
 
 
+def file_preview(request, file_id):
+    """
+    Отображает превью файла по его идентификатору.
+
+    Функция получает файл из базы данных, определяет стратегию генерации
+    превью в зависимости от расширения и возвращает HTTP-ответ с контентом.
+
+    Args:
+        request: Объект HTTP-запроса.
+        file_id (int): Идентификатор файла в базе данных.
+
+    Returns:
+        HttpResponse: Ответ с содержимым превью (изображение или текст).
+
+    Raises:
+        Http404: Если файл с указанным ID не найден.
+    """
+    file = get_object_or_404(File, id=file_id)
+    with file.file.open('rb') as f:
+        data = f.read()
+
+    strategy = PreviewFactory.get_strategy(file.name)
+    preview = strategy.preview(data)
+
+    if isinstance(strategy, ImagePreview):
+        if not preview:
+            return HttpResponse("Ошибка обработки изображения", status=500)
+        return HttpResponse(preview, content_type="image/jpeg")
+
+    if isinstance(preview, bytes):
+        preview = preview.decode('utf-8', errors='replace')
+    return HttpResponse(preview, content_type="text/plain; charset=utf-8")
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def download_file(request, file_id):
@@ -382,3 +426,4 @@ def file_detail(request, file_id):
             {"error": "Файл не найден"},
             status=status.HTTP_404_NOT_FOUND
         )
+
