@@ -1,9 +1,13 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
 from ep_files_app.api import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('download/<int:file_id>/', views.download_file, name='file_download'),
 
     path('login/',  views.login_view,  name='login'),
     path('logout/', views.logout_view, name='logout'),
@@ -19,3 +23,6 @@ urlpatterns = [
     path('files/<int:file_id>/move/',       views.file_move,   name='file_move'),
     path('files/<int:file_id>/delete/',     views.file_delete, name='file_delete'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
