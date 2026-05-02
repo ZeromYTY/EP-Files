@@ -1,93 +1,112 @@
-import mimetypes
-import os
-from django.db import models
-from django.contrib.auth.models import User
-
-from abc import ABC, abstractmethod
 import html
-
-from PIL import Image
 import io
-
+import os
+from abc import ABC, abstractmethod
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
+from django.db import models
+from PIL import Image
 
 from main import settings
 
 
 class User(models.Model):
+    """Custom user model using email as identifier."""
+
     email = models.EmailField(unique=True)
-    name = models.CharField(max_length=100, blank=True, default='')
+    name = models.CharField(max_length=100, blank=True, default="")
     password_hash = models.CharField(max_length=128)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(auto_now_add=True)
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
+
+    class Meta:
+        """Meta options for User model."""
+
+        app_label = "ep_files_app"
 
     @property
     def is_anonymous(self):
+        """Return False as authenticated users are not anonymous."""
         return False
 
     @property
     def is_authenticated(self):
+        """Return True as this is an authenticated user."""
         return True
 
-    class Meta:
-        app_label = 'ep_files_app'
-
     def set_password(self, raw_password):
-        """Хеширует пароль перед сохранением"""
+        """Hash and set the user password."""
         self.password_hash = make_password(raw_password)
 
     def __str__(self):
+        """Return email as string representation."""
         return self.email
 
 
+class Folder(models.Model):
+    """Model representing a folder in the file system tree."""
+
+    name = models.CharField(max_length=255)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="folders")
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="children"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        """Meta options for Folder model."""
+
+        unique_together = ("owner", "parent", "name")
+        ordering = ["name"]
+        app_label = "ep_files_app"
+
+    def __str__(self):
+        """Return full path of folder."""
+        return self.get_full_path()
+
+    def get_full_path(self):
+        """Return full path like /root/child/grandchild."""
+        parts = []
+        node = self
+        while node is not None:
+            parts.append(node.name)
+            node = node.parent
+        return "/" + "/".join(reversed(parts))
+
+    def get_all_descendant_ids(self):
+        """Return list of all descendant folder IDs recursively."""
+        ids = []
+        for child in self.children.all():
+            ids.append(child.id)
+            ids.extend(child.get_all_descendant_ids())
+        return ids
+
 
 class File(models.Model):
-    """
-    Модель для представления загруженного файла и его метаданных.
+    """Model representing an uploaded file and its metadata."""
 
-    Используется для хранения физического пути к файлу и связи с владельцем.
-    Автоматически вычисляет размер и извлекает имя файла при сохранении.
-
-    Attributes:
-        file (models.FileField): Объект файла, хранящийся в папке 'files'.
-        name (models.CharField): Оригинальное имя файла (заполняется автоматически).
-        size (models.BigIntegerField): Размер файла в байтах (заполняется автоматически).
-        owner (models.ForeignKey): Ссылка на пользователя (User), загрузившего файл.
-        date (models.DateTimeField): Дата и время загрузки файла.
-    """
-    file = models.FileField(upload_to='files')
+    file = models.FileField(upload_to="files")
     name = models.CharField(max_length=100, blank=True)
     size = models.BigIntegerField(editable=False, null=True, blank=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     date = models.DateTimeField(auto_now_add=True)
+    folder = models.ForeignKey(
+        Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files"
+    )
 
     def __str__(self):
-        """
-        Возвращает строковое представление объекта.
-
-        Returns:
-            str: Имя файла или "Unnamed File", если имя не задано.
-        """
+        """Return file name or default string."""
         return self.name if self.name else "Unnamed File"
 
     def save(self, *args, **kwargs):
-        """
-        Сохраняет экземпляр модели в базе данных.
-
-        Перед вызовом базового метода save() проверяет наличие файла и
-        автоматически заполняет поля 'size' и 'name', если они пусты.
-
-        Args:
-            *args: Произвольные позиционные аргументы.
-            **kwargs: Произвольные именованные аргументы.
-        """
+        """Auto-fill size and name fields before saving."""
         if self.file:
             if not self.size:
                 self.size = self.file.size
@@ -96,65 +115,32 @@ class File(models.Model):
         super().save(*args, **kwargs)
 
 
-
 class PreviewStrategy(ABC):
-    """
-    Абстрактный базовый класс для стратегий генерации превью.
-    """
+    """Abstract base class for file preview strategies."""
 
     @abstractmethod
     def preview(self, file: bytes) -> str | bytes:
-        """
-        Создает превью на основе сырых данных файла.
-
-        Args:
-            file (bytes): Содержимое файла в байтах.
-
-        Returns:
-            str | bytes: Текстовая строка или байты изображения для превью.
-        """
-        pass
+        """Generate a preview from raw file bytes."""
 
 
 class TextPreview(PreviewStrategy):
-    """
-    Стратегия для создания превью текстовых файлов.
-    """
+    """Strategy for generating text file previews."""
 
     def preview(self, file: bytes) -> str:
-        """
-        Читает начало текстового файла и экранирует HTML-символы.
-
-        Args:
-            file (bytes): Содержимое файла.
-
-        Returns:
-            str: Первые 20 строк текста, безопасные для отображения в HTML.
-        """
+        """Return first 20 lines of text file, HTML-escaped."""
         text = file.decode("utf-8", errors="ignore")
         lines = text.splitlines()[:20]
-        preview = "\n".join(lines)
-        return html.escape(preview)
+        return html.escape("\n".join(lines))
 
 
 class ImagePreview(PreviewStrategy):
-    """
-    Стратегия для создания миниатюр изображений.
-    """
+    """Strategy for generating image thumbnails."""
 
     def preview(self, file: bytes) -> bytes:
-        """
-        Изменяет размер изображения и конвертирует его в JPEG.
-
-        Args:
-            file (bytes): Исходные байты изображения.
-
-        Returns:
-            bytes: Сжатое изображение (миниатюра) в формате JPEG.
-        """
+        """Return resized JPEG thumbnail as bytes."""
         img = Image.open(io.BytesIO(file))
-        if img.mode in ('RGBA', 'P'):
-            img = img.convert('RGB')
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
         img.thumbnail((300, 300))
         output = io.BytesIO()
         img.save(output, format="JPEG", quality=70)
@@ -162,86 +148,40 @@ class ImagePreview(PreviewStrategy):
 
 
 class PreviewFactory:
-    """
-    Фабрика для выбора подходящей стратегии превью.
-    """
+    """Factory for selecting the appropriate preview strategy."""
 
     _strategies = {
-        'text': TextPreview(),
-        'image': ImagePreview()
+        "text": TextPreview(),
+        "image": ImagePreview(),
     }
 
     @staticmethod
     def get_strategy(name: str) -> PreviewStrategy:
-        """
-        Определяет стратегию превью на основе имени файла.
-
-        Args:
-            name (str): Имя файла с расширением.
-
-        Returns:
-            PreviewStrategy: Экземпляр подходящей стратегии (Text или Image).
-        """
-        ext = name.split('.')[-1].lower() if '.' in name else ''
-        img_extns = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+        """Return preview strategy based on file extension."""
+        ext = name.split(".")[-1].lower() if "." in name else ""
+        img_extns = ["jpg", "jpeg", "png", "gif", "bmp", "webp"]
         if ext in img_extns:
-            return PreviewFactory._strategies['image']
-        return PreviewFactory._strategies['text']
+            return PreviewFactory._strategies["image"]
+        return PreviewFactory._strategies["text"]
 
 
 class FileOperationFacade:
-    """
-    Фасад для централизованного управления операциями над файлами.
-
-    Скрывает внутреннюю сложность проверки ограничений, взаимодействия с базой данных
-    и физическим хранилищем. Является единой точкой входа для файлового модуля.
-    """
+    """Facade for centralised file operation management."""
 
     @staticmethod
     def upload_file(file, user):
-        """
-        Выполняет валидацию и регистрацию нового файла в системе.
-
-        Метод проверяет наличие файла и его соответствие лимитам размера,
-        после чего создает запись в базе данных и сохраняет файл на диск.
-
-        Args:
-            file (django.core.files.uploadedfile.UploadedFile): Объект файла из запроса.
-            user (User): Экземпляр пользователя, который будет назначен владельцем файла.
-
-        Returns:
-            File: Объект созданной модели File с заполненными метаданными.
-
-        Raises:
-            ValidationError: Если файл отсутствует или его размер превышает
-                установленное значение settings.MAX_FILE_SIZE.
-        """
+        """Validate and save a new file for the given user."""
         if not file:
-            raise ValidationError("Файл не найден")
+            raise ValidationError("File not provided")
         if file.size > settings.MAX_FILE_SIZE:
-            raise ValidationError("Файл слишком большой")
-
+            raise ValidationError("File is too large")
         file_obj = File(file=file, owner=user)
         file_obj.save()
         return file_obj
 
     @staticmethod
     def delete_file(file_id, user):
-        """
-        Удаляет файл из системы с проверкой прав владения.
-
-        Удаление происходит как из базы данных, так и из физического хранилища (Media).
-        Операция будет выполнена только в том случае, если файл принадлежит
-        указанному пользователю.
-
-        Args:
-            file_id (int): Идентификатор (ID) удаляемого файла.
-            user (User): Объект пользователя, инициирующего удаление.
-
-        Returns:
-            bool: True, если файл был успешно найден и удален.
-                  False, если файл не существует или пользователь не является его владельцем.
-        """
+        """Delete a file if it belongs to the given user."""
         try:
             file_obj = File.objects.get(id=file_id, owner=user)
             file_obj.file.delete()
@@ -249,4 +189,3 @@ class FileOperationFacade:
             return True
         except File.DoesNotExist:
             return False
-
