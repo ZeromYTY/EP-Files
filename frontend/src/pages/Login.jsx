@@ -46,7 +46,7 @@ export default function Login() {
       navigate('/files');
     } catch (err) {
       setError(
-        err.response?.data?.message || 'Неверный email или пароль'
+        err.response?.data?.error || err.response?.data?.message || 'Неверный email или пароль'
       );
     }
   };

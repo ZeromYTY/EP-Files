@@ -12,20 +12,30 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import timedelta
 from ep_files_app.core import config as app_config
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-@1i!@693izgkyqoju_svjf9z00&mdu8@_6))4zmxzaw@x)8wa$'
 
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
 
 MEDIA_URL = '/media/'
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILE_SIZE = 100 * 1024 * 1024
+
+# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,12 +44,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'ep_files_app',
     'rest_framework',
     'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -47,6 +59,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Кастомные middleware для безопасности
+    'ep_files_app.middleware.security.SecurityHeadersMiddleware',
+    'ep_files_app.middleware.security.RateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'main.urls'
@@ -70,12 +85,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'main.wsgi.application'
 
+
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# --- CUSTOM AUTH USER MODEL ---
+AUTH_USER_MODEL = 'ep_files_app.User'
+
+# Password validation
+# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -92,29 +117,126 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+# Internationalization
+# https://docs.djangoproject.com/en/6.0/topics/i18n/
+
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
+
 USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
 
+# --- CUSTOM APP SETTINGS ---
+
+# Лимит размера загружаемого файла (используем значение из конфига)
 DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
 FILE_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
 
+# Путь к папке хранения файлов
 MEDIA_ROOT = app_config.STORAGE_PATH
 MEDIA_URL = '/media/'
 
+# --- JWT & REST FRAMEWORK SETTINGS ---
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'ep_files_app.api.authentication.EpFilesJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',  # 100 запросов в час для неавторизованных
+        'user': '1000/hour',  # 1000 запросов в час для авторизованных
+    }
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': app_config.ACCESS_TOKEN_LIFETIME,
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'SIGNING_KEY': app_config.JWT_SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# --- CORS SETTINGS ---
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# --- SECURITY SETTINGS ---
+
+# Защита от clickjacking
+X_FRAME_OPTIONS = 'DENY'
+
+# HTTPS настройки (для продакшена)
+SECURE_SSL_REDIRECT = False  # В продакшене = True
+SESSION_COOKIE_SECURE = False  # В продакшене = True
+CSRF_COOKIE_SECURE = False  # В продакшене = True
+
+# Защита от XSS
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# HSTS (для продакшена)
+SECURE_HSTS_SECONDS = 0  # В продакшене = 31536000 (1 год)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False  # В продакшене = True
+SECURE_HSTS_PRELOAD = False  # В продакшене = True
+
+# Логирование
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'app.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'ep_files_app': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Создаем папку для логов
+import os
+os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+

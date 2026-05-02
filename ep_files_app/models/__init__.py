@@ -1,1 +1,3 @@
-from .models import File, User
+from .models import User, File
+
+__all__ = ['User', 'File']

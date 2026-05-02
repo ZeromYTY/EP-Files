@@ -48,7 +48,7 @@ def test_login_success_returns_tokens(api_client, user_factory):
     response = api_client.post(reverse("login"), payload, format="json")
 
     assert response.status_code == 200
-    assert "access" in response.data
+    assert "token" in response.data
     assert "refresh" in response.data
 
 
