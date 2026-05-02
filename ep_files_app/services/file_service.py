@@ -13,10 +13,6 @@ from ep_files_app.core import config as app_config
 from ep_files_app.models.models import File
 
 
-# ---------------------------------------------------------------------------
-# Паттерн Strategy
-# ---------------------------------------------------------------------------
-
 class ImageProcessingStrategy:
     """Стратегия обработки изображений (JPEG, PNG).
 
@@ -74,33 +70,16 @@ class FileActivityLogger:
         print(f"[SYSTEM LOG]: Действие '{action}' с файлом '{file_name}' успешно записано.")
 
 
-# ---------------------------------------------------------------------------
-# Паттерн Facade
-# ---------------------------------------------------------------------------
-
 class FileService:
-    """Фасад для пайплайна загрузки файлов.
-
-    Скрывает за одним публичным методом логику валидации,
-    сохранения, выбора стратегии обработки и логирования.
-
-    Атрибуты:
-        logger (FileActivityLogger): Наблюдатель для записи событий.
-
-    Пример использования::
-
-        service = FileService()
-        file_obj, info = service.handle_upload(request.FILES["file"], request.user)
-    """
-
     def __init__(self):
         self.logger = FileActivityLogger()
 
     def handle_upload(self, uploaded_file, user):
         """Проверить, сохранить и обработать загружаемый файл.
 
-        Проверяет размер файла относительно :data:`app_config.MAX_FILE_SIZE`,
-        сохраняет запись в базе данных, выбирает подходящую стратегию
+        Проверяет авторизацию, наличие файла, размер файла относительно
+        :data:`app_config.MAX_FILE_SIZE`, сохраняет запись в базе данных,
+        выбирает подходящую стратегию
         (:class:`ImageProcessingStrategy` или :class:`DocumentProcessingStrategy`)
         и уведомляет :class:`FileActivityLogger`.
 
@@ -114,11 +93,20 @@ class FileService:
                 - При успехе: ``(экземпляр File, строка с результатом обработки)``
                 - При ошибке: ``(None, строка с описанием ошибки)``
         """
+        if user is None:
+            return None, "Ошибка: пользователь не авторизован."
+
+        if uploaded_file is None:
+            return None, "Ошибка: файл не передан."
+
         if uploaded_file.size > app_config.MAX_FILE_SIZE:
             return None, "Ошибка: Превышен лимит размера файла."
 
-        file_obj = File(file=uploaded_file, owner=user)
-        file_obj.save()
+        try:
+            file_obj = File(file=uploaded_file, owner=user)
+            file_obj.save()
+        except Exception:
+            return None, "Ошибка: не удалось сохранить файл."
 
         if uploaded_file.name.lower().endswith((".jpg", ".png", ".jpeg")):
             strategy = ImageProcessingStrategy()

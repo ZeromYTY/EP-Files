@@ -11,6 +11,8 @@ from PIL import Image
 from main import settings
 
 
+
+
 class User(models.Model):
     """Custom user model using email as identifier."""
 
@@ -94,8 +96,11 @@ class File(models.Model):
 
     file = models.FileField(upload_to="files")
     name = models.CharField(max_length=100, blank=True)
+
     size = models.BigIntegerField(editable=False, null=True, blank=True)
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+
     date = models.DateTimeField(auto_now_add=True)
     folder = models.ForeignKey(
         Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files"
@@ -112,8 +117,14 @@ class File(models.Model):
                 self.size = self.file.size
             if not self.name:
                 self.name = os.path.basename(self.file.name)
+
         super().save(*args, **kwargs)
 
+class BasePreview:
+    """Базовый интерфейс предпросмотра файла."""
+
+    def generate_preview(self, file_obj):
+        raise NotImplementedError
 
 class PreviewStrategy(ABC):
     """Abstract base class for file preview strategies."""

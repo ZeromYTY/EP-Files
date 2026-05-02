@@ -22,6 +22,7 @@ from ep_files_app.models.models import (
     File, FileOperationFacade, Folder,
     ImagePreview, PreviewFactory, User,
 )
+from ep_files_app.services.file_service import FileService
 from ep_files_app.permissions import IsFileOwner, CanUploadFiles
 from ep_files_app.validators import (
     sanitize_filename, validate_file_extension,
