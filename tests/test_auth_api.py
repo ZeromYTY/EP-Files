@@ -63,7 +63,7 @@ def test_login_wrong_password_returns_401(api_client, user_factory):
     response = api_client.post(reverse("login"), payload, format="json")
 
     assert response.status_code == 401
-    assert response.data["error"] == "Неверные данные"
+    assert response.data["error"] == "Invalid credentials"
 
 
 def test_protected_endpoint_without_token_returns_401(api_client):
@@ -95,4 +95,4 @@ def test_protected_endpoint_with_valid_token_returns_200(
     )
 
     assert response.status_code == 200
-    assert response.data["message"] == "Доступ разрешен! JWT работает."
+    assert response.data["message"] == "Access granted. JWT is working."
