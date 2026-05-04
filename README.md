@@ -92,3 +92,4 @@ sphinx-build -b html source build/html
 
 GitLab Pages обновляется при каждом merge в `master`.
 
+* [Обоснование архитектурных паттернов (Observer, Strategy, Facade)](./patterns.txt)
