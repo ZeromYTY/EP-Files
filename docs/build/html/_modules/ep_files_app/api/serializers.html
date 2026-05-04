@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ep_files_app.api.serializers &#8212; EP-Files 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for ep_files_app.api.serializers</h1><div class="highlight"><pre>
+<span></span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">DRF-сериализаторы для ресурсов User и File.</span>
+
+<span class="sd">Отвечают за валидацию входных данных, хэширование пароля</span>
+<span class="sd">и вычисляемые поля, такие как ``download_url``.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">serializers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ep_files_app.models.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span><span class="p">,</span> <span class="n">File</span>
+
+
+<div class="viewcode-block" id="UserSerializer">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserSerializer</span><span class="p">(</span><span class="n">serializers</span><span class="o">.</span><span class="n">ModelSerializer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Сериализатор для чтения данных пользователя.</span>
+
+<span class="sd">    Используется в ответах API, где нужно отобразить профиль.</span>
+<span class="sd">    Не включает чувствительные поля, такие как ``password``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="UserSerializer.Meta">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">User</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span> <span class="s2">&quot;is_staff&quot;</span><span class="p">,</span> <span class="s2">&quot;is_superuser&quot;</span><span class="p">,</span> <span class="s2">&quot;is_active&quot;</span><span class="p">,</span> <span class="s2">&quot;date_joined&quot;</span><span class="p">]</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="UserRegistrationSerializer">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserRegistrationSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserRegistrationSerializer</span><span class="p">(</span><span class="n">serializers</span><span class="o">.</span><span class="n">ModelSerializer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Сериализатор для регистрации нового пользователя.</span>
+
+<span class="sd">    Проверяет уникальность ``email``, минимальную длину пароля</span>
+<span class="sd">    (6 символов) и хэширует пароль перед сохранением.</span>
+
+<span class="sd">    Поля:</span>
+<span class="sd">        name (str): Отображаемое имя, необязательное.</span>
+<span class="sd">        email (str): Должен быть уникальным среди всех пользователей.</span>
+<span class="sd">        password (str): Только запись; минимум 6 символов.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">write_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">password</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">write_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UserRegistrationSerializer.Meta">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserRegistrationSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">User</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;email&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="UserRegistrationSerializer.validate_email">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserRegistrationSerializer.validate_email">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Отклонить дублирующийся email-адрес.</span>
+
+<span class="sd">        Аргументы:</span>
+<span class="sd">            value (str): Значение email из запроса.</span>
+
+<span class="sd">        Возвращает:</span>
+<span class="sd">            str: Прошедший валидацию email.</span>
+
+<span class="sd">        Исключения:</span>
+<span class="sd">            serializers.ValidationError: Если email уже зарегистрирован.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">email</span><span class="o">=</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="n">serializers</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Пользователь с такой почтой уже есть.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="UserRegistrationSerializer.validate_password">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserRegistrationSerializer.validate_password">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_password</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Проверить минимальную длину пароля.</span>
+
+<span class="sd">        Аргументы:</span>
+<span class="sd">            value (str): Значение пароля из запроса.</span>
+
+<span class="sd">        Возвращает:</span>
+<span class="sd">            str: Прошедший валидацию пароль.</span>
+
+<span class="sd">        Исключения:</span>
+<span class="sd">            serializers.ValidationError: Если пароль короче 6 символов.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">serializers</span><span class="o">.</span><span class="n">ValidationError</span><span class="p">(</span><span class="s2">&quot;Пароль должен содержать минимум 6 символов.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="UserRegistrationSerializer.create">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.UserRegistrationSerializer.create">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">validated_data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Создать и сохранить нового пользователя с хэшированным паролем.</span>
+
+<span class="sd">        Аргументы:</span>
+<span class="sd">            validated_data (dict): Прошедшие валидацию поля из запроса.</span>
+
+<span class="sd">        Возвращает:</span>
+<span class="sd">            User: Созданный экземпляр пользователя.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">validated_data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">password</span> <span class="o">=</span> <span class="n">validated_data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;password&quot;</span><span class="p">)</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">validated_data</span><span class="p">)</span>
+        <span class="n">user</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+        <span class="n">user</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">user</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FileSerializer">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.FileSerializer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FileSerializer</span><span class="p">(</span><span class="n">serializers</span><span class="o">.</span><span class="n">ModelSerializer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Сериализатор для чтения данных файла.</span>
+
+<span class="sd">    Добавляет email владельца и вычисляемый URL для скачивания</span>
+<span class="sd">    к стандартным полям метаданных файла.</span>
+
+<span class="sd">    Поля:</span>
+<span class="sd">        owner_email (str): Email владельца файла (только чтение).</span>
+<span class="sd">        download_url (str): Относительный URL для скачивания (вычисляемое).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">owner_email</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">EmailField</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="s2">&quot;owner.email&quot;</span><span class="p">,</span> <span class="n">read_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">download_url</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">SerializerMethodField</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FileSerializer.Meta">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.FileSerializer.Meta">[docs]</a>
+    <span class="k">class</span><span class="w"> </span><span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">File</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">,</span> <span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="s2">&quot;owner_email&quot;</span><span class="p">,</span> <span class="s2">&quot;download_url&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="FileSerializer.get_download_url">
+<a class="viewcode-back" href="../../../modules/api.html#ep_files_app.api.serializers.FileSerializer.get_download_url">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_download_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Сформировать URL для скачивания файла.</span>
+
+<span class="sd">        Аргументы:</span>
+<span class="sd">            obj (File): Экземпляр файла, который сериализуется.</span>
+
+<span class="sd">        Возвращает:</span>
+<span class="sd">            str: Относительный путь, например ``/api/download/42/``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;/api/download/</span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">/&quot;</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">EP-Files</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/services.html">File Services</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/api.html">API Serializers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/permissions.html">Permissions</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

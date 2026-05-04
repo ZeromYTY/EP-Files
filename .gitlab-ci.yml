@@ -1,6 +1,7 @@
 stages:
   - lint
   - test
+  - docs
 
 cache:
   paths:
@@ -9,6 +10,9 @@ cache:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
+# ------------------------------------------------------------------
+# Lint
+# ------------------------------------------------------------------
 pylint:
   stage: lint
   image: python:3.12-slim
@@ -18,10 +22,16 @@ pylint:
     - pip install pylint pylint-django
   script:
     - export DJANGO_SETTINGS_MODULE=main.settings
-    - pylint ep_files_app/ main/ --load-plugins=pylint_django --django-settings-module=main.settings --fail-under=8.0 --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110
+    - pylint ep_files_app/ main/ --load-plugins=pylint_django
+        --django-settings-module=main.settings
+        --fail-under=8.0
+        --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "dev"'
 
+# ------------------------------------------------------------------
+# Test
+# ------------------------------------------------------------------
 pytest:
   stage: test
   image: python:3.12-slim
@@ -33,3 +43,41 @@ pytest:
     - pytest || echo "No tests yet"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "dev"'
+
+# ------------------------------------------------------------------
+# Docs — сборка Sphinx и публикация на GitLab Pages
+# ------------------------------------------------------------------
+build-docs:
+  stage: docs
+  image: python:3.12-slim
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install sphinx sphinx-rtd-theme
+  script:
+    - cd docs
+    - sphinx-build -b html source build/html
+  artifacts:
+    name: "docs-$CI_COMMIT_REF_SLUG"
+    paths:
+      - docs/build/html/
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feature/ci-cd-docs" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'
+
+# GitLab Pages — деплой только с main
+pages:
+  stage: docs
+  image: python:3.12-slim
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install sphinx sphinx-rtd-theme
+  script:
+    - cd docs
+    - sphinx-build -b html source ../public
+  artifacts:
+    paths:
+      - public
+  rules:
+      - if: '$CI_COMMIT_BRANCH == "main"'
