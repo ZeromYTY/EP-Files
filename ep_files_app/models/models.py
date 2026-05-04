@@ -168,12 +168,31 @@ class PreviewFactory:
 
     @staticmethod
     def get_strategy(name: str) -> PreviewStrategy:
-        """Return preview strategy based on file extension."""
-        ext = name.split(".")[-1].lower() if "." in name else ""
-        img_extns = ["jpg", "jpeg", "png", "gif", "bmp", "webp"]
+        """
+        Определяет специализированную стратегию генерации превью на основе расширения файла.
+
+        Метод анализирует расширение переданного имени файла и сопоставляет его
+        с зарегистрированными типами стратегий (Image для графики, Text для текстовых документов).
+
+        Args:
+            name (str): Полное имя файла или путь (например, 'image.png' или 'notes.txt').
+
+        Returns:
+            PreviewStrategy: Объект стратегии, соответствующий типу контента.
+                            Возвращает текстовую стратегию по умолчанию для .txt и
+                            неизвестных форматов.
+        """
+        ext = name.split('.')[-1].lower() if '.' in name else ''
+
+        img_extns = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+
         if ext in img_extns:
-            return PreviewFactory._strategies["image"]
-        return PreviewFactory._strategies["text"]
+            return PreviewFactory._strategies['image']
+
+        if ext == 'txt':
+            return PreviewFactory._strategies['text']
+
+        return PreviewFactory._strategies['text'] # измените там под исключения
 
 
 class FileOperationFacade:

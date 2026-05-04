@@ -1,9 +1,12 @@
-from django.test import TestCase
+import os
+
+from django.test import TestCase, SimpleTestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from PIL import Image
 from django.contrib.auth import get_user_model
-from ep_files_app.models.models import File, FileOperationFacade, User
+from ep_files_app.models.models import File, FileOperationFacade, User, ImagePreview, TextPreview, PreviewFactory
 from django.contrib.auth.hashers import check_password
 
 User = get_user_model()
@@ -67,3 +70,52 @@ class FileTestCase(TestCase):
         file_record = File(name="")
         self.assertEqual(str(file_record), "Unnamed File")
 
+
+class PreviewSystemTest(SimpleTestCase):
+
+    def test_factory_logic(self):
+        """Проверка выбора стратегии."""
+        self.assertIsInstance(PreviewFactory.get_strategy("test.jpg"), ImagePreview)
+        self.assertIsInstance(PreviewFactory.get_strategy("data.txt"), TextPreview)
+        self.assertIsInstance(PreviewFactory.get_strategy("other.doc"), TextPreview)
+
+    def test_text_preview(self):
+        """Тест текста через SimpleUploadedFile (без io)."""
+        strategy = TextPreview()
+        content = ("Line\n" * 25).encode('utf-8')
+
+        file_mock = SimpleUploadedFile("test.txt", content)
+        result = strategy.preview(file_mock.read())
+
+        self.assertEqual(len(result.splitlines()), 20)
+
+    def test_image_preview_full_cycle(self):
+        """Тест картинок с сохранением на диск через Pillow и удалением через os."""
+        strategy = ImagePreview()
+        test_file = "test_image.png"
+
+        img = Image.new("RGBA", (800, 400), color="red")
+        img.save(test_file)
+
+        try:
+            with open(test_file, 'rb') as f:
+                input_bytes = f.read()
+
+            result_bytes = strategy.preview(input_bytes)
+
+            result_file = "result_preview.jpg"
+            with open(result_file, 'wb') as f:
+                f.write(result_bytes)
+
+            try:
+                with Image.open(result_file) as res_img:
+                    self.assertEqual(res_img.format, "JPEG")
+                    self.assertEqual(res_img.size, (300, 150))
+                    self.assertEqual(res_img.mode, "RGB")
+            finally:
+                if os.path.exists(result_file):
+                    os.remove(result_file)
+
+        finally:
+            if os.path.exists(test_file):
+                os.remove(test_file)
