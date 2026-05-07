@@ -8,6 +8,7 @@ DRF-сериализаторы для ресурсов User и File.
 
 from rest_framework import serializers
 from ep_files_app.models.models import User, File
+from ep_files_app.models.file_history import FileHistory
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -118,3 +119,38 @@ class FileSerializer(serializers.ModelSerializer):
             str: Относительный путь, например ``/api/download/42/``.
         """
         return f"/api/download/{obj.id}/"
+
+
+
+class FileHistorySerializer(serializers.ModelSerializer):
+    """Сериализатор для истории файлов"""
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    event_display = serializers.CharField(read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+    
+    class Meta:
+        model = FileHistory
+        fields = [
+            'id',
+            'file',
+            'file_name',
+            'event_type',
+            'event_type_display',
+            'event_display',
+            'user',
+            'user_name',
+            'user_email',
+            'timestamp',
+            'old_value',
+            'new_value',
+            'details',
+            'ip_address',
+        ]
+        read_only_fields = fields
+    
+    def get_user_name(self, obj):
+        """Получить имя пользователя"""
+        if obj.user:
+            return obj.user.name or obj.user.email
+        return 'Система'
