@@ -2,6 +2,7 @@ import html
 import io
 import os
 from abc import ABC, abstractmethod
+from typing import Union
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
@@ -130,7 +131,7 @@ class PreviewStrategy(ABC):
     """Abstract base class for file preview strategies."""
 
     @abstractmethod
-    def preview(self, file: bytes) -> str | bytes:
+    def preview(self, file: bytes) -> Union[str, bytes]:
         """Generate a preview from raw file bytes."""
 
 
