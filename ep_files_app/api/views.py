@@ -22,7 +22,9 @@ from ep_files_app.models.models import (
     File, FileOperationFacade, Folder,
     ImagePreview, PreviewFactory, User,
 )
+from ep_files_app.models.file_history import FileHistory
 from ep_files_app.services.file_service import FileService
+from ep_files_app.services.file_event_service import file_event_service
 from ep_files_app.permissions import IsFileOwner, CanUploadFiles
 from ep_files_app.validators import (
     sanitize_filename, validate_file_extension,
@@ -123,6 +125,15 @@ def upload_file(request):
             file=uploaded_file,
         )
         file_obj.save()
+        
+        # Генерируем событие загрузки
+        file_event_service.emit_upload_event(
+            file=file_obj,
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            details={'size': uploaded_file.size, 'original_name': uploaded_file.name}
+        )
+        
         logger.info("File uploaded: %s by user %s", safe_filename, request.user.email)
         return Response({
             "message": "File uploaded successfully",
@@ -152,6 +163,14 @@ def download_file(request, file_id):
         if not file_rec.file or not os.path.exists(file_rec.file.path):
             return Response({"error": "File not found on server"}, status=status.HTTP_404_NOT_FOUND)
         logger.info("File downloaded: %s by user %s", file_rec.name, request.user.email)
+        
+        # Генерируем событие скачивания
+        file_event_service.emit_download_event(
+            file=file_rec,
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
         file_handle = file_rec.file.open("rb")
         content_type, _ = mimetypes.guess_type(file_rec.name)
         if content_type is None:
@@ -176,12 +195,24 @@ def delete_file(request, file_id):
         if file_obj.owner != request.user:
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         filename = file_obj.name
+        file_id_for_event = file_obj.id
+        
         if file_obj.file:
             try:
                 file_obj.file.delete(save=False)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("Error deleting physical file: %s", str(exc))
+        
         file_obj.delete()
+        
+        # Генерируем событие удаления (после удаления файла)
+        file_event_service.emit_delete_event(
+            file_id=file_id_for_event,
+            file_name=filename,
+            user=request.user,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
         logger.info("File deleted: %s by user %s", filename, request.user.email)
         return Response({"message": f'File "{filename}" deleted successfully'})
     except File.DoesNotExist:
@@ -361,3 +392,93 @@ def folder_delete(request, folder_id):
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
     folder.delete()
     return Response({"status": "deleted", "id": folder_id})
+
+
+
+# История файлов
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def file_history(request, file_id):
+    """
+    Получить историю изменений конкретного файла
+    """
+    try:
+        file_obj = File.objects.get(id=file_id)
+        
+        # Проверяем права доступа
+        if file_obj.owner != request.user:
+            return Response(
+                {"error": "У вас нет прав на просмотр истории этого файла"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Получаем историю файла
+        history = FileHistory.objects.filter(file=file_obj).order_by('-timestamp')
+        serializer = FileHistorySerializer(history, many=True)
+        
+        return Response({
+            'file_id': file_id,
+            'file_name': file_obj.name,
+            'history': serializer.data
+        })
+        
+    except File.DoesNotExist:
+        return Response(
+            {"error": "Файл не найден"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_activity_history(request):
+    """
+    Получить всю историю активности пользователя
+    """
+    # Получаем историю всех файлов пользователя
+    user_files = File.objects.filter(owner=request.user)
+    history = FileHistory.objects.filter(
+        file__in=user_files
+    ).order_by('-timestamp')
+    
+    # Фильтрация по типу события
+    event_type = request.GET.get('event_type')
+    if event_type:
+        history = history.filter(event_type=event_type)
+    
+    # Фильтрация по дате
+    days = request.GET.get('days')
+    if days:
+        try:
+            days_int = int(days)
+            since = timezone.now() - timedelta(days=days_int)
+            history = history.filter(timestamp__gte=since)
+        except ValueError:
+            pass
+    
+    # Пагинация
+    limit = int(request.GET.get('limit', 50))
+    history = history[:limit]
+    
+    serializer = FileHistorySerializer(history, many=True)
+    
+    return Response({
+        'count': history.count(),
+        'history': serializer.data
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_activity(request):
+    """
+    Получить недавнюю активность пользователя (последние 10 действий)
+    """
+    user_files = File.objects.filter(owner=request.user)
+    history = FileHistory.objects.filter(
+        file__in=user_files
+    ).order_by('-timestamp')[:10]
+    
+    serializer = FileHistorySerializer(history, many=True)
+    
+    return Response(serializer.data)

@@ -5,6 +5,7 @@ from .api.views import (
     upload_file, list_files, download_file, delete_file,
     file_detail, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
+    file_history, user_activity_history, recent_activity,
 )
 
 urlpatterns = [
@@ -27,4 +28,9 @@ urlpatterns = [
     path("folders/<int:folder_id>/rename/", folder_rename, name="folder_rename"),
     path("folders/<int:folder_id>/move/", folder_move, name="folder_move"),
     path("folders/<int:folder_id>/delete/", folder_delete, name="folder_delete"),
+    
+    # История файлов
+    path("files/<int:file_id>/history/", file_history, name="file_history"),
+    path("history/", user_activity_history, name="user_activity_history"),
+    path("history/recent/", recent_activity, name="recent_activity"),
 ]
