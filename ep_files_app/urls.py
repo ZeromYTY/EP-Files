@@ -9,6 +9,7 @@ from .api.views import (
     file_history, user_activity_history, recent_activity,
     admin_list_users, admin_stats, admin_block_user,
     admin_unblock_user, admin_delete_user,
+    save_text_file, read_text_file,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -28,6 +29,8 @@ urlpatterns = [
     path("files/<int:file_id>/download/", download_file, name="download_file"),
     path("files/<int:file_id>/", delete_file, name="delete_file"),
     path("files/<int:file_id>/detail/", file_detail, name="file_detail"),
+    path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
+    path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),
 
     path("storage/stats/", user_storage_stats, name="storage_stats"),
     path("search/", search_files, name="search_files"),
@@ -42,19 +45,17 @@ urlpatterns = [
     path("files/<int:file_id>/history/", file_history, name="file_history"),
     path("history/", user_activity_history, name="user_activity_history"),
     path("history/recent/", recent_activity, name="recent_activity"),
-    
-    # Управление правами доступа
+
     path("files/<int:file_id>/permissions/grant/", grant_file_permission, name="grant_file_permission"),
     path("files/<int:file_id>/permissions/revoke/", revoke_file_permission, name="revoke_file_permission"),
     path("files/<int:file_id>/permissions/", list_file_permissions, name="list_file_permissions"),
-    
+
     path("folders/<int:folder_id>/permissions/grant/", grant_folder_permission, name="grant_folder_permission"),
     path("folders/<int:folder_id>/permissions/revoke/", revoke_folder_permission, name="revoke_folder_permission"),
     path("folders/<int:folder_id>/permissions/", list_folder_permissions, name="list_folder_permissions"),
-    
+
     path("permissions/my/", my_permissions, name="my_permissions"),
 
-    # Admin
     path("admin/users/", admin_list_users, name="admin_list_users"),
     path("admin/stats/", admin_stats, name="admin_stats"),
     path("admin/users/<int:user_id>/block/", admin_block_user, name="admin_block_user"),

@@ -539,3 +539,109 @@ def admin_delete_user(request, user_id):
         "email": email,
         "files_deleted": file_count,
     })
+
+
+import html as html_module
+import re
+
+
+def _sanitize_text_content(text: str) -> str:
+    """Remove dangerous HTML/JS from text content to prevent XSS."""
+    # Remove script tags and their content
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    # Remove event handlers like onclick=, onerror= etc
+    text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
+    # Remove javascript: links
+    text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
+    # Escape remaining HTML tags
+    text = html_module.escape(text)
+    return text
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def save_text_file(request, file_id):
+    """Save text content to a file from the built-in editor."""
+    try:
+        file_obj = File.objects.get(id=file_id)
+    except File.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if file_obj.owner != request.user:
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+    # Only allow text files
+    ext = os.path.splitext(file_obj.name)[1].lower()
+    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+    if ext not in allowed_text_extensions:
+        return Response(
+            {"error": f"Cannot edit binary file with extension '{ext}'"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    content = request.data.get("content")
+    if content is None:
+        return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Sanitize input to prevent XSS
+    sanitized_content = _sanitize_text_content(content)
+
+    # Write sanitized content to file
+    file_obj.file.open("wb")
+    file_obj.file.write(sanitized_content.encode("utf-8"))
+    file_obj.file.close()
+
+    # Update file size
+    file_obj.size = len(sanitized_content.encode("utf-8"))
+    file_obj.save(update_fields=["size"])
+
+    # Log the event
+    file_event_service.emit_upload_event(
+        file=file_obj,
+        user=request.user,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        details={"action": "text_editor_save", "size": file_obj.size},
+    )
+    logger.info(
+        "Text file saved via editor: %s by user %s",
+        file_obj.name, request.user.email,
+    )
+
+    return Response({
+        "status": "saved",
+        "file_id": file_obj.id,
+        "file_name": file_obj.name,
+        "size": file_obj.size,
+        "sanitized": sanitized_content != content,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def read_text_file(request, file_id):
+    """Read and return the text content of a file for the editor."""
+    try:
+        file_obj = File.objects.get(id=file_id)
+    except File.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if file_obj.owner != request.user:
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+    ext = os.path.splitext(file_obj.name)[1].lower()
+    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+    if ext not in allowed_text_extensions:
+        return Response(
+            {"error": f"Cannot read binary file with extension '{ext}'"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    with file_obj.file.open("rb") as f:
+        content = f.read().decode("utf-8", errors="replace")
+
+    return Response({
+        "file_id": file_obj.id,
+        "file_name": file_obj.name,
+        "content": content,
+        "size": file_obj.size,
+    })
