@@ -9,6 +9,7 @@ DRF-сериализаторы для ресурсов User и File.
 from rest_framework import serializers
 from ep_files_app.models.models import User, File
 from ep_files_app.models.file_history import FileHistory
+from ep_files_app.models.permissions import Permission
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -154,3 +155,45 @@ class FileHistorySerializer(serializers.ModelSerializer):
         if obj.user:
             return obj.user.name or obj.user.email
         return 'Система'
+
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    """Сериализатор для прав доступа"""
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    granted_by_email = serializers.EmailField(source='granted_by.email', read_only=True)
+    granted_by_name = serializers.CharField(source='granted_by.name', read_only=True)
+    resource_type = serializers.CharField(read_only=True)
+    resource_name = serializers.SerializerMethodField()
+    permission_type_display = serializers.CharField(source='get_permission_type_display', read_only=True)
+    
+    class Meta:
+        model = Permission
+        fields = [
+            'id',
+            'user',
+            'user_email',
+            'user_name',
+            'granted_by',
+            'granted_by_email',
+            'granted_by_name',
+            'file',
+            'folder',
+            'resource_type',
+            'resource_name',
+            'permission_type',
+            'permission_type_display',
+            'inherit',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+    
+    def get_resource_name(self, obj):
+        """Получить имя ресурса"""
+        if obj.file:
+            return obj.file.name
+        elif obj.folder:
+            return obj.folder.name
+        return None
