@@ -33,7 +33,16 @@ class CanUploadFiles(permissions.BasePermission):
         return True
 
 
-<<<<<<< HEAD
+class IsAdminUser(permissions.BasePermission):
+    """Allow access only to users with is_staff or is_superuser flag."""
+
+    def has_permission(self, request, view):
+        """Return True if user is authenticated and is an admin."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return bool(request.user.is_staff or request.user.is_superuser)
+
+
 class HasFileReadPermission(permissions.BasePermission):
     """
     Проверяет права на чтение файла (владелец или есть права доступа)
@@ -72,13 +81,3 @@ class HasFolderWritePermission(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # obj должен быть Folder
         return permission_service.can_write_folder(request.user, obj)
-=======
-class IsAdminUser(permissions.BasePermission):
-    """Allow access only to users with is_staff or is_superuser flag."""
-
-    def has_permission(self, request, view):
-        """Return True if user is authenticated and is an admin."""
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return bool(request.user.is_staff or request.user.is_superuser)
->>>>>>> 5c089bb907a021d9e7cab8cc27c1be8b25556ce1
