@@ -1,3 +1,4 @@
+"""Views for the EP Files API."""
 import io
 import logging
 import mimetypes
@@ -5,8 +6,9 @@ import os
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -16,16 +18,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.hashers import check_password
 
 from ep_files_app.models.models import (
     File, FileOperationFacade, Folder,
     ImagePreview, PreviewFactory, User,
 )
 from ep_files_app.models.file_history import FileHistory
-from ep_files_app.services.file_service import FileService
 from ep_files_app.services.file_event_service import file_event_service
-from ep_files_app.permissions import IsFileOwner, CanUploadFiles
+from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
 from ep_files_app.validators import (
     sanitize_filename, validate_file_extension,
     validate_file_size, validate_filename,
@@ -125,15 +125,12 @@ def upload_file(request):
             file=uploaded_file,
         )
         file_obj.save()
-        
-        # Генерируем событие загрузки
         file_event_service.emit_upload_event(
             file=file_obj,
             user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            details={'size': uploaded_file.size, 'original_name': uploaded_file.name}
+            ip_address=request.META.get("REMOTE_ADDR"),
+            details={"size": uploaded_file.size, "original_name": uploaded_file.name},
         )
-        
         logger.info("File uploaded: %s by user %s", safe_filename, request.user.email)
         return Response({
             "message": "File uploaded successfully",
@@ -163,14 +160,11 @@ def download_file(request, file_id):
         if not file_rec.file or not os.path.exists(file_rec.file.path):
             return Response({"error": "File not found on server"}, status=status.HTTP_404_NOT_FOUND)
         logger.info("File downloaded: %s by user %s", file_rec.name, request.user.email)
-        
-        # Генерируем событие скачивания
         file_event_service.emit_download_event(
             file=file_rec,
             user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR')
+            ip_address=request.META.get("REMOTE_ADDR"),
         )
-        
         file_handle = file_rec.file.open("rb")
         content_type, _ = mimetypes.guess_type(file_rec.name)
         if content_type is None:
@@ -196,23 +190,18 @@ def delete_file(request, file_id):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         filename = file_obj.name
         file_id_for_event = file_obj.id
-        
         if file_obj.file:
             try:
                 file_obj.file.delete(save=False)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("Error deleting physical file: %s", str(exc))
-        
         file_obj.delete()
-        
-        # Генерируем событие удаления (после удаления файла)
         file_event_service.emit_delete_event(
             file_id=file_id_for_event,
             file_name=filename,
             user=request.user,
-            ip_address=request.META.get('REMOTE_ADDR')
+            ip_address=request.META.get("REMOTE_ADDR"),
         )
-        
         logger.info("File deleted: %s by user %s", filename, request.user.email)
         return Response({"message": f'File "{filename}" deleted successfully'})
     except File.DoesNotExist:
@@ -394,91 +383,159 @@ def folder_delete(request, folder_id):
     return Response({"status": "deleted", "id": folder_id})
 
 
+# --- File History ---
 
-# История файлов
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def file_history(request, file_id):
-    """
-    Получить историю изменений конкретного файла
-    """
+    """Return change history for a specific file."""
     try:
         file_obj = File.objects.get(id=file_id)
-        
-        # Проверяем права доступа
         if file_obj.owner != request.user:
-            return Response(
-                {"error": "У вас нет прав на просмотр истории этого файла"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # Получаем историю файла
-        history = FileHistory.objects.filter(file=file_obj).order_by('-timestamp')
-        serializer = FileHistorySerializer(history, many=True)
-        
+            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+        history = FileHistory.objects.filter(file=file_obj).order_by("-timestamp")
+        from .serializers import FileHistorySerializer
         return Response({
-            'file_id': file_id,
-            'file_name': file_obj.name,
-            'history': serializer.data
+            "file_id": file_id,
+            "file_name": file_obj.name,
+            "history": FileHistorySerializer(history, many=True).data,
         })
-        
     except File.DoesNotExist:
-        return Response(
-            {"error": "Файл не найден"},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def user_activity_history(request):
-    """
-    Получить всю историю активности пользователя
-    """
-    # Получаем историю всех файлов пользователя
+    """Return all activity history for the authenticated user."""
     user_files = File.objects.filter(owner=request.user)
-    history = FileHistory.objects.filter(
-        file__in=user_files
-    ).order_by('-timestamp')
-    
-    # Фильтрация по типу события
-    event_type = request.GET.get('event_type')
+    history = FileHistory.objects.filter(file__in=user_files).order_by("-timestamp")
+    event_type = request.GET.get("event_type")
     if event_type:
         history = history.filter(event_type=event_type)
-    
-    # Фильтрация по дате
-    days = request.GET.get('days')
+    days = request.GET.get("days")
     if days:
         try:
-            days_int = int(days)
-            since = timezone.now() - timedelta(days=days_int)
+            since = timezone.now() - timedelta(days=int(days))
             history = history.filter(timestamp__gte=since)
         except ValueError:
             pass
-    
-    # Пагинация
-    limit = int(request.GET.get('limit', 50))
+    limit = int(request.GET.get("limit", 50))
     history = history[:limit]
-    
-    serializer = FileHistorySerializer(history, many=True)
-    
+    from .serializers import FileHistorySerializer
     return Response({
-        'count': history.count(),
-        'history': serializer.data
+        "count": len(history),
+        "history": FileHistorySerializer(history, many=True).data,
     })
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def recent_activity(request):
-    """
-    Получить недавнюю активность пользователя (последние 10 действий)
-    """
+    """Return last 10 activity events for the authenticated user."""
     user_files = File.objects.filter(owner=request.user)
-    history = FileHistory.objects.filter(
-        file__in=user_files
-    ).order_by('-timestamp')[:10]
-    
-    serializer = FileHistorySerializer(history, many=True)
-    
-    return Response(serializer.data)
+    history = FileHistory.objects.filter(file__in=user_files).order_by("-timestamp")[:10]
+    from .serializers import FileHistorySerializer
+    return Response(FileHistorySerializer(history, many=True).data)
+
+
+# --- Admin ---
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_list_users(request):
+    """Return list of all users with file stats. Admin only."""
+    users = User.objects.all().order_by("date_joined")
+    data = []
+    for user in users:
+        file_stats = File.objects.filter(owner=user).aggregate(
+            count=Count("id"), total_size=Sum("size")
+        )
+        data.append({
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "is_active": user.is_active,
+            "is_staff": user.is_staff,
+            "date_joined": user.date_joined.isoformat(),
+            "file_count": file_stats["count"] or 0,
+            "total_size": file_stats["total_size"] or 0,
+        })
+    return Response({"users": data, "total": len(data)})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_stats(request):
+    """Return aggregated file statistics across all users. Admin only."""
+    total_files = File.objects.count()
+    total_size = File.objects.aggregate(total=Sum("size"))["total"] or 0
+    total_users = User.objects.count()
+    active_users = User.objects.filter(is_active=True).count()
+    return Response({
+        "total_users": total_users,
+        "active_users": active_users,
+        "blocked_users": total_users - active_users,
+        "total_files": total_files,
+        "total_size_bytes": total_size,
+        "total_size_mb": round(total_size / (1024 * 1024), 2),
+    })
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_block_user(request, user_id):
+    """Block a user by setting is_active to False. Admin only."""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    if user.id == request.user.id:
+        return Response({"error": "Cannot block yourself"}, status=status.HTTP_400_BAD_REQUEST)
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    logger.warning("Admin %s blocked user %s (id=%d)", request.user.email, user.email, user.id)
+    return Response({"status": "blocked", "user_id": user_id, "email": user.email})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_unblock_user(request, user_id):
+    """Unblock a user by setting is_active to True. Admin only."""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    user.is_active = True
+    user.save(update_fields=["is_active"])
+    logger.info("Admin %s unblocked user %s (id=%d)", request.user.email, user.email, user.id)
+    return Response({"status": "unblocked", "user_id": user_id, "email": user.email})
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_delete_user(request, user_id):
+    """Delete a user and all their files. Admin only. Logged."""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    if user.id == request.user.id:
+        return Response({"error": "Cannot delete yourself"}, status=status.HTTP_400_BAD_REQUEST)
+    email = user.email
+    file_count = File.objects.filter(owner=user).count()
+    for f in File.objects.filter(owner=user):
+        try:
+            f.file.delete(save=False)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error("Error deleting file during user deletion: %s", str(exc))
+    user.delete()
+    logger.warning(
+        "Admin %s deleted user %s with %d file(s)",
+        request.user.email, email, file_count,
+    )
+    return Response({
+        "status": "deleted",
+        "email": email,
+        "files_deleted": file_count,
+    })

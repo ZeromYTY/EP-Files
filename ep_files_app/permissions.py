@@ -1,51 +1,39 @@
-"""
-Кастомные права доступа для файлов
-"""
+"""Custom access permissions for files and admin operations."""
 from rest_framework import permissions
 from ep_files_app.services.permission_service import permission_service
 
 
 class IsFileOwner(permissions.BasePermission):
-    """
-    Проверяет, что пользователь является владельцем файла
-    """
-    
+    """Check that the user is the owner of the file."""
+
     def has_object_permission(self, request, view, obj):
-        # Владелец файла может делать всё
+        """Return True if the user owns the object."""
         return obj.owner == request.user
 
 
 class IsFileOwnerOrReadOnly(permissions.BasePermission):
-    """
-    Владелец может редактировать, остальные только читать
-    """
-    
+    """Owner can edit, others can only read."""
+
     def has_object_permission(self, request, view, obj):
-        # Чтение разрешено всем
+        """Return True for safe methods or if user is owner."""
         if request.method in permissions.SAFE_METHODS:
             return True
-        
-        # Изменение только владельцу
         return obj.owner == request.user
 
 
 class CanUploadFiles(permissions.BasePermission):
-    """
-    Проверяет, может ли пользователь загружать файлы
-    """
-    
+    """Check that the user is allowed to upload files."""
+
     def has_permission(self, request, view):
-        # Только авторизованные пользователи
+        """Return True if user is authenticated and active."""
         if not request.user or not request.user.is_authenticated:
             return False
-        
-        # Проверяем, не заблокирован ли пользователь
-        if hasattr(request.user, 'is_active') and not request.user.is_active:
+        if hasattr(request.user, "is_active") and not request.user.is_active:
             return False
-        
         return True
 
 
+<<<<<<< HEAD
 class HasFileReadPermission(permissions.BasePermission):
     """
     Проверяет права на чтение файла (владелец или есть права доступа)
@@ -84,3 +72,13 @@ class HasFolderWritePermission(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # obj должен быть Folder
         return permission_service.can_write_folder(request.user, obj)
+=======
+class IsAdminUser(permissions.BasePermission):
+    """Allow access only to users with is_staff or is_superuser flag."""
+
+    def has_permission(self, request, view):
+        """Return True if user is authenticated and is an admin."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return bool(request.user.is_staff or request.user.is_superuser)
+>>>>>>> 5c089bb907a021d9e7cab8cc27c1be8b25556ce1
