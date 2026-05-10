@@ -2,6 +2,7 @@
 Кастомные права доступа для файлов
 """
 from rest_framework import permissions
+from ep_files_app.services.permission_service import permission_service
 
 
 class IsFileOwner(permissions.BasePermission):
@@ -43,3 +44,43 @@ class CanUploadFiles(permissions.BasePermission):
             return False
         
         return True
+
+
+class HasFileReadPermission(permissions.BasePermission):
+    """
+    Проверяет права на чтение файла (владелец или есть права доступа)
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # obj должен быть File
+        return permission_service.can_read_file(request.user, obj)
+
+
+class HasFileWritePermission(permissions.BasePermission):
+    """
+    Проверяет права на запись файла (владелец или есть права доступа)
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # obj должен быть File
+        return permission_service.can_write_file(request.user, obj)
+
+
+class HasFolderReadPermission(permissions.BasePermission):
+    """
+    Проверяет права на чтение папки (владелец или есть права доступа)
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # obj должен быть Folder
+        return permission_service.can_read_folder(request.user, obj)
+
+
+class HasFolderWritePermission(permissions.BasePermission):
+    """
+    Проверяет права на запись папки (владелец или есть права доступа)
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # obj должен быть Folder
+        return permission_service.can_write_folder(request.user, obj)
