@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models.models import File
 from .models.file_history import FileHistory
+from .models.permissions import Permission
 
 
 @admin.register(File)
@@ -30,3 +31,34 @@ class FileHistoryAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         # История не должна изменяться
         return False
+
+
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'resource_display', 'permission_type', 'inherit', 'granted_by', 'created_at')
+    list_filter = ('permission_type', 'inherit', 'created_at')
+    search_fields = ('user__email', 'user__name', 'granted_by__email', 'granted_by__name')
+    readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('user', 'granted_by', 'permission_type', 'inherit')
+        }),
+        ('Ресурс', {
+            'fields': ('file', 'folder')
+        }),
+        ('Метаданные', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def resource_display(self, obj):
+        """Отображение ресурса"""
+        if obj.file:
+            return f"Файл: {obj.file.name}"
+        elif obj.folder:
+            return f"Папка: {obj.folder.name}"
+        return "-"
+    resource_display.short_description = 'Ресурс'

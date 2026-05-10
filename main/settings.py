@@ -35,6 +35,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'ep_files_app.middleware.security.SecurityHeadersMiddleware',
     'ep_files_app.middleware.security.RateLimitMiddleware',
+    'ep_files_app.middleware.permissions.PermissionCheckMiddleware',
 ]
 
 ROOT_URLCONF = 'main.urls'
