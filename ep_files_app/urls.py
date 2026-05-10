@@ -1,3 +1,4 @@
+"""URL configuration for ep_files_app."""
 from django.urls import path
 
 from .api.views import (
@@ -6,6 +7,8 @@ from .api.views import (
     file_detail, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,
+    admin_list_users, admin_stats, admin_block_user,
+    admin_unblock_user, admin_delete_user,
 )
 
 urlpatterns = [
@@ -28,9 +31,15 @@ urlpatterns = [
     path("folders/<int:folder_id>/rename/", folder_rename, name="folder_rename"),
     path("folders/<int:folder_id>/move/", folder_move, name="folder_move"),
     path("folders/<int:folder_id>/delete/", folder_delete, name="folder_delete"),
-    
-    # История файлов
+
     path("files/<int:file_id>/history/", file_history, name="file_history"),
     path("history/", user_activity_history, name="user_activity_history"),
     path("history/recent/", recent_activity, name="recent_activity"),
+
+    # Admin
+    path("admin/users/", admin_list_users, name="admin_list_users"),
+    path("admin/stats/", admin_stats, name="admin_stats"),
+    path("admin/users/<int:user_id>/block/", admin_block_user, name="admin_block_user"),
+    path("admin/users/<int:user_id>/unblock/", admin_unblock_user, name="admin_unblock_user"),
+    path("admin/users/<int:user_id>/delete/", admin_delete_user, name="admin_delete_user"),
 ]
