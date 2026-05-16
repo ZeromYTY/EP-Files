@@ -26,10 +26,6 @@ from ep_files_app.models.models import (
 from ep_files_app.models.file_history import FileHistory
 from ep_files_app.services.file_event_service import file_event_service
 from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
-from ep_files_app.validators import (
-    sanitize_filename, validate_file_extension,
-    validate_file_size, validate_filename,
-)
 from .serializers import FileSerializer, UserRegistrationSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
@@ -97,45 +93,34 @@ def protected_test_view(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, CanUploadFiles])
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, CanUploadFiles])
 def upload_file(request):
-    """Upload a file with full validation and security checks."""
-    if request.method != "POST":
-        return Response({"error": "Method not allowed"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    """Upload a file through FileOperationFacade."""
     try:
         uploaded_file = request.FILES.get("file")
-        if not uploaded_file:
-            return Response({"error": "File not provided"}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_filename(uploaded_file.name)
-        except ValidationError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_file_extension(uploaded_file.name)
-        except ValidationError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_file_size(uploaded_file)
-        except ValidationError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        safe_filename = sanitize_filename(uploaded_file.name)
-        file_obj = File(
-            name=safe_filename,
-            size=uploaded_file.size,
-            owner=request.user,
-            file=uploaded_file,
-        )
-        file_obj.save()
+        file_obj = FileOperationFacade.upload_file(uploaded_file, request.user)
+
         file_event_service.emit_upload_event(
             file=file_obj,
             user=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
-            details={"size": uploaded_file.size, "original_name": uploaded_file.name},
+            details={
+                "size": file_obj.size,
+                "original_name": uploaded_file.name,
+            },
         )
-        logger.info("File uploaded: %s by user %s", safe_filename, request.user.email)
+
+        logger.info("File uploaded: %s by user %s", file_obj.name, request.user.email)
+
         return Response({
             "message": "File uploaded successfully",
             "file": FileSerializer(file_obj).data,
         }, status=status.HTTP_201_CREATED)
+
+    except ValidationError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("File upload error: %s", str(exc))
         return Response({"error": "Upload failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -182,31 +167,41 @@ def download_file(request, file_id):
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
 def delete_file(request, file_id):
-    """Delete a file by its ID."""
+    """Delete a file through FileOperationFacade."""
     try:
         file_obj = File.objects.get(id=file_id)
+
         if file_obj.owner != request.user:
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
         filename = file_obj.name
         file_id_for_event = file_obj.id
-        if file_obj.file:
-            try:
-                file_obj.file.delete(save=False)
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error deleting physical file: %s", str(exc))
-        file_obj.delete()
+
+        deleted = FileOperationFacade.delete_file(file_id, request.user)
+
+        if not deleted:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
         file_event_service.emit_delete_event(
             file_id=file_id_for_event,
             file_name=filename,
             user=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
         )
+
         logger.info("File deleted: %s by user %s", filename, request.user.email)
+
         return Response({"message": f'File "{filename}" deleted successfully'})
+
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("File delete error: %s", str(exc))
+        return Response({"error": "Delete failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
