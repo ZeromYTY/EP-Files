@@ -14,6 +14,7 @@ import {
   Divider,
   Tooltip,
   Paper,
+  Alert,
 } from '@mui/material';
 import {
   Search,
@@ -28,12 +29,14 @@ import {
   Upload,
   Description,
   TableChart,
+  CheckCircle,
 } from '@mui/icons-material';
 import Breadcrumbs from '../components/file-manager/Breadcrumbs';
 import FileList from '../components/file-manager/FileList';
 import EmptyState from '../components/file-manager/EmptyState';
+import FileUpload from '../components/upload/FileUpload';
 
-// 📁 Моковые данные (замените на реальный API)
+// 📁 Моковые данные
 const mockFileSystem = {
   '/': [
     { id: 1, name: 'Документы', type: 'folder', size: null, modified: '2026-05-01T10:30:00', parentId: null },
@@ -50,7 +53,7 @@ const mockFileSystem = {
     { id: 8, name: 'ТЗ.txt', type: 'file', fileType: 'doc', size: 12000, modified: '2026-04-26T15:30:00', parentId: 2 },
     { id: 9, name: 'Скриншоты', type: 'folder', size: null, modified: '2026-04-24T09:00:00', parentId: 2 },
   ],
-  '/Фото': [], // Пустая папка для теста EmptyState
+  '/Фото': [],
 };
 
 const folderPathMap = {
@@ -67,6 +70,7 @@ export default function FileManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('list');
   const [anchorEl, setAnchorEl] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -102,6 +106,13 @@ export default function FileManager() {
 
   const handleCreateClose = () => {
     setAnchorEl(null);
+  };
+
+  // Обработка успешной загрузки
+  const handleUploadComplete = (uploadedFile) => {
+    console.log('File uploaded:', uploadedFile);
+    setUploadSuccess(`Файл "${uploadedFile.name}" загружен!`);
+    setTimeout(() => setUploadSuccess(''), 3000);
   };
 
   const currentPath = folderPathMap[currentFolderId] || '/';
@@ -189,6 +200,17 @@ export default function FileManager() {
 
       {/* 📁 FILE MANAGER CONTENT */}
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        {/* Уведомление об успешной загрузке */}
+        {uploadSuccess && (
+          <Alert 
+            severity="success" 
+            sx={{ mb: 2 }}
+            onClose={() => setUploadSuccess('')}
+          >
+            {uploadSuccess}
+          </Alert>
+        )}
+
         {/* Панель навигации */}
         <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid #e0e0e0', backgroundColor: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -238,6 +260,12 @@ export default function FileManager() {
           </Box>
         </Paper>
 
+        {/* 📤 Компонент загрузки файлов */}
+        <FileUpload 
+          onUploadComplete={handleUploadComplete}
+          folderId={currentFolderId}
+        />
+
         {/* Заголовок */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>
@@ -250,7 +278,11 @@ export default function FileManager() {
         {sortedFiles.length === 0 ? (
           <EmptyState folderName={currentPath === '/' ? 'корневой папке' : currentPath.split('/').pop()} />
         ) : (
-          <FileList files={sortedFiles} viewMode={viewMode} onFolderClick={handleFolderClick} />
+          <FileList 
+            files={sortedFiles} 
+            viewMode={viewMode} 
+            onFolderClick={handleFolderClick} 
+          />
         )}
       </Container>
     </Box>
