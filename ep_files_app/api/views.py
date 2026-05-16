@@ -1,15 +1,15 @@
 """Views for the EP Files API."""
-import io
+import html as html_module
 import logging
 import mimetypes
 import os
+import re
 from datetime import timedelta
 
-from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Sum
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -19,13 +19,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from ep_files_app.models.models import (
-    File, FileOperationFacade, Folder,
-    ImagePreview, PreviewFactory, User,
-)
 from ep_files_app.models.file_history import FileHistory
+from ep_files_app.models.models import (
+    File,
+    FileOperationFacade,
+    Folder,
+    ImagePreview,
+    PreviewFactory,
+    User,
+)
+from ep_files_app.permissions import CanUploadFiles, IsAdminUser
 from ep_files_app.services.file_event_service import file_event_service
-from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
 from .serializers import FileSerializer, UserRegistrationSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
@@ -64,6 +68,7 @@ class LoginView(APIView):
         email = request.data.get("email")
         password = request.data.get("password")
         user = User.objects.filter(email=email).first()
+
         if user and check_password(password, user.password_hash):
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -71,7 +76,11 @@ class LoginView(APIView):
                 "refresh": str(refresh),
                 "user": UserSerializer(user).data,
             })
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        return Response(
+            {"error": "Invalid credentials"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
 
 class MeView(APIView):
@@ -91,8 +100,6 @@ def protected_test_view(request):
     return Response({"message": "Access granted. JWT is working."})
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated, CanUploadFiles])
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, CanUploadFiles])
 def upload_file(request):
@@ -123,7 +130,10 @@ def upload_file(request):
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("File upload error: %s", str(exc))
-        return Response({"error": "Upload failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Upload failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -140,33 +150,48 @@ def download_file(request, file_id):
     """Download a file by its ID."""
     try:
         file_rec = File.objects.get(id=file_id)
+
         if file_rec.owner != request.user:
-            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Access denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         if not file_rec.file or not os.path.exists(file_rec.file.path):
-            return Response({"error": "File not found on server"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "File not found on server"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         logger.info("File downloaded: %s by user %s", file_rec.name, request.user.email)
+
         file_event_service.emit_download_event(
             file=file_rec,
             user=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
         )
+
         file_handle = file_rec.file.open("rb")
         content_type, _ = mimetypes.guess_type(file_rec.name)
         if content_type is None:
             content_type = "application/octet-stream"
+
         response = FileResponse(file_handle, content_type=content_type)
         response["Content-Disposition"] = f'attachment; filename="{file_rec.name}"'
         response["Content-Length"] = file_rec.size
         return response
+
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Download error: %s", str(exc))
-        return Response({"error": "Download failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Download failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(["DELETE"])
-@permission_classes([IsAuthenticated])
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def delete_file(request, file_id):
@@ -175,7 +200,10 @@ def delete_file(request, file_id):
         file_obj = File.objects.get(id=file_id)
 
         if file_obj.owner != request.user:
-            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Access denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         filename = file_obj.name
         file_id_for_event = file_obj.id
@@ -183,7 +211,10 @@ def delete_file(request, file_id):
         deleted = FileOperationFacade.delete_file(file_id, request.user)
 
         if not deleted:
-            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "File not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         file_event_service.emit_delete_event(
             file_id=file_id_for_event,
@@ -201,7 +232,11 @@ def delete_file(request, file_id):
 
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("File delete error: %s", str(exc))
-        return Response({"error": "Delete failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Delete failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -209,26 +244,37 @@ def file_detail(request, file_id):
     """Return detailed info about a file."""
     try:
         file_obj = File.objects.get(id=file_id)
+
         if file_obj.owner != request.user:
-            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Access denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         return Response(FileSerializer(file_obj).data)
+
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 def file_preview(request, file_id):
     """Show a preview of a file."""
-    file = get_object_or_404(File, id=file_id)
-    with file.file.open("rb") as f:
-        data = f.read()
-    strategy = PreviewFactory.get_strategy(file.name)
+    file_obj = get_object_or_404(File, id=file_id)
+
+    with file_obj.file.open("rb") as file_handle:
+        data = file_handle.read()
+
+    strategy = PreviewFactory.get_strategy(file_obj.name)
     preview = strategy.preview(data)
+
     if isinstance(strategy, ImagePreview):
         if not preview:
             return HttpResponse("Image processing error", status=500)
         return HttpResponse(preview, content_type="image/jpeg")
+
     if isinstance(preview, bytes):
         preview = preview.decode("utf-8", errors="replace")
+
     return HttpResponse(preview, content_type="text/plain; charset=utf-8")
 
 
@@ -238,16 +284,21 @@ def user_storage_stats(request):
     """Return storage statistics for the authenticated user."""
     try:
         user = request.user
-        total_files = File.objects.filter(owner=user).count()
-        total_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+        user_files = File.objects.filter(owner=user)
+
+        total_files = user_files.count()
+        total_size = user_files.aggregate(total=Sum("size"))["total"] or 0
         storage_limit = 100 * 1024 * 1024
         usage_percent = (total_size / storage_limit * 100) if storage_limit > 0 else 0
+
         week_ago = timezone.now() - timedelta(days=7)
-        recent_files = File.objects.filter(owner=user, date__gte=week_ago).count()
+        recent_files = user_files.filter(date__gte=week_ago).count()
+
         file_types = {}
-        for file in File.objects.filter(owner=user):
-            ext = os.path.splitext(file.name)[1].lower() or "no extension"
+        for file_obj in user_files:
+            ext = os.path.splitext(file_obj.name)[1].lower() or "no extension"
             file_types[ext] = file_types.get(ext, 0) + 1
+
         return Response({
             "total_files": total_files,
             "total_size": total_size,
@@ -257,9 +308,13 @@ def user_storage_stats(request):
             "recent_files_count": recent_files,
             "file_types": file_types,
         })
+
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Stats error: %s", str(exc))
-        return Response({"error": "Failed to get stats"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Failed to get stats"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -268,18 +323,30 @@ def search_files(request):
     """Search files by name for the authenticated user."""
     try:
         query = request.GET.get("q", "").strip()
+
         if not query:
-            return Response({"error": "Search parameter 'q' is required"},
-                            status=status.HTTP_400_BAD_REQUEST)
-        files = File.objects.filter(owner=request.user, name__icontains=query).order_by("-date")
+            return Response(
+                {"error": "Search parameter 'q' is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        files = File.objects.filter(
+            owner=request.user,
+            name__icontains=query,
+        ).order_by("-date")
+
         return Response({
             "query": query,
             "count": files.count(),
             "results": FileSerializer(files, many=True).data,
         })
+
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Search error: %s", str(exc))
-        return Response({"error": "Search failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"error": "Search failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # --- Folders ---
@@ -289,17 +356,19 @@ def search_files(request):
 def folder_tree(request):
     """Return all folders for the authenticated user."""
     folders = Folder.objects.filter(owner=request.user).select_related("parent")
+
     data = [
         {
-            "id": f.id,
-            "name": f.name,
-            "parent_id": f.parent_id,
-            "path": f.get_full_path(),
-            "created_at": f.created_at.isoformat(),
-            "updated_at": f.updated_at.isoformat(),
+            "id": folder.id,
+            "name": folder.name,
+            "parent_id": folder.parent_id,
+            "path": folder.get_full_path(),
+            "created_at": folder.created_at.isoformat(),
+            "updated_at": folder.updated_at.isoformat(),
         }
-        for f in folders
+        for folder in folders
     ]
+
     return Response({"folders": data})
 
 
@@ -309,15 +378,29 @@ def folder_create(request):
     """Create a new folder for the authenticated user."""
     name = request.data.get("name", "").strip()
     parent_id = request.data.get("parent_id")
+
     if not name:
-        return Response({"error": "Folder name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Folder name is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     parent = None
     if parent_id:
         try:
             parent = Folder.objects.get(id=parent_id, owner=request.user)
         except Folder.DoesNotExist:
-            return Response({"error": "Parent folder not found"}, status=status.HTTP_404_NOT_FOUND)
-    folder = Folder.objects.create(name=name, owner=request.user, parent=parent)
+            return Response(
+                {"error": "Parent folder not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    folder = Folder.objects.create(
+        name=name,
+        owner=request.user,
+        parent=parent,
+    )
+
     return Response({
         "id": folder.id,
         "name": folder.name,
@@ -333,13 +416,27 @@ def folder_rename(request, folder_id):
     try:
         folder = Folder.objects.get(id=folder_id, owner=request.user)
     except Folder.DoesNotExist:
-        return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Folder not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     new_name = request.data.get("name", "").strip()
+
     if not new_name:
-        return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "New name is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     folder.name = new_name
     folder.save(update_fields=["name", "updated_at"])
-    return Response({"id": folder.id, "name": folder.name, "path": folder.get_full_path()})
+
+    return Response({
+        "id": folder.id,
+        "name": folder.name,
+        "path": folder.get_full_path(),
+    })
 
 
 @api_view(["PATCH"])
@@ -349,21 +446,39 @@ def folder_move(request, folder_id):
     try:
         folder = Folder.objects.get(id=folder_id, owner=request.user)
     except Folder.DoesNotExist:
-        return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Folder not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     new_parent_id = request.data.get("parent_id")
+
     if new_parent_id:
         try:
             new_parent = Folder.objects.get(id=new_parent_id, owner=request.user)
         except Folder.DoesNotExist:
-            return Response({"error": "Target folder not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Target folder not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if new_parent.id == folder.id or new_parent.id in folder.get_all_descendant_ids():
-            return Response({"error": "Cannot move folder into its own subtree"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Cannot move folder into its own subtree"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         folder.parent = new_parent
     else:
         folder.parent = None
+
     folder.save(update_fields=["parent", "updated_at"])
-    return Response({"id": folder.id, "name": folder.name, "path": folder.get_full_path()})
+
+    return Response({
+        "id": folder.id,
+        "name": folder.name,
+        "path": folder.get_full_path(),
+    })
 
 
 @api_view(["DELETE"])
@@ -373,8 +488,13 @@ def folder_delete(request, folder_id):
     try:
         folder = Folder.objects.get(id=folder_id, owner=request.user)
     except Folder.DoesNotExist:
-        return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Folder not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     folder.delete()
+
     return Response({"status": "deleted", "id": folder_id})
 
 
@@ -386,15 +506,23 @@ def file_history(request, file_id):
     """Return change history for a specific file."""
     try:
         file_obj = File.objects.get(id=file_id)
+
         if file_obj.owner != request.user:
-            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Access denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         history = FileHistory.objects.filter(file=file_obj).order_by("-timestamp")
-        from .serializers import FileHistorySerializer
+
+        from .serializers import FileHistorySerializer  # pylint: disable=import-outside-toplevel
+
         return Response({
             "file_id": file_id,
             "file_name": file_obj.name,
             "history": FileHistorySerializer(history, many=True).data,
         })
+
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -405,9 +533,11 @@ def user_activity_history(request):
     """Return all activity history for the authenticated user."""
     user_files = File.objects.filter(owner=request.user)
     history = FileHistory.objects.filter(file__in=user_files).order_by("-timestamp")
+
     event_type = request.GET.get("event_type")
     if event_type:
         history = history.filter(event_type=event_type)
+
     days = request.GET.get("days")
     if days:
         try:
@@ -415,9 +545,12 @@ def user_activity_history(request):
             history = history.filter(timestamp__gte=since)
         except ValueError:
             pass
+
     limit = int(request.GET.get("limit", 50))
     history = history[:limit]
-    from .serializers import FileHistorySerializer
+
+    from .serializers import FileHistorySerializer  # pylint: disable=import-outside-toplevel
+
     return Response({
         "count": len(history),
         "history": FileHistorySerializer(history, many=True).data,
@@ -430,7 +563,9 @@ def recent_activity(request):
     """Return last 10 activity events for the authenticated user."""
     user_files = File.objects.filter(owner=request.user)
     history = FileHistory.objects.filter(file__in=user_files).order_by("-timestamp")[:10]
-    from .serializers import FileHistorySerializer
+
+    from .serializers import FileHistorySerializer  # pylint: disable=import-outside-toplevel
+
     return Response(FileHistorySerializer(history, many=True).data)
 
 
@@ -442,10 +577,13 @@ def admin_list_users(request):
     """Return list of all users with file stats. Admin only."""
     users = User.objects.all().order_by("date_joined")
     data = []
+
     for user in users:
         file_stats = File.objects.filter(owner=user).aggregate(
-            count=Count("id"), total_size=Sum("size")
+            count=Count("id"),
+            total_size=Sum("size"),
         )
+
         data.append({
             "id": user.id,
             "email": user.email,
@@ -456,6 +594,7 @@ def admin_list_users(request):
             "file_count": file_stats["count"] or 0,
             "total_size": file_stats["total_size"] or 0,
         })
+
     return Response({"users": data, "total": len(data)})
 
 
@@ -467,6 +606,7 @@ def admin_stats(request):
     total_size = File.objects.aggregate(total=Sum("size"))["total"] or 0
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
+
     return Response({
         "total_users": total_users,
         "active_users": active_users,
@@ -485,12 +625,28 @@ def admin_block_user(request, user_id):
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
     if user.id == request.user.id:
-        return Response({"error": "Cannot block yourself"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Cannot block yourself"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     user.is_active = False
     user.save(update_fields=["is_active"])
-    logger.warning("Admin %s blocked user %s (id=%d)", request.user.email, user.email, user.id)
-    return Response({"status": "blocked", "user_id": user_id, "email": user.email})
+
+    logger.warning(
+        "Admin %s blocked user %s (id=%d)",
+        request.user.email,
+        user.email,
+        user.id,
+    )
+
+    return Response({
+        "status": "blocked",
+        "user_id": user_id,
+        "email": user.email,
+    })
 
 
 @api_view(["PATCH"])
@@ -501,10 +657,22 @@ def admin_unblock_user(request, user_id):
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
     user.is_active = True
     user.save(update_fields=["is_active"])
-    logger.info("Admin %s unblocked user %s (id=%d)", request.user.email, user.email, user.id)
-    return Response({"status": "unblocked", "user_id": user_id, "email": user.email})
+
+    logger.info(
+        "Admin %s unblocked user %s (id=%d)",
+        request.user.email,
+        user.email,
+        user.id,
+    )
+
+    return Response({
+        "status": "unblocked",
+        "user_id": user_id,
+        "email": user.email,
+    })
 
 
 @api_view(["DELETE"])
@@ -515,20 +683,31 @@ def admin_delete_user(request, user_id):
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
     if user.id == request.user.id:
-        return Response({"error": "Cannot delete yourself"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Cannot delete yourself"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     email = user.email
     file_count = File.objects.filter(owner=user).count()
-    for f in File.objects.filter(owner=user):
+
+    for file_obj in File.objects.filter(owner=user):
         try:
-            f.file.delete(save=False)
+            file_obj.file.delete(save=False)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Error deleting file during user deletion: %s", str(exc))
+
     user.delete()
+
     logger.warning(
         "Admin %s deleted user %s with %d file(s)",
-        request.user.email, email, file_count,
+        request.user.email,
+        email,
+        file_count,
     )
+
     return Response({
         "status": "deleted",
         "email": email,
@@ -536,19 +715,21 @@ def admin_delete_user(request, user_id):
     })
 
 
-import html as html_module
-import re
-
-
 def _sanitize_text_content(text: str) -> str:
     """Remove dangerous HTML/JS from text content to prevent XSS."""
-    # Remove script tags and their content
-    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    # Remove event handlers like onclick=, onerror= etc
-    text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
-    # Remove javascript: links
-    text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
-    # Escape remaining HTML tags
+    text = re.sub(
+        r"<script[^>]*>.*?</script>",
+        "",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    text = re.sub(
+        r"\bon\w+\s*=\s*[\"'][^\"']*[\"']",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"javascript\s*:", "", text, flags=re.IGNORECASE)
     text = html_module.escape(text)
     return text
 
@@ -563,11 +744,14 @@ def save_text_file(request, file_id):
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if file_obj.owner != request.user:
-        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"error": "Access denied"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
-    # Only allow text files
     ext = os.path.splitext(file_obj.name)[1].lower()
     allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+
     if ext not in allowed_text_extensions:
         return Response(
             {"error": f"Cannot edit binary file with extension '{ext}'"},
@@ -575,31 +759,33 @@ def save_text_file(request, file_id):
         )
 
     content = request.data.get("content")
-    if content is None:
-        return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Sanitize input to prevent XSS
+    if content is None:
+        return Response(
+            {"error": "Field 'content' is required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     sanitized_content = _sanitize_text_content(content)
 
-    # Write sanitized content to file
     file_obj.file.open("wb")
     file_obj.file.write(sanitized_content.encode("utf-8"))
     file_obj.file.close()
 
-    # Update file size
     file_obj.size = len(sanitized_content.encode("utf-8"))
     file_obj.save(update_fields=["size"])
 
-    # Log the event
     file_event_service.emit_upload_event(
         file=file_obj,
         user=request.user,
         ip_address=request.META.get("REMOTE_ADDR"),
         details={"action": "text_editor_save", "size": file_obj.size},
     )
+
     logger.info(
         "Text file saved via editor: %s by user %s",
-        file_obj.name, request.user.email,
+        file_obj.name,
+        request.user.email,
     )
 
     return Response({
@@ -621,18 +807,22 @@ def read_text_file(request, file_id):
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if file_obj.owner != request.user:
-        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"error": "Access denied"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     ext = os.path.splitext(file_obj.name)[1].lower()
     allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+
     if ext not in allowed_text_extensions:
         return Response(
             {"error": f"Cannot read binary file with extension '{ext}'"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    with file_obj.file.open("rb") as f:
-        content = f.read().decode("utf-8", errors="replace")
+    with file_obj.file.open("rb") as file_handle:
+        content = file_handle.read().decode("utf-8", errors="replace")
 
     return Response({
         "file_id": file_obj.id,
