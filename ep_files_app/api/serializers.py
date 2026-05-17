@@ -108,7 +108,7 @@ class FileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = File
-        fields = ["id", "name", "size", "date", "owner_email", "download_url"]
+        fields = ["id", "name", "size", "date", "owner_email", "download_url", "folder"]
 
     def get_download_url(self, obj):
         """Сформировать URL для скачивания файла.

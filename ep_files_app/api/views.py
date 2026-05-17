@@ -117,12 +117,22 @@ def upload_file(request):
             validate_file_size(uploaded_file)
         except ValidationError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        folder = None
+        folder_id = request.data.get("folder_id")
+        if folder_id:
+            try:
+                folder = Folder.objects.get(id=folder_id, owner=request.user)
+            except Folder.DoesNotExist:
+                return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+        
         safe_filename = sanitize_filename(uploaded_file.name)
         file_obj = File(
             name=safe_filename,
             size=uploaded_file.size,
             owner=request.user,
             file=uploaded_file,
+            folder=folder,
         )
         file_obj.save()
         file_event_service.emit_upload_event(
@@ -180,14 +190,30 @@ def download_file(request, file_id):
         return Response({"error": "Download failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(["DELETE"])
+@api_view(["DELETE", "PATCH"])
 @permission_classes([IsAuthenticated])
 def delete_file(request, file_id):
-    """Delete a file by its ID."""
+    """Delete or update a file by its ID."""
     try:
         file_obj = File.objects.get(id=file_id)
         if file_obj.owner != request.user:
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+        
+        if request.method == "PATCH":
+            new_name = request.data.get("name", "").strip()
+            if not new_name:
+                return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            old_name = file_obj.name
+            file_obj.name = new_name
+            file_obj.save(update_fields=["name"])
+            
+            logger.info("File renamed: %s -> %s by user %s", old_name, new_name, request.user.email)
+            return Response({
+                "message": "File renamed successfully",
+                "file": FileSerializer(file_obj).data
+            })
+        
         filename = file_obj.name
         file_id_for_event = file_obj.id
         if file_obj.file:
@@ -300,6 +326,7 @@ def folder_tree(request):
             "name": f.name,
             "parent_id": f.parent_id,
             "path": f.get_full_path(),
+            "size": f.get_total_size(),
             "created_at": f.created_at.isoformat(),
             "updated_at": f.updated_at.isoformat(),
         }

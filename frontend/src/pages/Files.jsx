@@ -318,7 +318,10 @@ export default function Files() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4">Мои файлы</Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button variant="outlined" component={Link} to="/" startIcon={<Folder />}>
+            <Button variant="contained" component={Link} to="/file-manager" startIcon={<Folder />}>
+              Файловый менеджер
+            </Button>
+            <Button variant="outlined" component={Link} to="/">
               На главную
             </Button>
             <Button variant="outlined" color="error" startIcon={<Logout />} onClick={handleLogout}>

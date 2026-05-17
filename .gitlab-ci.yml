@@ -19,13 +19,17 @@ pylint:
   before_script:
     - pip install --upgrade pip
     - pip install -r requirements.txt
-    - pip install pylint pylint-django
+    - pip install pylint pylint-django anybadge
   script:
     - export DJANGO_SETTINGS_MODULE=main.settings
-    - pylint ep_files_app/ main/ --load-plugins=pylint_django
-        --django-settings-module=main.settings
-        --fail-under=8.0
-        --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110
+    - pylint ep_files_app/ main/ --load-plugins=pylint_django --django-settings-module=main.settings --fail-under=8.0 --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110 > pylint.log || true
+    - cat pylint.log
+    - SCORE=$(grep -oE "rated at [0-9.]+" pylint.log | awk '{print $3}')
+    - anybadge --label=pylint --value=$SCORE --file=pylint.svg 2=red 5=orange 8=yellow 10=green
+  artifacts:
+    paths:
+      - pylint.svg
+    expire_in: 4 weeks
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "dev"'
 
@@ -53,14 +57,16 @@ build-docs:
   before_script:
     - pip install --upgrade pip
     - pip install -r requirements.txt
-    - pip install sphinx sphinx-rtd-theme
+    - pip install sphinx sphinx-rtd-theme anybadge
   script:
     - cd docs
     - sphinx-build -b html source build/html
+    - anybadge --label=docs --value=online --file=../docs.svg --color=teal
   artifacts:
     name: "docs-$CI_COMMIT_REF_SLUG"
     paths:
       - docs/build/html/
+      - docs.svg
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "feature/ci-cd-docs" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'

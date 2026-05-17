@@ -60,6 +60,16 @@ class Folder(models.Model):
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="children"
     )
+
+    public_token = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    is_public = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -91,6 +101,19 @@ class Folder(models.Model):
             ids.extend(child.get_all_descendant_ids())
         return ids
 
+    def get_total_size(self):
+        """Calculate total size of all files in this folder and subfolders."""
+        from django.db.models import Sum
+        
+        total_size = 0
+        direct_files_size = self.files.aggregate(total=Sum('size'))['total'] or 0
+        total_size += direct_files_size
+        
+        for child in self.children.all():
+            total_size += child.get_total_size()
+        
+        return total_size
+
 
 class File(models.Model):
     """Model representing an uploaded file and its metadata."""
@@ -106,6 +129,15 @@ class File(models.Model):
     folder = models.ForeignKey(
         Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files"
     )
+
+    public_token = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    is_public = models.BooleanField(default=False)
 
     def __str__(self):
         """Return file name or default string."""
