@@ -3,6 +3,7 @@ import io
 import logging
 import mimetypes
 import os
+import zipfile
 from datetime import timedelta
 
 from django.conf import settings
@@ -21,7 +22,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from ep_files_app.models.models import (
     File, FileOperationFacade, Folder,
-    ImagePreview, PreviewFactory, User,
+    ImagePreview, PreviewFactory, User, FavoriteFile,
 )
 from ep_files_app.models.file_history import FileHistory
 from ep_files_app.services.file_event_service import file_event_service
@@ -150,6 +151,95 @@ def upload_file(request):
         logger.error("File upload error: %s", str(exc))
         return Response({"error": "Upload failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def toggle_favorite(request, item_id):
+    """Универсальное переключение избранного для файлов и папок."""
+    item_type = request.data.get("type", "file")  # Фронт передаст 'file' или 'folder'
+
+    if item_type == "folder":
+        try:
+            item_obj = Folder.objects.get(id=item_id, owner=request.user)
+            fav_queryset = FavoriteFile.objects.filter(user=request.user, folder=item_obj)
+            if fav_queryset.exists():
+                fav_queryset.delete()
+                return Response({"is_favorite": False, "message": "Папка удалена из избранного"})
+            FavoriteFile.objects.create(user=request.user, folder=item_obj)
+            return Response({"is_favorite": True, "message": "Папка добавлена в избранное"})
+        except Folder.DoesNotExist:
+            return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        try:
+            item_obj = File.objects.get(id=item_id, owner=request.user)
+            fav_queryset = FavoriteFile.objects.filter(user=request.user, file=item_obj)
+            if fav_queryset.exists():
+                fav_queryset.delete()
+                return Response({"is_favorite": False, "message": "Файл удален из избранного"})
+            FavoriteFile.objects.create(user=request.user, file=item_obj)
+            return Response({"is_favorite": True, "message": "Файл добавлен в избранное"})
+        except File.DoesNotExist:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_favorites(request):
+    """Отдает списки ID всех избранных файлов и папок юзера для личного кабинета."""
+    favs = FavoriteFile.objects.filter(user=request.user)
+
+    # Собираем данные для профиля
+    result = []
+    for f in favs:
+        if f.file:
+            result.append({"id": f.file.id, "name": f.file.name, "type": "file", "size": f.file.size})
+        elif f.folder:
+            result.append({"id": f.folder.id, "name": f.folder.name, "type": "folder", "size": 0})
+
+    return Response({
+        "file_ids": list(favs.filter(file__isnull=False).values_list('file_id', flat=True)),
+        "folder_ids": list(favs.filter(folder__isnull=False).values_list('folder_id', flat=True)),
+        "items": result  # Готовый список для личного кабинета
+    })
+
+
+def add_folder_to_zip(zip_file, folder, current_path=""):
+    """Рекурсивный сборщик структуры папок и файлов из SQLite."""
+    # 1. Забираем файлы текущей папки строго по folder_id из твоей таблицы
+    files = File.objects.filter(folder_id=folder.id)
+    for file_rec in files:
+        if file_rec.file and os.path.exists(file_rec.file.path):
+            archive_path = os.path.join(current_path, file_rec.name)
+            zip_file.write(file_rec.file.path, archive_path)
+
+    # 2. Забираем вложенные папки строго по parent_id из твоей таблицы
+    subfolders = Folder.objects.filter(parent_id=folder.id)
+    for subfolder in subfolders:
+        new_path = os.path.join(current_path, subfolder.name)
+        add_folder_to_zip(zip_file, subfolder, new_path)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def download_folder(request, folder_id):
+    """Скачивание всей папки со всеми вложенными файлами в ZIP-архиве."""
+    try:
+        # Получаем папку по ID и проверяем, что текущий юзер — её владелец
+        folder_rec = Folder.objects.get(id=folder_id, owner=request.user)
+
+        memory_file = io.BytesIO()
+        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            add_folder_to_zip(zip_file, folder_rec, folder_rec.name)
+
+        memory_file.seek(0)
+
+        response = FileResponse(memory_file, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{folder_rec.name}.zip"'
+        return response
+
+    except Folder.DoesNotExist:
+        return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -288,7 +378,7 @@ def user_storage_stats(request):
             "recent_files_count": recent_files,
             "file_types": file_types,
         })
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         logger.error("Stats error: %s", str(exc))
         return Response({"error": "Failed to get stats"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -312,9 +402,6 @@ def search_files(request):
         logger.error("Search error: %s", str(exc))
         return Response({"error": "Search failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-# --- Folders ---
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def folder_tree(request):
@@ -334,6 +421,21 @@ def folder_tree(request):
     ]
     return Response({"folders": data})
 
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_files(request):
+    files = File.objects.filter(owner=request.user)
+
+    user_fav_ids = set(FavoriteFile.objects.filter(user=request.user).values_list('file_id', flat=True))
+
+    serializer = FileSerializer(files, many=True)
+    data = serializer.data
+
+    for file_data in data:
+        file_data['is_favorite'] = file_data['id'] in user_fav_ids
+
+    return Response(data)
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -409,9 +511,6 @@ def folder_delete(request, folder_id):
     folder.delete()
     return Response({"status": "deleted", "id": folder_id})
 
-
-# --- File History ---
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def file_history(request, file_id):
@@ -464,9 +563,6 @@ def recent_activity(request):
     history = FileHistory.objects.filter(file__in=user_files).order_by("-timestamp")[:10]
     from .serializers import FileHistorySerializer
     return Response(FileHistorySerializer(history, many=True).data)
-
-
-# --- Admin ---
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated, IsAdminUser])
@@ -554,7 +650,7 @@ def admin_delete_user(request, user_id):
     for f in File.objects.filter(owner=user):
         try:
             f.file.delete(save=False)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             logger.error("Error deleting file during user deletion: %s", str(exc))
     user.delete()
     logger.warning(
@@ -574,13 +670,9 @@ import re
 
 def _sanitize_text_content(text: str) -> str:
     """Remove dangerous HTML/JS from text content to prevent XSS."""
-    # Remove script tags and their content
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    # Remove event handlers like onclick=, onerror= etc
     text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
-    # Remove javascript: links
     text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
-    # Escape remaining HTML tags
     text = html_module.escape(text)
     return text
 
@@ -597,7 +689,6 @@ def save_text_file(request, file_id):
     if file_obj.owner != request.user:
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
-    # Only allow text files
     ext = os.path.splitext(file_obj.name)[1].lower()
     allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
     if ext not in allowed_text_extensions:
@@ -610,19 +701,15 @@ def save_text_file(request, file_id):
     if content is None:
         return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Sanitize input to prevent XSS
     sanitized_content = _sanitize_text_content(content)
 
-    # Write sanitized content to file
     file_obj.file.open("wb")
     file_obj.file.write(sanitized_content.encode("utf-8"))
     file_obj.file.close()
 
-    # Update file size
     file_obj.size = len(sanitized_content.encode("utf-8"))
     file_obj.save(update_fields=["size"])
 
-    # Log the event
     file_event_service.emit_upload_event(
         file=file_obj,
         user=request.user,

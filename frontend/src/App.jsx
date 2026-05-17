@@ -9,18 +9,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
     <Routes>
-      {/* Публичные страницы */}
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Защищённые страницы (требуют входа) */}
       <Route element={<ProtectedRoute />}>
         <Route path="/files" element={<Files />} />
         <Route path="/file-manager" element={<FileManager />} />
       </Route>
 
-      {/* Редирект с неизвестных путей */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -1,85 +1,56 @@
-import { useState } from 'react';
-import {
-  Box,
-  Typography,
-  IconButton,
-  Tooltip,
-  Snackbar,
-  Alert,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button
-} from '@mui/material';
-import { StarBorder, Star, MoreVert, Download, Delete } from '@mui/icons-material';
+import { useState, useEffect } from 'react';
+import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
+import { StarBorder, Star, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import api from '../../api/axios'; // Убедись, что путь к axios правильный
 
-export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, onDownloadClick, onDeleteClick }) {
-  const [isFavorite, setIsFavorite] = useState(false);
+export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, onDownloadClick, onMenuOpen }) {
+  // Инициализируем звезду из базы данных коллеги
+  const [isFavorite, setIsFavorite] = useState(file.is_favorite || false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const openMenu = Boolean(anchorEl);
 
-  const handleMenuOpen = (e) => {
-    e.stopPropagation();
-    setAnchorEl(e.currentTarget);
-  };
-
-  const handleMenuClose = (e) => {
-    if (e) e.stopPropagation();
-    setAnchorEl(null);
-  };
+  const isFolder = file.type === 'folder';
+  const rawDate = file.created_at || file.updated_at || file.date || new Date().toISOString();
 
   const handleDownload = (e) => {
     e.stopPropagation();
     if (onDownloadClick) {
-      onDownloadClick(file.id, file.name);
+      onDownloadClick(file.id, file.name, file.type);
     }
-    handleMenuClose();
   };
 
-  const handleToggleFavorite = (e) => {
+  useEffect(() => {
+    setIsFavorite(file.is_favorite);
+  }, [file.is_favorite]);
+  const handleToggleFavorite = async (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    setToast({
-      open: true,
-      message: isFavorite
-        ? `⭐ Удалено из избранного: ${file.name}`
-        : `⭐ Добавлено в избранное: ${file.name}`,
-      severity: 'info',
-    });
-    handleMenuClose();
-  };
+    try {
+      // Передаем тип объекта в теле запроса, чтобы Django знал, куда писать связь в БД
+      const response = await api.post(`/favorite/${file.id}/`, { type: file.type });
 
-  const handleOpenDeleteDialog = (e) => {
-    e.stopPropagation();
-    setIsDeleteDialogOpen(true);
-    handleMenuClose();
-  };
+      const newFavoriteStatus = response.data.is_favorite;
+      setIsFavorite(newFavoriteStatus);
 
-  const handleCloseDeleteDialog = (e) => {
-    if (e) e.stopPropagation();
-    setIsDeleteDialogOpen(false);
-  };
-
-    const handleConfirmDelete = (e) => {
-    e.stopPropagation();
-    if (onDeleteClick) {
-      onDeleteClick(file.id, file.name);
+      setToast({
+        open: true,
+        message: newFavoriteStatus
+          ? `⭐ Добавлено в избранное: ${file.name}`
+          : `⭐ Удалено из избранного: ${file.name}`,
+        severity: 'info',
+      });
+    } catch (err) {
+      console.error('Ошибка при сохранении избранного:', err);
+      setToast({
+        open: true,
+        message: '⚠ Не удалось обновить статус на сервере',
+        severity: 'error',
+      });
     }
-    setIsDeleteDialogOpen(false);
   };
-
 
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
   };
-
-  const rawDate = file.created_at || file.updated_at || file.modified || new Date().toISOString();
 
   return (
     <>
@@ -89,26 +60,20 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
           gridTemplateColumns: '40px 1fr 150px 120px 120px',
           p: 2,
           alignItems: 'center',
-          cursor: file.type === 'folder' ? 'pointer' : 'default',
+          cursor: isFolder ? 'pointer' : 'default',
           transition: 'background-color 0.2s ease',
           '&:hover': { backgroundColor: '#f5f8ff' },
-          borderBottom: '1px solid #f0f0f0'
+          borderBottom: '1px solid #f0f0f0',
+          position: 'relative'
         }}
-        onClick={() => file.type === 'folder' && onFolderClick(file.id)}
+        onClick={() => isFolder && onFolderClick(file.id)}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {getFileIcon(file)}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: 500,
-              color: '#202124',
-              '&:hover': { color: '#2196F3' }
-            }}
-          >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+          <Typography variant="body2" noWrap sx={{ fontWeight: 500, color: '#202124', '&:hover': { color: '#2196F3' } }}>
             {file.name}
           </Typography>
         </Box>
@@ -118,128 +83,43 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
         </Typography>
 
         <Typography variant="caption" color="text.secondary">
-          {file.size ? formatFileSize(file.size) : '—'}
+          {isFolder ? '—' : (file.size ? formatFileSize(file.size) : '0 Б')}
         </Typography>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-          {file.type === 'file' && (
-            <>
-              <Tooltip title="Скачать">
-                <IconButton
-                  size="small"
-                  onClick={handleDownload}
-                  sx={{ color: '#2196F3' }}
-                >
-                  <Download sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, zIndex: 10 }}>
+          <Tooltip title={isFolder ? "Скачать ZIP-архив" : "Скачать файл"}>
+            <IconButton size="small" onClick={handleDownload} sx={{ color: '#2196F3' }}>
+              <DownloadIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
 
-              <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
-                <IconButton
-                  size="small"
-                  onClick={handleToggleFavorite}
-                  sx={{
-                    color: isFavorite ? '#FFC107' : '#9e9e9e',
-                    '&:hover': { color: isFavorite ? '#FFB300' : '#757575' }
-                  }}
-                >
-                  {isFavorite
-                    ? <Star sx={{ fontSize: 18, color: '#FFC107' }} />
-                    : <StarBorder sx={{ fontSize: 18 }} />
-                  }
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
+          {/* ЖЕЛЕЗОБЕТОННАЯ КНОПКА ЗВЕЗДЫ */}
+          <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
+            <IconButton
+              size="small"
+              onClick={handleToggleFavorite}
+              sx={{
+                color: isFavorite ? '#FFC107' : '#9e9e9e',
+                '&:hover': { color: isFavorite ? '#FFB300' : '#757575' }
+              }}
+            >
+              {isFavorite
+                ? <Star sx={{ fontSize: 18, color: '#FFC107', pointerEvents: 'none' }} />
+                : <StarBorder sx={{ fontSize: 18, pointerEvents: 'none' }} />
+              }
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title="Ещё">
-            <IconButton size="small" onClick={handleMenuOpen}>
+            <IconButton size="small" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMenuOpen) onMenuOpen(e, { ...file, isFavorite }, file.type); }}>
               <MoreVert sx={{ fontSize: 18, color: '#9e9e9e' }} />
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
 
-      <Menu
-        anchorEl={anchorEl}
-        open={openMenu}
-        onClose={handleMenuClose}
-        PaperProps={{ sx: { borderRadius: '8px', minWidth: 150 } }}
-      >
-        <MenuItem onClick={handleDownload}>
-          <Download sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} /> Скачать
-        </MenuItem>
-        <MenuItem onClick={handleToggleFavorite}>
-          <Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} /> {isFavorite ? 'Удалить из избранного' : 'В избранное'}
-        </MenuItem>
-        <MenuItem onClick={handleOpenDeleteDialog} sx={{ color: '#D32F2F' }}>
-          <Delete sx={{ fontSize: 18, mr: 1.5, color: '#D32F2F' }} /> Удалить
-        </MenuItem>
-      </Menu>
-
-      <Dialog
-        open={isDeleteDialogOpen}
-        onClose={handleCloseDeleteDialog}
-        onClick={(e) => e.stopPropagation()}
-        PaperProps={{
-          sx: {
-            borderRadius: '12px',
-            p: 1,
-            backgroundColor: '#ffffff',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
-          }
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 600, pb: 1, color: '#202124' }}>
-          Удалить файл?
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ color: '#5f6368', fontSize: '0.95rem' }}>
-            Вы действительно хотите удалить файл "{file.name}"? Это действие нельзя будет отменить.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button
-            onClick={handleCloseDeleteDialog}
-            sx={{
-              color: '#2196F3',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              '&:hover': { backgroundColor: '#f5f8ff' }
-            }}
-          >
-            Отмена
-          </Button>
-          <Button
-            onClick={handleConfirmDelete}
-            variant="contained"
-            sx={{
-              borderRadius: '8px',
-              textTransform: 'none',
-              boxShadow: 'none',
-              backgroundColor: '#D32F2F',
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              '&:hover': { backgroundColor: '#C62828', boxShadow: 'none' }
-            }}
-          >
-            Удалить
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={3000}
-        onClose={handleCloseToast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={handleCloseToast}
-          severity={toast.severity}
-          sx={{ width: '100%' }}
-        >
+      <Snackbar open={toast.open} autoHideDuration={3000} onClose={handleCloseToast} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
           {toast.message}
         </Alert>
       </Snackbar>

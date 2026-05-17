@@ -252,3 +252,12 @@ class FileOperationFacade:
             return True
         except File.DoesNotExist:
             return False
+
+class FavoriteFile(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorite_items")
+    file = models.ForeignKey('File', on_delete=models.CASCADE, null=True, blank=True)
+    folder = models.ForeignKey('Folder', on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ep_files_app_favorite_file'

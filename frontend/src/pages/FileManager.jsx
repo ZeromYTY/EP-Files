@@ -16,19 +16,14 @@ import {
   Tooltip,
   Paper,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   CircularProgress,
-  Chip,
+  Link as MuiLink,
+  Fab,
 } from '@mui/material';
 import {
   Search,
@@ -39,29 +34,31 @@ import {
   Logout,
   GridView,
   ViewList,
+  Star,
   Folder as FolderIcon,
   Upload,
   Description,
   TableChart,
-  InsertDriveFile,
   CreateNewFolder,
-  MoreVert,
   NavigateNext,
   FolderOpen,
   Delete,
   Edit,
-  DriveFileMove,
+  CloudUpload,
+  ArrowDropUp,
+  Download as DownloadIcon,
+  ArrowDropDown,
+  CheckCircle,
+  Close,
+  InsertDriveFile,
 } from '@mui/icons-material';
 
-import Breadcrumbs from '../components/file-manager/Breadcrumbs';
 import FileList from '../components/file-manager/FileList';
-import EmptyState from '../components/file-manager/EmptyState';
-import FileUpload from '../components/upload/FileUpload';
 
 export default function FileManager() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
+  const [favoriteIds, setFavoriteIds] = useState({ files: [], folders: [] });
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('list');
@@ -74,42 +71,95 @@ export default function FileManager() {
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpenOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [newName, setNewName] = useState('');
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [newName, setNewName] = useState('');
+
+  const [tasks, setTasks] = useState([]);
+  const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
+
 
   useEffect(() => {
-    loadData();
+    if (!searchQuery.trim()) {
+      loadData();
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const response = await api.get(`/search/?q=${encodeURIComponent(searchQuery)}`);
+        const results = response.data.results || [];
+        setFiles(results.filter(i => i.type !== 'folder'));
+        setFolders(results.filter(i => i.type === 'folder'));
+        setError('');
+      } catch (err) {
+        console.error('Ошибка при поиске:', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      loadData();
+    }
   }, [currentFolderId]);
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [foldersRes, filesRes] = await Promise.all([
+      const [foldersRes, filesRes, favsRes] = await Promise.all([
         api.get('/folders/'),
-        api.get('/files/')
+        api.get('/files/'),
+        api.get('favorites/all/')
       ]);
+
+      setFavoriteIds({
+        files: favsRes.data.file_ids || [],
+        folders: favsRes.data.folder_ids || []
+      });
 
       const allFolders = foldersRes.data.folders || [];
       const allFiles = filesRes.data || [];
 
-      const currentFolderData = allFolders.filter(
-        f => f.parent_id === currentFolderId
-      );
-      setFolders(currentFolderData);
+      // Функция рекурсивного подсчета веса папки
+      const calculateFolderSize = (folderId) => {
+        // 1. Вес файлов в этой конкретной папке
+        const directFilesSize = allFiles
+          .filter(f => f.folder === folderId)
+          .reduce((sum, f) => sum + (Number(f.size) || 0), 0);
 
-      const currentFiles = allFiles.filter(
-        f => (currentFolderId ? f.folder === currentFolderId : !f.folder)
-      );
-      setFiles(currentFiles);
+        // 2. Ищем подпапки
+        const subFolders = allFolders.filter(f => f.parent_id === folderId);
 
+        // 3. Плюсуем вес всех подпапок рекурсивно
+        const subFoldersSize = subFolders.reduce((sum, subFolder) => {
+          return sum + calculateFolderSize(subFolder.id);
+        }, 0);
+
+        return directFilesSize + subFoldersSize;
+      };
+
+      // Проходимся по папкам текущего уровня и рассчитываем их честный вес
+      const foldersWithSizes = allFolders
+        .filter(f => f.parent_id === currentFolderId)
+        .map(folder => ({
+          ...folder,
+          size: calculateFolderSize(folder.id) // Записываем вычисленный размер
+        }));
+
+      setFolders(foldersWithSizes);
+      setFiles(allFiles.filter(f => (currentFolderId ? f.folder === currentFolderId : !f.folder)));
       updateBreadcrumbs(allFolders);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -119,616 +169,535 @@ export default function FileManager() {
     }
   };
 
+    const handleCreateFolderClick = () => {
+        handleCreateClose();
+        setCreateFolderOpen(true);
+    };
+
   const updateBreadcrumbs = (allFolders) => {
     if (!currentFolderId) {
       setBreadcrumbs([]);
       return;
     }
-
     const path = [];
     let folderId = currentFolderId;
-
     while (folderId) {
       const folder = allFolders.find(f => f.id === folderId);
       if (!folder) break;
       path.unshift(folder);
       folderId = folder.parent_id;
     }
-
     setBreadcrumbs(path);
   };
 
-  const getPathArray = () => {
-    return [
-      { id: null, name: 'Главная' },
-      ...breadcrumbs.map(b => ({ id: b.id, name: b.name }))
-    ];
+  const getPathArray = () => [
+    { id: null, name: 'Главная' },
+    ...breadcrumbs.map(b => ({ id: b.id, name: b.name }))
+  ];
+
+  const addTask = (id, name, title, subText, status, progress = 0) => {
+    setTasks(prev => [...prev, { id, name, title, subText, status, progress }]);
   };
 
-  const handleDownload = async (fileId, fileName) => {
+  const updateTask = (id, updatedFields) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedFields } : t));
+  };
+
+  const removeTaskWithTimer = (id) => {
+    setTimeout(() => {
+      setTasks(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
+
+  const processUpload = async (incomingData, targetFolderId = currentFolderId) => {
+    if (!incomingData) return;
+
+    let cleanFile = null;
+
     try {
-      const response = await api.get(`/download/${fileId}/`, {
-        responseType: 'blob'
+      if (incomingData instanceof File) {
+        cleanFile = incomingData;
+      } else if (incomingData instanceof FileList && incomingData.length > 0) {
+        cleanFile = incomingData[0];
+      } else if (Array.isArray(incomingData) && incomingData.length > 0) {
+        cleanFile = incomingData[0];
+      } else if (incomingData.target?.files && incomingData.target.files.length > 0) {
+        cleanFile = incomingData.target.files[0];
+      } else if (incomingData.files && incomingData.files.length > 0) {
+        cleanFile = incomingData.files[0];
+      }
+    } catch (e) {
+      console.error('Ошибка распаковки файла:', e);
+    }
+
+    if (!cleanFile) {
+      console.error('Не удалось извлечь файл из переданных данных');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', cleanFile);
+
+    if (targetFolderId) {
+      formData.append('folder_id', targetFolderId);
+    }
+
+    const taskId = 'upload-' + Date.now();
+
+    try {
+      setIsWidgetMinimized(false);
+      addTask(taskId, cleanFile.name, 'Загрузка файла...', 'Отправка в облако', 'uploading', 0);
+
+      await api.post('/upload/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download error:', error);
-      alert('Не удалось скачать файл.');
+
+      await new Promise((resolve) => {
+        let currentSimulatedProgress = 0;
+        const interval = setInterval(() => {
+          currentSimulatedProgress += Math.floor(Math.random() * 8) + 4;
+          if (currentSimulatedProgress >= 100) {
+            currentSimulatedProgress = 100;
+            clearInterval(interval);
+            resolve();
+          }
+          updateTask(taskId, { progress: currentSimulatedProgress });
+        }, 100);
+      });
+
+      updateTask(taskId, {
+        title: 'Загрузка завершена',
+        subText: 'Файл успешно сохранен',
+        status: 'success',
+        progress: 100
+      });
+
+      loadData();
+      removeTaskWithTimer(taskId);
+
+    } catch (err) {
+      console.error('Критическая ошибка при отправке POST /api/upload/:', err);
+      updateTask(taskId, {
+        title: 'Ошибка загрузки',
+        subText: err.response?.data?.error || 'Не удалось загрузить файл',
+        status: 'error'
+      });
+      removeTaskWithTimer(taskId);
     }
   };
 
-  const handleDownloadFile = async (fileId, fileName) => {
-    await handleDownload(fileId, fileName);
+
+  const handleFileDropped = (acceptedFiles) => {
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      processUpload(acceptedFiles[0], currentFolderId);
+    }
   };
 
-  const handleDeleteFile = async (fileId) => {
+  const handleManualUpload = (event) => {
+    if (event.target.files && event.target.files.length > 0) {
+      processUpload(event.target.files[0], currentFolderId);
+      event.target.value = '';
+    }
+  };
+
+  const handleDownload = async (id, name, type) => {
+    const taskId = 'download-' + Date.now() + Math.random().toString(36).substr(2, 4);
     try {
-      await api.delete(`/files/${fileId}/`);
-      setSuccess('Файл успешно удален');
-      setTimeout(() => setSuccess(''), 3000);
+      setIsWidgetMinimized(false);
+      const isFolder = type === 'folder';
+
+      addTask(
+        taskId,
+        name + (isFolder ? '.zip' : ''),
+        isFolder ? 'Архивация и скачивание папки...' : 'Скачивание файла...',
+        'Подготовка потока данных',
+        'downloading'
+      );
+
+      // ИСПРАВЛЕНО: Убрали ведущий слэш в путях, чтобы Axios корректно склеивал с базовым /api
+      const url = isFolder ? `folders/${id}/download/` : `download/${id}/`;
+      const response = await api.get(url, { responseType: 'blob' });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', isFolder ? `${name}.zip` : name);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+
+      updateTask(taskId, {
+        title: isFolder ? 'Архив успешно скачан' : 'Скачивание завершено',
+        subText: 'Сохранено на устройство',
+        status: 'success'
+      });
+      removeTaskWithTimer(taskId);
+    } catch (err) {
+      console.error('Ошибка при скачивании:', err);
+      updateTask(taskId, {
+        title: 'Ошибка скачивания',
+        subText: err.response?.status === 404 ? 'Объект не найден' : 'Нет прав доступа',
+        status: 'error'
+      });
+      removeTaskWithTimer(taskId);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!selectedItem) return;
+    setFileToDelete({ id: selectedItem.id, name: selectedItem.name, type: selectedItem.type });
+    setDeleteDialogOpenOpen(true);
+    handleMenuClose();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!fileToDelete) return;
+    const taskId = 'delete-' + Date.now();
+    try {
+      setIsWidgetMinimized(false);
+      addTask(taskId, fileToDelete.name, 'Удаление объекта...', 'Очистка диска', 'deleting');
+      setDeleteDialogOpenOpen(false);
+
+      if (fileToDelete.type === 'folder') {
+        await api.delete(`/folders/${fileToDelete.id}/delete/`);
+      } else {
+        await api.delete(`/files/${fileToDelete.id}/`);
+      }
+
+      updateTask(taskId, { title: 'Удалено успешно', subText: 'Файл полностью стерт', status: 'success' });
+      setSelectedItem(null);
+      setFileToDelete(null);
       loadData();
-    } catch (error) {
-      alert('Не удалось удалить файл. Ошибка доступа или сервера.');
+      removeTaskWithTimer(taskId);
+    } catch (err) {
+      updateTask(taskId, { title: 'Ошибка удаления', subText: 'Ошибка сервера', status: 'error' });
+      removeTaskWithTimer(taskId);
+      setSelectedItem(null);
+      setFileToDelete(null);
     }
   };
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-
     try {
-      await api.post('/folders/create/', {
-        name: newFolderName,
-        parent_id: currentFolderId
-      });
+      await api.post('/folders/create/', { name: newFolderName, parent_id: currentFolderId });
       setNewFolderName('');
       setCreateFolderOpen(false);
       loadData();
     } catch (err) {
-      console.error('Error creating folder:', err);
       setError('Ошибка создания папки');
     }
   };
 
-  const handleUploadFile = async () => {
-    if (!selectedFile) return;
-
-    setUploading(true);
-    setError('');
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    if (currentFolderId) {
-      formData.append('folder_id', currentFolderId);
-    }
-
-    try {
-      await api.post('/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setSelectedFile(null);
-      setUploadDialogOpen(false);
-      setSuccess('Файл успешно загружен');
-      loadData();
-    } catch (err) {
-      console.error('Error uploading file:', err);
-      setError(err.response?.data?.error || 'Ошибка загрузки файла');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFolderClick = (folderId) => {
-    setCurrentFolderId(folderId);
-    setSearchQuery('');
-  };
-
-  const handleBreadcrumbClick = (folderId) => {
-    setCurrentFolderId(folderId);
-    setSearchQuery('');
-  };
-
-  const handleGoHome = () => {
-    setCurrentFolderId(null);
-    setSearchQuery('');
-  };
-
-  const handleBack = () => {
-    if (currentFolderId !== null) {
-      const currentFolderObj = breadcrumbs.find(f => f.id === currentFolderId);
-      setCurrentFolderId(currentFolderObj?.parent_id || null);
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleCreateClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleCreateClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleMenuOpen = (event, item, type) => {
-    event.stopPropagation();
-    setMenuAnchor(event.currentTarget);
-    setSelectedItem({ ...item, type });
-  };
-
-  const handleMenuClose = () => {
-    setMenuAnchor(null);
-  };
-
-  const handleRename = () => {
-    if (!selectedItem) return;
-    setNewName(selectedItem.name || '');
-    setRenameDialogOpen(true);
-    setMenuAnchor(null);
-  };
-
   const handleRenameSubmit = async () => {
     const trimmedName = (newName || '').trim();
-
-    if (!trimmedName) {
-      setError('Введите название');
-      return;
-    }
-
-    if (!selectedItem) {
-      setError('Элемент не выбран');
-      return;
-    }
-
-    setError('');
-
+    if (!trimmedName || !selectedItem) return;
     try {
       if (selectedItem.type === 'folder') {
-        await api.patch(`/folders/${selectedItem.id}/rename/`, {
-          name: trimmedName
-        });
+        await api.patch(`/folders/${selectedItem.id}/rename/`, { name: trimmedName });
       } else {
-        await api.patch(`/files/${selectedItem.id}/`, {
-          name: trimmedName
-        });
+        await api.patch(`/files/${selectedItem.id}/`, { name: trimmedName });
       }
-
       setRenameDialogOpen(false);
       setNewName('');
-      setSelectedItem(null);
-      setSuccess('Успешно переименовано');
-      await loadData();
-    } catch (err) {
-      console.error('Error renaming:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Ошибка переименования';
-      setError(errorMsg);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedItem) return;
-
-    if (!window.confirm(`Удалить ${selectedItem.type === 'folder' ? 'папку' : 'файл'} "${selectedItem.name}"?`)) {
-      setMenuAnchor(null);
-      setSelectedItem(null);
-      return;
-    }
-
-    try {
-      if (selectedItem.type === 'folder') {
-        await api.delete(`/folders/${selectedItem.id}/delete/`);
-      } else {
-        await api.delete(`/files/${selectedItem.id}/`);
-      }
-      setMenuAnchor(null);
-      setSelectedItem(null);
-      setSuccess('Успешно удалено');
       loadData();
     } catch (err) {
-      console.error('Error deleting:', err);
-      setError('Ошибка удаления');
+      setError('Ошибка переименования');
     }
   };
 
-  const handleUploadComplete = () => {
-    loadData();
-    setSuccess('Файл успешно загружен!');
-    setTimeout(() => setSuccess(''), 3000);
+  const handleFolderClick = (id) => setCurrentFolderId(id);
+  const handleBreadcrumbClick = (id) => setCurrentFolderId(id);
+  const handleGoHome = () => setCurrentFolderId(null);
+  const handleBack = () => {
+    if (currentFolderId !== null) {
+      const current = breadcrumbs.find(f => f.id === currentFolderId);
+      setCurrentFolderId(current?.parent_id || null);
+    }
   };
 
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleCreateClick = (e) => setAnchorEl(e.currentTarget);
+  const handleCreateClose = () => setAnchorEl(null);
+  const handleMenuOpen = (e, item, type) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setSelectedItem({ ...item, type }); };
+  const handleMenuClose = () => setMenuAnchor(null);
+  const handleRenameClick = () => { setNewName(selectedItem.name || ''); setRenameDialogOpen(true); handleMenuClose(); };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleString('ru-RU', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const filteredFolders = folders.filter(folder =>
-    folder && folder.name && folder.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredFiles = files.filter(file =>
-    file && file.name && file.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const mixedItems = [
-    ...filteredFolders.map(f => ({ ...f, type: 'folder' })),
-    ...filteredFiles.map(f => ({ ...f, type: 'file' }))
-  ];
-
-  const sortedItems = [...mixedItems].sort((a, b) => {
-    if (a.type === 'folder' && b.type !== 'folder') return -1;
-    if (a.type !== 'folder' && b.type === 'folder') return 1;
-    return a.name.localeCompare(b.name);
-  });
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const sortedItems = [
+    ...folders.map(f => ({ ...f, type: 'folder', is_favorite: favoriteIds.folders.includes(f.id) })),
+    ...files.map(f => ({ ...f, type: 'file', is_favorite: favoriteIds.files.includes(f.id) }))
+  ].sort((a, b) => (a.type === 'folder' && b.type !== 'folder' ? -1 : a.type !== 'folder' && b.type === 'folder' ? 1 : a.name.localeCompare(b.name)));
 
   const getCurrentLocationName = () => {
     if (!currentFolderId) return 'Главная';
-    const activeFolder = breadcrumbs.find(b => b.id === currentFolderId);
-    return activeFolder ? activeFolder.name : 'Папка';
+    const active = breadcrumbs.find(b => b.id === currentFolderId);
+    return active ? active.name : 'Папка';
   };
 
+  const isFabMenuOpen = Boolean(anchorEl);
+
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-      <Box
-        sx={{
-          backgroundColor: '#fff',
-          borderBottom: '1px solid #e0e0e0',
-          px: 3,
-          py: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 1000,
-        }}
-      >
-        <Box
-          component="a"
-          href="/"
-          sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}
-        >
-          <Typography variant="h5" sx={{ fontWeight: 600, color: '#2196F3', fontSize: '1.5rem' }}>
-            ep-files
-          </Typography>
-        </Box>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa', position: 'relative' }}>
+    <input type="file" id="manual-file-input" onChange={handleManualUpload} style={{ display: 'none' }} />
 
+      <Box sx={{ backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+        <Box component="a" href="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: '#2196F3', fontSize: '1.5rem' }}>ep-files</Typography>
+        </Box>
         <Box sx={{ flex: 1, maxWidth: 600, mx: 4 }}>
-          <TextField
-            fullWidth
-            placeholder="Поиск файлов..."
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search sx={{ color: '#9e9e9e' }} />
-                </InputAdornment>
-              ),
-              sx: {
-                backgroundColor: '#f1f3f4',
-                borderRadius: '8px',
-                '& fieldset': { border: 'none' },
-              },
-            }}
-          />
+          <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9e9e9e' }} /></InputAdornment>, sx: { backgroundColor: '#f1f3f4', borderRadius: '8px', '& fieldset': { border: 'none' } } }} />
         </Box>
-
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Tooltip title={user?.email || 'Пользователь'}>
-            <IconButton sx={{ backgroundColor: '#2196F3', color: '#fff' }}>
-              <Person />
-            </IconButton>
-          </Tooltip>
-          <Button variant="outlined" color="error" size="small" onClick={handleLogout} startIcon={<Logout />}>
-            Выйти
-          </Button>
+          <Tooltip title={user?.email || 'Пользователь'}><IconButton onClick={() => navigate('/files')} sx={{ backgroundColor: '#2196F3', color: '#fff' }}><Person /></IconButton></Tooltip>
+          <Button variant="outlined" size="small" onClick={handleLogout} startIcon={<Logout />} sx={{ color: '#d32f2f', borderColor: '#d32f2f', '&:hover': { borderColor: '#c62828', backgroundColor: 'rgba(211, 47, 47, 0.04)' } }}>Выйти</Button>
         </Box>
       </Box>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-            {success}
-          </Alert>
-        )}
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+        {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
         <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid #e0e0e0', backgroundColor: '#fff' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Tooltip title="Назад">
-              <span>
-                <IconButton size="small" onClick={handleBack} disabled={currentFolderId === null}
-                  sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}>
-                  <ArrowBack />
-                </IconButton>
-              </span>
-            </Tooltip>
-
-            <Tooltip title="Главная">
-              <span>
-                <IconButton size="small" onClick={handleGoHome} disabled={currentFolderId === null}
-                  sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}>
-                  <Home />
-                </IconButton>
-              </span>
-            </Tooltip>
-
+            <IconButton size="small" onClick={handleBack} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}><ArrowBack /></IconButton>
+            <IconButton size="small" onClick={handleGoHome} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}><Home /></IconButton>
             <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-
-            <Breadcrumbs path={getPathArray()} onBreadcrumbClick={handleBreadcrumbClick} />
-
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <MuiLink component="button" variant="body1" onClick={() => handleBreadcrumbClick(null)} sx={{ textDecoration: 'none', color: '#2196F3', cursor: 'pointer' }}>Корень</MuiLink>
+              {breadcrumbs.map((folder) => (
+                <Box key={folder.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <NavigateNext fontSize="small" sx={{ color: '#9e9e9e' }} />
+                  <MuiLink component="button" variant="body1" onClick={() => handleBreadcrumbClick(folder.id)} sx={{ textDecoration: 'none', color: '#2196F3', cursor: 'pointer' }}>{folder.name}</MuiLink>
+                </Box>
+              ))}
+            </Box>
             <Box sx={{ flexGrow: 1 }} />
-
-            <Tooltip title={viewMode === 'list' ? 'Вид: сетка' : 'Вид: список'}>
-              <IconButton size="small" onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} sx={{ color: '#2196F3' }}>
-                {viewMode === 'list' ? <GridView /> : <ViewList />}
-              </IconButton>
-            </Tooltip>
-
-            <Button variant="contained" startIcon={<Add />} onClick={handleCreateClick}
-              sx={{ backgroundColor: '#2196F3', color: '#fff', '&:hover': { backgroundColor: '#1976D2' } }}>
-              Создать
-            </Button>
-
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCreateClose}
-              PaperProps={{ sx: { borderRadius: '8px' } }}>
-              <MenuItem onClick={() => { handleCreateClose(); setCreateFolderOpen(true); }}><FolderIcon sx={{ color: '#FF9800', mr: 2 }} /> Папка</MenuItem>
-              <MenuItem onClick={handleCreateClose}><Description sx={{ color: '#2196F3', mr: 2 }} /> Документ</MenuItem>
-              <MenuItem onClick={handleCreateClose}><TableChart sx={{ color: '#4CAF50', mr: 2 }} /> Таблица</MenuItem>
-              <Divider />
-              <MenuItem onClick={() => { handleCreateClose(); setUploadDialogOpen(true); }}><Upload sx={{ color: '#9C27B0', mr: 2 }} /> Загрузить файл</MenuItem>
-            </Menu>
+            <IconButton size="small" onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} sx={{ color: '#2196F3' }}>{viewMode === 'list' ? <GridView /> : <ViewList />}</IconButton>
           </Box>
         </Paper>
 
-        <FileUpload
-          onUploadComplete={handleUploadComplete}
-          folderId={currentFolderId}
-        />
+        <Box sx={{ mb: 3 }}><Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>{getCurrentLocationName()}</Typography><Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography></Box>
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>
-            {getCurrentLocationName()}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography>
-        </Box>
-
-        {viewMode === 'grid' ? (
-          sortedItems.length === 0 ? (
-            <EmptyState
-              folderName={getCurrentLocationName()}
-              onUploadClick={() => setUploadDialogOpen(true)}
-            />
-          ) : (
-            <FileList
-              files={sortedItems}
-              viewMode={viewMode}
-              onFolderClick={handleFolderClick}
-              onDownloadClick={handleDownloadFile}
-              onDeleteClick={handleDeleteFile}
-              onFileDropped={handleUploadComplete}
-              isUploading={false}
-            />
-          )
+        {sortedItems.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center' }}>
+            <Box sx={{ width: 96, height: 96, backgroundColor: '#e8f0fe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
+              <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', margin: 'auto' }} />
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', mb: 1.5, fontSize: '2rem' }}>Пусто</Typography>
+            <Typography variant="body1" sx={{ color: '#64748b', maxWidth: 320, lineHeight: 1.6 }}>Попробуйте добавить файлы, перетащив их сюда или нажав круглую кнопку справа внизу</Typography>
+          </Box>
         ) : (
-          folders.length === 0 && files.length === 0 ? (
-            <Paper sx={{ p: 8, textAlign: 'center' }}>
-              <FolderOpen sx={{ fontSize: 80, color: '#bdbdbd', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Папка пуста
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Создайте папку или загрузите файл, чтобы начать работу
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                <Button variant="outlined" startIcon={<CreateNewFolder />} onClick={() => setCreateFolderOpen(true)}>
-                  Создать папку
-                </Button>
-                <Button variant="contained" startIcon={<Upload />} onClick={() => setUploadDialogOpen(true)}>
-                  Загрузить файл
-                </Button>
-              </Box>
-            </Paper>
-          ) : (
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Название</TableCell>
-                    <TableCell>Тип</TableCell>
-                    <TableCell>Размер</TableCell>
-                    <TableCell>Дата изменения</TableCell>
-                    <TableCell align="right">Действия</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {folders.map((folder) => (
-                    <TableRow key={`folder-${folder.id}`} hover sx={{ cursor: 'pointer' }} onClick={() => handleFolderClick(folder.id)}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <FolderIcon sx={{ color: '#FFA726' }} />
-                          <Typography>{folder.name}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label="Папка" size="small" color="warning" />
-                      </TableCell>
-                      <TableCell>{formatFileSize(folder.size || 0)}</TableCell>
-                      <TableCell>{formatDate(folder.updated_at || folder.date)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, folder, 'folder')}>
-                          <MoreVert />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {files.map((file) => (
-                    <TableRow key={`file-${file.id}`} hover>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <InsertDriveFile sx={{ color: '#42A5F5' }} />
-                          <Typography>{file.name}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label="Файл" size="small" color="primary" />
-                      </TableCell>
-                      <TableCell>{formatFileSize(file.size)}</TableCell>
-                      <TableCell>{formatDate(file.date || file.updated_at)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, file, 'file')}>
-                          <MoreVert />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )
+          <FileList
+          files={sortedItems}
+          viewMode={viewMode}
+          onFolderClick={handleFolderClick}
+          onDownloadClick={handleDownload}
+          onDeleteClick={handleDelete}
+          onMenuOpen={handleMenuOpen}
+          onFileDropped={(filesArray, targetFolderId) => {
+            if (filesArray && filesArray.length > 0) {
+              processUpload(filesArray[0], targetFolderId);
+            }
+          }}
+        />
         )}
       </Container>
+
+      <Box sx={{ position: 'fixed', bottom: tasks.length > 0 ? 116 : 48, right: 48, zIndex: 1100, transition: 'bottom 0.3s ease' }}>
+        <Tooltip title="Создать или загрузить" placement="left">
+          <Fab
+            variant="extended"
+            onClick={handleCreateClick}
+            sx={{
+              backgroundColor: '#2196F3',
+              color: '#fff',
+              px: 5,
+              py: 4,
+              borderRadius: '9999px',
+              textTransform: 'none',
+              gap: 1.5,
+              boxShadow: '0 8px 24px rgba(33, 150, 243, 0.35)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: '#1976D2',
+                boxShadow: '0 10px 28px rgba(33, 150, 243, 0.5)',
+                transform: 'scale(1.03)'
+              }
+            }}
+          >
+            <Add
+              sx={{
+                transform: isFabMenuOpen ? 'rotate(135deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                fontSize: '1.8rem'
+              }}
+            />
+            <Typography variant="button" sx={{ fontWeight: 800, letterSpacing: '0.5px', fontSize: '1.05rem' }}>
+              Создать
+            </Typography>
+          </Fab>
+        </Tooltip>
+      </Box>
+
+      <Menu
+        anchorEl={anchorEl}
+        open={isFabMenuOpen}
+        onClose={handleCreateClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            mb: 2,
+            minWidth: 165,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+            '& .MuiMenu-list': { py: 0.5 },
+            '& .MuiMenuItem-root': {
+              py: 1,
+              px: 2,
+              fontSize: '0.9rem'
+            }
+          }
+        }}
+      >
+        <MenuItem onClick={() => { handleCreateClose(); setCreateFolderOpen(true); }}><FolderIcon sx={{ color: '#FF9800', mr: 1.5, fontSize: 20 }} /> Папка</MenuItem>
+        <MenuItem onClick={handleCreateClose}><Description sx={{ color: '#2196F3', mr: 1.5, fontSize: 20 }} /> Документ</MenuItem>
+        <MenuItem onClick={handleCreateClose}><TableChart sx={{ color: '#4CAF50', mr: 1.5, fontSize: 20 }} /> Таблица</MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem onClick={() => { handleCreateClose(); document.getElementById('manual-file-input')?.click(); }}><Upload sx={{ color: '#9C27B0', mr: 1.5, fontSize: 20 }} /> Загрузить файл</MenuItem>
+      </Menu>
 
       <Dialog open={createFolderOpen} onClose={() => setCreateFolderOpen(false)}>
         <DialogTitle>Создать папку</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Название папки"
-            fullWidth
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
-          />
+          <TextField autoFocus margin="dense" label="Название папки" fullWidth value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateFolderOpen(false)}>Отмена</Button>
-          <Button onClick={handleCreateFolder} variant="contained">
-            Создать
-          </Button>
+          <Button onClick={handleCreateFolder} variant="contained">Создать</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)}>
-        <DialogTitle>Загрузить файл</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <input
-              type="file"
-              onChange={(e) => setSelectedFile(e.target.files[0])}
-              style={{ display: 'block', marginBottom: '16px' }}
-            />
-            {selectedFile && (
-              <Typography variant="body2" color="text.secondary">
-                Выбран: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-              </Typography>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setUploadDialogOpen(false)} disabled={uploading}>
-            Отмена
-          </Button>
-          <Button onClick={handleUploadFile} variant="contained" disabled={!selectedFile || uploading}>
-            {uploading ? <CircularProgress size={24} /> : 'Загрузить'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={renameDialogOpen}
-        onClose={() => {
-          setRenameDialogOpen(false);
-          setNewName('');
-          setSelectedItem(null);
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
+      {/* Диалог переименования */}
+      <Dialog open={renameDialogOpen} onClose={() => { setRenameDialogOpen(false); setNewName(''); }} maxWidth="sm" fullWidth>
         <DialogTitle>Переименовать {selectedItem?.type === 'folder' ? 'папку' : 'файл'}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Новое название"
-            fullWidth
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newName && newName.trim() && newName.trim() !== selectedItem?.name) {
-                e.preventDefault();
-                handleRenameSubmit();
-              }
-            }}
-          />
+          <TextField autoFocus margin="dense" label="Новое название" fullWidth value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newName.trim() && handleRenameSubmit()} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setRenameDialogOpen(false); setNewName(''); setSelectedItem(null); }}>
-            Отмена
-          </Button>
-          <Button
-            onClick={handleRenameSubmit}
-            variant="contained"
-            disabled={!newName || !newName.trim() || newName.trim() === selectedItem?.name}
-          >
-            Переименовать
-          </Button>
+          <Button onClick={() => setRenameDialogOpen(false)}>Отмена</Button>
+          <Button onClick={handleRenameSubmit} variant="contained" disabled={!newName || !newName.trim() || newName.trim() === selectedItem?.name}>Переименовать</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Единственный диалог подтверждения удаления */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpenOpen(false)}>
+        <DialogTitle sx={{ fontWeight: 600 }}>Удалить объект?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы действительно хотите удалить {fileToDelete?.type === 'folder' ? 'папку' : 'файл'} "{fileToDelete?.name}"? Действие нельзя отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDeleteDialogOpenOpen(false)}>Отмена</Button>
+          <Button onClick={handleConfirmDelete} variant="contained" sx={{ backgroundColor: '#D32F2F' }}>Удалить</Button>
         </DialogActions>
       </Dialog>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleRename}>
-          <Edit fontSize="small" sx={{ mr: 1 }} />
-          Переименовать
+        <MenuItem onClick={handleRenameClick}>
+          <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
         </MenuItem>
-        {selectedItem?.type === 'file' && (
-          <MenuItem onClick={() => { handleDownload(selectedItem.id, selectedItem.name); handleMenuClose(); }}>
-            <InsertDriveFile fontSize="small" sx={{ mr: 1 }} />
-            Скачать
-          </MenuItem>
-        )}
-        <MenuItem onClick={() => { handleDelete(); handleMenuClose(); }} sx={{ color: 'error.main' }}>
-          <Delete fontSize="small" sx={{ mr: 1 }} />
-          Удалить
+
+        <MenuItem onClick={() => { alert(`⭐ Состояние избранного изменено для: ${selectedItem?.name}`); handleMenuClose(); }}>
+          <Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />
+          {selectedItem?.isFavorite ? 'Убрать из избранного' : 'В избранное'}
+        </MenuItem>
+
+        <MenuItem onClick={() => { handleDownload(selectedItem.id, selectedItem.name, selectedItem.type); handleMenuClose(); }}>
+          <DownloadIcon fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
+          {selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}
+        </MenuItem>
+
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+          <Delete fontSize="small" sx={{ mr: 1.5, color: '#D32F2F' }} /> Удалить
         </MenuItem>
       </Menu>
+
+      {/* Виджет фоновых операций Google-style */}
+      {tasks.length > 0 && (
+        <Paper
+          elevation={4}
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            width: 360,
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            boxShadow: '0 12px 36px rgba(0,0,0,0.16)',
+            zIndex: 2000,
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Выполняется операций: {tasks.filter(t => ['uploading', 'downloading', 'deleting'].includes(t.status)).length}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <IconButton size="small" sx={{ color: '#64748b' }} onClick={() => setIsWidgetMinimized(!isWidgetMinimized)}>
+                {isWidgetMinimized ? <ArrowDropUp /> : <ArrowDropDown />}
+              </IconButton>
+              <IconButton size="small" sx={{ color: '#64748b' }} onClick={() => setTasks([])}>
+                <Close fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {!isWidgetMinimized && (
+            <Box sx={{ overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 1, backgroundColor: '#ffffff', maxHeight: 300 }}>
+              {tasks.map((task) => (
+                <Box
+                  key={task.id}
+                  sx={{
+                    p: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    borderRadius: '8px',
+                    border: '1px solid #f1f5f9',
+                    backgroundColor: task.status === 'success' ? '#f0fdf4' : task.status === 'error' ? '#fef2f2' : '#ffffff'
+                  }}
+                >
+                  {['uploading', 'downloading', 'deleting'].includes(task.status) ? (
+                    <Box sx={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                      <CircularProgress variant={task.status === 'uploading' ? "determinate" : "indeterminate"} value={task.status === 'uploading' ? task.progress : undefined} size={32} thickness={4.5} sx={{ color: '#2196F3' }} />
+                      {task.status === 'uploading' && (
+                        <Box sx={{ top: 0, left: 0, bottom: 0, right: 0, position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 'auto' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', fontWeight: 600 }}>{task.progress}%</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  ) : task.status === 'success' ? (
+                    <CheckCircle sx={{ color: '#16a34a', fontSize: 32, flexShrink: 0 }} />
+                  ) : (
+                    <Box sx={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: '0.9rem' }}>⚠️</Box>
+                  )}
+                  <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
+                    <Typography variant="caption" sx={{ color: task.status === 'success' ? '#16a34a' : task.status === 'error' ? '#ef4444' : '#64748b', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.subText}</Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Paper>
+      )}
     </Box>
   );
 }
