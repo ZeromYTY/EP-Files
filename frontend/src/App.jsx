@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import HomePage from './pages/HomePage';
 import Files from './pages/Files';
+import FileManager from './pages/FileManager';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
       {/* Защищённые страницы (требуют входа) */}
       <Route element={<ProtectedRoute />}>
         <Route path="/files" element={<Files />} />
+        <Route path="/file-manager" element={<FileManager />} />
       </Route>
 
       {/* Редирект с неизвестных путей */}
