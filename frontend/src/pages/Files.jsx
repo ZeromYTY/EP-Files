@@ -6,391 +6,336 @@ import {
   Container,
   Paper,
   Typography,
-  Button,
   Box,
   Alert,
+  Avatar,
+  Grid,
+  Button,
+  Divider,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
-  IconButton,
-  LinearProgress,
-  Chip,
-  Stack,
-  TextField,
-  InputAdornment,
   Card,
   CardContent,
-  Grid,
+  IconButton,
   Tooltip,
-  Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
-  CloudUpload,
-  Delete,
-  Download,
-  InsertDriveFile,
-  Logout,
-  Search,
-  Storage,
   Folder,
+  Logout,
+  Email,
+  Storage,
+  Shield,
+  Star,
+  Description,
+  Download as DownloadIcon,
+  ArrowDropUp,
+  ArrowDropDown,
+  Close,
+  CheckCircle
 } from '@mui/icons-material';
+
 
 export default function Files() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [storageStats, setStorageStats] = useState(null);
+  const [favorites, setFavorites] = useState([]);
 
-  const fetchFiles = async () => {
+  // Система тасок для виджета скачивания прямо в профиле
+  const [tasks, setTasks] = useState([]);
+  const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
+
+  const fetchProfileData = async () => {
     try {
-      setLoading(true);
-      const response = await api.get('/files/');
-      setFiles(response.data);
+      const [statsRes, favsRes] = await Promise.all([
+        api.get('/storage/stats/'),
+        api.get('favorites/all/')
+      ]);
+      setStorageStats(statsRes.data);
+      setFavorites(favsRes.data.items || []);
       setError('');
     } catch (err) {
-      setError('Ошибка при загрузке файлов');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStorageStats = async () => {
-    try {
-      const response = await api.get('/storage/stats/');
-      setStorageStats(response.data);
-    } catch (err) {
-      console.error('Ошибка при загрузке статистики:', err);
+      console.error('Ошибка при загрузке профиля:', err);
+      setStorageStats({ used_space: 0, available_space: 1024*1024*1024, total_space: 1024*1024*1024 });
+      setError('Не удалось загрузить актуальный список избранного');
     }
   };
 
   useEffect(() => {
-    fetchFiles();
-    fetchStorageStats();
+    fetchProfileData();
   }, []);
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const handleLogout = () => { logout(); navigate('/login'); };
 
-    const maxSize = 100 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError('Размер файла превышает 100 MB');
-      event.target.value = '';
-      return;
-    }
-
-    if (storageStats && file.size > storageStats.available_space) {
-      setError('Недостаточно места в хранилище');
-      event.target.value = '';
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setIsUploading(true);
-      setUploadProgress(0);
-      setError('');
-      setSuccess('');
-
-      const response = await api.post('/upload/', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
-      });
-
-      setSuccess(`Файл "${response.data.file.name}" успешно загружен!`);
-      fetchFiles();
-      fetchStorageStats();
-      event.target.value = '';
-    } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка при загрузке файла');
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
-    }
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Б';
+    const k = 1024;
+    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const handleDownload = async (fileId, fileName) => {
-    try {
-      const response = await api.get(`/download/${fileId}/`, {
-        responseType: 'blob',
-      });
+  // Функции управления фоновыми задачами виджета
+  const addTask = (id, name, title, subText, status, progress = 0) => {
+    setTasks(prev => [...prev, { id, name, title, subText, status, progress }]);
+  };
+  const updateTask = (id, updatedFields) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedFields } : t));
+  };
+  const removeTaskWithTimer = (id) => {
+    setTimeout(() => { setTasks(prev => prev.filter(t => t.id !== id)); }, 5000);
+  };
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+  // НАША УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СКАЧИВАНИЯ ПРЯМО ИЗ ИЗБРАННОГО
+  const handleDownloadFav = async (id, name, type) => {
+    const taskId = 'download-fav-' + Date.now() + Math.random().toString(36).substr(2, 4);
+    try {
+      setIsWidgetMinimized(false);
+      const isFolder = type === 'folder';
+      const displayName = name || 'archive';
+
+      addTask(
+        taskId,
+        displayName + (isFolder ? '.zip' : ''),
+        isFolder ? 'Архивация и скачивание папки...' : 'Скачивание файла...',
+        'Подготовка потока данных',
+        'downloading'
+      );
+
+      // ИСПРАВЛЕНО: Стучимся строго по рабочим путям, которые мы настроили в urls.py
+      const url = isFolder ? `folders/${id}/download/` : `download/${id}/`;
+      const response = await api.get(url, { responseType: 'blob' });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileName);
+      link.href = blobUrl;
+      link.setAttribute('download', isFolder ? `${displayName}.zip` : displayName);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
+
+      updateTask(taskId, {
+        title: isFolder ? 'Архив успешно скачан' : 'Скачивание завершено',
+        subText: 'Сохранено на устройство',
+        status: 'success'
+      });
     } catch (err) {
-      if (err.response?.status === 403) {
-        setError('У вас нет прав на скачивание этого файла');
-      } else {
-        setError('Ошибка при скачивании файла');
-      }
-      console.error(err);
+      console.error('Ошибка при скачивании из избранного:', err);
+      updateTask(taskId, {
+        title: 'Ошибка скачивания',
+        subText: err.response?.status === 404 ? 'Объект не найден' : 'Нет прав доступа',
+        status: 'error'
+      });
     }
   };
 
-  const handleDelete = async (fileId, fileName) => {
-    if (!window.confirm(`Удалить файл "${fileName}"?`)) return;
+  const usedSpace = storageStats?.used_space || 0;
+  const totalSpace = storageStats?.total_space || 1024 * 1024 * 1024;
+  const usagePercent = Math.min(Math.round((usedSpace / totalSpace) * 100), 100);
 
-    try {
-      await api.delete(`/files/${fileId}/`);
-      setSuccess(`Файл "${fileName}" удален`);
-      fetchFiles();
-      fetchStorageStats();
-    } catch (err) {
-      if (err.response?.status === 403) {
-        setError('У вас нет прав на удаление этого файла');
-      } else {
-        setError('Ошибка при удалении файла');
-      }
-      console.error(err);
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchFiles();
-      return;
-    }
-
-    try {
-      const response = await api.get(`/search/?q=${encodeURIComponent(searchQuery)}`);
-      setFiles(response.data.results);
-    } catch (err) {
-      setError('Ошибка при поиске');
-      console.error(err);
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('ru-RU', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getStorageColor = (percent) => {
-    if (percent < 50) return 'success';
-    if (percent < 80) return 'warning';
-    return 'error';
-  };
 
   return (
-    <Container maxWidth="lg">
-      <Paper sx={{ p: 4, mt: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">Мои файлы</Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button variant="contained" component={Link} to="/file-manager" startIcon={<Folder />}>
-              Файловый менеджер
-            </Button>
-            <Button variant="outlined" component={Link} to="/">
-              На главную
-            </Button>
-            <Button variant="outlined" color="error" startIcon={<Logout />} onClick={handleLogout}>
-              Выйти
-            </Button>
-          </Box>
-        </Box>
+    <Container maxWidth="md" sx={{ py: 6, position: 'relative' }}>
+      {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
 
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Вы вошли как: <strong>{user?.name || user?.email || 'Пользователь'}</strong>
-        </Alert>
-
-        {storageStats && (
-          <Card sx={{ mb: 3, backgroundColor: '#f5f5f5' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Storage sx={{ mr: 1, color: '#2196F3' }} />
-                <Typography variant="h6">Хранилище</Typography>
-              </Box>
-
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h4" color="primary">{storageStats.total_files}</Typography>
-                    <Typography variant="body2" color="text.secondary">Всего файлов</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h4" color="primary">{formatFileSize(storageStats.total_size)}</Typography>
-                    <Typography variant="body2" color="text.secondary">Использовано</Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h4" color="primary">{formatFileSize(storageStats.available_space)}</Typography>
-                    <Typography variant="body2" color="text.secondary">Доступно</Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">Использование хранилища</Typography>
-                  <Typography variant="body2" fontWeight="bold">{storageStats.usage_percent}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(storageStats.usage_percent, 100)}
-                  color={getStorageColor(storageStats.usage_percent)}
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Лимит: {formatFileSize(storageStats.storage_limit)}
-                </Typography>
-              </Box>
-
-              {storageStats.usage_percent > 80 && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  <strong>Внимание!</strong> Хранилище заполнено на {storageStats.usage_percent}%. Удалите ненужные файлы.
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>
-        )}
-
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Поиск файлов..."
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ flex: 1, minWidth: 200 }}
-          />
-          <Button variant="outlined" onClick={handleSearch} disabled={!searchQuery.trim()}>
-            Найти
-          </Button>
-          <Button variant="outlined" onClick={fetchFiles} disabled={!searchQuery}>
-            Сбросить
-          </Button>
-          <Button
-            variant="contained"
-            component="label"
-            startIcon={<CloudUpload />}
-            disabled={isUploading || (storageStats && storageStats.usage_percent >= 100)}
-          >
-            {isUploading ? 'Загрузка...' : 'Загрузить файл'}
-            <input type="file" hidden onChange={handleFileUpload} disabled={isUploading} />
-          </Button>
-        </Box>
-
-        {isUploading && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Загрузка на сервер: {uploadProgress}%
+      <Grid container spacing={4}>
+        {/* Левая карточка: Юзер */}
+        <Grid item xs={12} md={5}>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', textAlign: 'center', backgroundColor: '#fff' }}>
+            <Avatar
+              sx={{
+                width: 100,
+                height: 100,
+                bgcolor: '#2196F3',
+                fontSize: '2.5rem',
+                mx: 'auto',
+                mb: 2,
+                boxShadow: '0 4px 12px rgba(33, 150, 243, 0.2)'
+              }}
+            >
+              {(user?.name || user?.email || 'U').toUpperCase()}
+            </Avatar>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>
+              {user?.name || 'Пользователь'}
             </Typography>
-            <LinearProgress variant="determinate" value={uploadProgress} />
-          </Box>
-        )}
-
-        <Divider sx={{ my: 3 }} />
-
-        <Typography variant="h6" gutterBottom>
-          Загруженные файлы ({files.length})
-        </Typography>
-
-        {loading ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography>Загрузка...</Typography>
-          </Box>
-        ) : files.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Folder sx={{ fontSize: 64, color: '#ccc', mb: 2 }} />
-            <Typography color="text.secondary">
-              {searchQuery ? 'Файлы не найдены' : 'У вас пока нет загруженных файлов'}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Личный кабинет ep-files
             </Typography>
-          </Box>
-        ) : (
-          <List>
-            {files.map((file) => (
-              <ListItem
-                key={file.id}
-                sx={{
-                  border: '1px solid #e0e0e0',
-                  borderRadius: 1,
-                  mb: 1,
-                  '&:hover': { bgcolor: '#f5f5f5' },
-                }}
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
+              <Button
+                variant="contained"
+                fullWidth
+                component={Link}
+                to="/file-manager"
+                startIcon={<Folder />}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, py: 1 }}
               >
-                <InsertDriveFile color="primary" sx={{ mr: 2 }} />
+                В файловый менеджер
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                fullWidth
+                onClick={handleLogout}
+                startIcon={<Logout />}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, py: 1 }}
+              >
+                Выйти из аккаунта
+              </Button>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Правая карточка: Статистика */}
+        <Grid item xs={12} md={7}>
+          <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff', height: '100%' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3 }}>
+              Данные учетной записи
+            </Typography>
+
+            <List disablePadding>
+              <ListItem sx={{ px: 0, py: 1.5 }}>
+                <ListItemIcon><Email sx={{ color: '#64748b' }} /></ListItemIcon>
                 <ListItemText
-                  primary={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="body1">{file.name}</Typography>
-                      <Chip label={formatFileSize(file.size)} size="small" variant="outlined" />
-                    </Stack>
-                  }
-                  secondary={`Загружено: ${formatDate(file.date)}`}
+                  primary={<Typography variant="caption" color="text.secondary">Электронная почта</Typography>}
+                  secondary={<Typography variant="body1" sx={{ fontWeight: 500, color: '#1e293b' }}>{user?.email || '—'}</Typography>}
                 />
-                <Tooltip title="Скачать">
-                  <IconButton color="primary" onClick={() => handleDownload(file.id, file.name)}>
-                    <Download />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Удалить">
-                  <IconButton color="error" onClick={() => handleDelete(file.id, file.name)}>
-                    <Delete />
-                  </IconButton>
-                </Tooltip>
               </ListItem>
+
+              <ListItem sx={{ px: 0, py: 1.5 }}>
+                <ListItemIcon><Shield sx={{ color: '#64748b' }} /></ListItemIcon>
+                <ListItemText
+                  primary={<Typography variant="caption" color="text.secondary">Статус безопасности</Typography>}
+                  secondary={<Typography variant="body1" sx={{ fontWeight: 500, color: '#16a34a' }}>Авторизован (JWT Токен)</Typography>}
+                />
+              </ListItem>
+
+              <ListItem sx={{ px: 0, py: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'start' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 40 }}><Storage sx={{ color: '#64748b' }} /></ListItemIcon>
+                  <Typography variant="caption" color="text.secondary">Облачное хранилище</Typography>
+                </Box>
+                <Box sx={{ width: '100%', pl: 5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                      Занято {formatFileSize(usedSpace)} из {formatFileSize(totalSpace)}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#2196F3' }}>
+                      {usagePercent}%
+                    </Typography>
+                  </Box>
+                  <Box sx={{ width: '100%', height: 8, bgcolor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                    <Box sx={{ width: `${usagePercent}%`, height: '100%', bgcolor: usagePercent > 85 ? '#ef4444' : '#2196F3', borderRadius: 4, transition: 'width 0.5s ease' }} />
+                  </Box>
+                </Box>
+              </ListItem>
+            </List>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* СЕКЦИЯ ИЗБРАННОГО С КНОПКАМИ БЫСТРОГО СКАЧИВАНИЯ */}
+      <Box sx={{ mt: 5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Star sx={{ color: '#FFC107', fontSize: '1.8rem' }} />
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
+            Избранные объекты
+          </Typography>
+        </Box>
+
+        {favorites.length === 0 ? (
+          <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+            <Typography variant="body1" color="text.secondary">
+              У вас пока нет избранных файлов. Добавьте их в Файловом менеджере.
+            </Typography>
+          </Paper>
+        ) : (
+          <Grid container spacing={2}>
+            {favorites.map((item) => (
+              <Grid item xs={12} sm={6} key={`${item.type}-${item.id}`}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#fff',
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: '#2196F3', boxShadow: '0 4px 12px rgba(0,0,0,0.04)' }
+                  }}
+                >
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, '&:last-child': { pb: 2 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      {item.type === 'folder'
+                        ? <Folder sx={{ fontSize: 32, color: '#FF9800' }} />
+                        : <Description sx={{ fontSize: 32, color: '#2196F3' }} />
+                      }
+                    </Box>
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }} noWrap>
+                        {item.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.type === 'folder' ? 'Папка' : formatFileSize(item.size)}
+                      </Typography>
+                    </Box>
+
+                    {/* ЗАМЕНИЛИ СТРЕЛОЧКУ НА ПРЯМОЕ БЫСТРОЕ СКАЧИВАНИЕ */}
+                    <Tooltip title={item.type === 'folder' ? "Скачать как ZIP-архив" : "Скачать файл"}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDownloadFav(item.id, item.name, item.type)}
+                        sx={{ color: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.04)', '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.1)' } }}
+                      >
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </CardContent>
+                </Card>
+              </Grid>
             ))}
-          </List>
+          </Grid>
         )}
-      </Paper>
+      </Box>
+
+      {/* ВСПЛЫВАЮЩИЙ ВИДЖЕТ ФОНОВЫХ ОПЕРАЦИЙ ДЛЯ СКАЧИВАНИЯ ИЗ ПРОФИЛЯ */}
+      {tasks.length > 0 && (
+        <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 12px 36px rgba(0,0,0,0.16)', zIndex: 2000, overflow: 'hidden', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Выполняется скачиваний: {tasks.filter(t => t.status === 'downloading').length}</Typography>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <IconButton size="small" sx={{ color: '#64748b' }} onClick={() => setIsWidgetMinimized(!isWidgetMinimized)}>{isWidgetMinimized ? <ArrowDropUp /> : <ArrowDropDown />}</IconButton>
+              <IconButton size="small" sx={{ color: '#64748b' }} onClick={() => setTasks([])}><Close fontSize="small" /></IconButton>
+            </Box>
+          </Box>
+          {!isWidgetMinimized && (
+            <Box sx={{ overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 1, backgroundColor: '#ffffff', maxHeight: 300 }}>
+              {tasks.map((task) => (
+                <Box key={task.id} sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid #f1f5f9', backgroundColor: task.status === 'success' ? '#f0fdf4' : task.status === 'error' ? '#fef2f2' : '#ffffff' }}>
+                  {task.status === 'downloading' ? (
+                    <CircularProgress size={24} thickness={4.5} sx={{ color: '#2196F3', flexShrink: 0 }} />
+                  ) : task.status === 'success' ? (
+                    <CheckCircle sx={{ color: '#16a34a', fontSize: 24, flexShrink: 0 }} />
+                  ) : (
+                    <Box sx={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: '0.8rem' }}>⚠️</Box>
+                  )}
+                  <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
+                    <Typography variant="caption" sx={{ color: task.status === 'success' ? '#16a34a' : task.status === 'error' ? '#ef4444' : '#64748b', display: 'block' }}>{task.subText}</Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Paper>
+      )}
     </Container>
   );
 }

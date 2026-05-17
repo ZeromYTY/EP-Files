@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// 👇 Адрес локального бэкенда Django
 const API_URL = 'http://localhost:8000/api';
 
 const api = axios.create({
@@ -10,7 +9,6 @@ const api = axios.create({
   },
 });
 
-// Автоматически добавляем токен к запросам
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -19,7 +17,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Обрабатываем ошибки авторизации
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -30,5 +27,35 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const uploadFileApi = (file, onProgress) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return api.post('/upload/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: (progressEvent) => {
+      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      onProgress(percentCompleted);
+    },
+  });
+};
+
+export const downloadFileApi = async (fileId, fileName) => {
+  const response = await api.get(`/files/${fileId}/download/`, {
+    responseType: 'blob',
+  });
+
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
 
 export default api;

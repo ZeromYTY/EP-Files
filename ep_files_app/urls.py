@@ -1,6 +1,7 @@
 """URL configuration for ep_files_app."""
 from django.urls import path
 
+from .api import views
 from .api.views import (
     RegisterView, LoginView, MeView, protected_test_view,
     upload_file, list_files, download_file, delete_file,
@@ -9,7 +10,7 @@ from .api.views import (
     file_history, user_activity_history, recent_activity,
     admin_list_users, admin_stats, admin_block_user,
     admin_unblock_user, admin_delete_user,
-    save_text_file, read_text_file,
+    save_text_file, read_text_file, toggle_favorite,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -84,4 +85,5 @@ urlpatterns = [
         public_folder_file_download,
         name="public_folder_file_download",
 ),
+
 ]

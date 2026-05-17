@@ -133,7 +133,7 @@ export default function HomePage() {
                     label={user.name || user.email}
                     sx={{ px: 1 }}
                   />
-                  <Button variant="contained" component={Link} to="/files" startIcon={<Dashboard />}>
+                  <Button variant="contained" component={Link} to="/file-manager" startIcon={<Dashboard />}>
                     Мои файлы
                   </Button>
                   <Button variant="outlined" color="error" onClick={handleLogout}>
@@ -336,7 +336,6 @@ export default function HomePage() {
           </Paper>
         )}
 
-        {/* Quick Actions for logged in users */}
         {user && (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
@@ -347,7 +346,7 @@ export default function HomePage() {
                 variant="contained"
                 size="large"
                 component={Link}
-                to="/files"
+                to="/file-manager"
                 startIcon={<CloudUpload />}
                 sx={{ px: 4 }}
               >
@@ -357,7 +356,7 @@ export default function HomePage() {
                 variant="outlined"
                 size="large"
                 component={Link}
-                to="/files"
+                to="/file-manager"
                 startIcon={<Folder />}
                 sx={{ px: 4 }}
               >
