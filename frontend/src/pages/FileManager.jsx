@@ -29,14 +29,15 @@ import {
   Upload,
   Description,
   TableChart,
+  CheckCircle,
 } from '@mui/icons-material';
 import Breadcrumbs from '../components/file-manager/Breadcrumbs';
 import FileList from '../components/file-manager/FileList';
 import EmptyState from '../components/file-manager/EmptyState';
 import FileUpload from '../components/upload/FileUpload';
 
-// 📁 Моковые данные (начальное состояние)
-const initialFileSystem = {
+// 📁 Моковые данные
+const mockFileSystem = {
   '/': [
     { id: 1, name: 'Документы', type: 'folder', size: null, modified: '2026-05-01T10:30:00', parentId: null },
     { id: 2, name: 'Проекты', type: 'folder', size: null, modified: '2026-04-28T14:20:00', parentId: null },
@@ -69,9 +70,6 @@ export default function FileManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('list');
   const [anchorEl, setAnchorEl] = useState(null);
-  
-  // 🔧 ДОБАВЛЕНО: Состояние для хранения файлов
-  const [fileSystem, setFileSystem] = useState(initialFileSystem);
   const [uploadSuccess, setUploadSuccess] = useState('');
 
   const handleLogout = () => {
@@ -96,7 +94,7 @@ export default function FileManager() {
 
   const handleBack = () => {
     if (currentFolderId !== null) {
-      const allFiles = Object.values(fileSystem).flat();
+      const allFiles = Object.values(mockFileSystem).flat();
       const currentFolder = allFiles.find(f => f.id === currentFolderId);
       setCurrentFolderId(currentFolder?.parentId || null);
     }
@@ -110,44 +108,15 @@ export default function FileManager() {
     setAnchorEl(null);
   };
 
-  // 🔧 ОБНОВЛЕНО: Добавление загруженного файла в список
+  // Обработка успешной загрузки
   const handleUploadComplete = (uploadedFile) => {
-    const currentPath = folderPathMap[currentFolderId] || '/';
-    
-    const newFile = {
-      id: Date.now(), // Уникальный ID
-      name: uploadedFile.name,
-      type: 'file',
-      fileType: getFileTypeFromName(uploadedFile.name),
-      size: uploadedFile.size,
-      modified: new Date().toISOString(),
-      parentId: currentFolderId,
-    };
-    
-    // Обновляем файловую систему
-    setFileSystem(prev => ({
-      ...prev,
-      [currentPath]: [...(prev[currentPath] || []), newFile],
-    }));
-    
+    console.log('File uploaded:', uploadedFile);
     setUploadSuccess(`Файл "${uploadedFile.name}" загружен!`);
     setTimeout(() => setUploadSuccess(''), 3000);
   };
 
-  // 🔧 ДОБАВЛЕНО: Определение типа файла по расширению
-  const getFileTypeFromName = (filename) => {
-    const ext = filename.split('.').pop().toLowerCase();
-    if (['pdf'].includes(ext)) return 'pdf';
-    if (['xlsx', 'xls'].includes(ext)) return 'sheet';
-    if (['doc', 'docx'].includes(ext)) return 'doc';
-    if (['ppt', 'pptx'].includes(ext)) return 'ppt';
-    return 'doc'; // по умолчанию
-  };
-
   const currentPath = folderPathMap[currentFolderId] || '/';
-  
-  // 🔧 ИЗМЕНЕНО: Берём файлы из состояния, а не из константы
-  const currentFiles = fileSystem[currentPath] || [];
+  const currentFiles = mockFileSystem[currentPath] || [];
 
   const filteredFiles = currentFiles.filter(file =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -162,7 +131,7 @@ export default function FileManager() {
   const getPathArray = () => {
     const path = currentPath === '/' ? [] : currentPath.split('/').filter(Boolean);
     return [{ id: null, name: 'Главная' }, ...path.map((name, index) => {
-      const folder = Object.values(fileSystem).flat().find(f => f.name === name && f.type === 'folder');
+      const folder = Object.values(mockFileSystem).flat().find(f => f.name === name && f.type === 'folder');
       return { id: folder?.id || null, name };
     })];
   };
