@@ -91,6 +91,19 @@ class Folder(models.Model):
             ids.extend(child.get_all_descendant_ids())
         return ids
 
+    def get_total_size(self):
+        """Calculate total size of all files in this folder and subfolders."""
+        from django.db.models import Sum
+        
+        total_size = 0
+        direct_files_size = self.files.aggregate(total=Sum('size'))['total'] or 0
+        total_size += direct_files_size
+        
+        for child in self.children.all():
+            total_size += child.get_total_size()
+        
+        return total_size
+
 
 class File(models.Model):
     """Model representing an uploaded file and its metadata."""
