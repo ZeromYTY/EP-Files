@@ -108,7 +108,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
 FILE_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
 MEDIA_ROOT = app_config.STORAGE_PATH
 MEDIA_URL = '/media/'
-MAX_FILE_SIZE = 10 * 1024 * 1024
 
 # --- JWT & REST FRAMEWORK ---
 REST_FRAMEWORK = {
@@ -197,5 +196,3 @@ LOGGING = {
         },
     },
 }
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

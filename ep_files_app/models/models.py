@@ -9,14 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from PIL import Image
 
-from ep_files_app.validators import (
-    sanitize_filename,
-    validate_file_extension,
-    validate_file_size,
-    validate_filename,
-)
-
-from django.conf import settings
+from main import settings
 
 
 
@@ -204,31 +197,17 @@ class PreviewFactory:
 
 
 class FileOperationFacade:
-    """Facade for centralized file upload and delete operations."""
+    """Facade for centralised file operation management."""
 
     @staticmethod
-    def upload_file(uploaded_file, user):
+    def upload_file(file, user):
         """Validate and save a new file for the given user."""
-        if user is None:
-            raise ValidationError("User not provided")
-
-        if not uploaded_file:
+        if not file:
             raise ValidationError("File not provided")
-
-        validate_filename(uploaded_file.name)
-        validate_file_extension(uploaded_file.name)
-        validate_file_size(uploaded_file, max_size=settings.MAX_FILE_SIZE)
-
-        safe_filename = sanitize_filename(uploaded_file.name)
-
-        file_obj = File(
-            file=uploaded_file,
-            name=safe_filename,
-            size=uploaded_file.size,
-            owner=user,
-        )
+        if file.size > settings.MAX_FILE_SIZE:
+            raise ValidationError("File is too large")
+        file_obj = File(file=file, owner=user)
         file_obj.save()
-
         return file_obj
 
     @staticmethod
@@ -236,11 +215,8 @@ class FileOperationFacade:
         """Delete a file if it belongs to the given user."""
         try:
             file_obj = File.objects.get(id=file_id, owner=user)
+            file_obj.file.delete()
+            file_obj.delete()
+            return True
         except File.DoesNotExist:
             return False
-
-        if file_obj.file:
-            file_obj.file.delete(save=False)
-
-        file_obj.delete()
-        return True
