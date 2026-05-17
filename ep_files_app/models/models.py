@@ -60,6 +60,16 @@ class Folder(models.Model):
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="children"
     )
+
+    public_token = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    is_public = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -106,6 +116,15 @@ class File(models.Model):
     folder = models.ForeignKey(
         Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files"
     )
+
+    public_token = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    is_public = models.BooleanField(default=False)
 
     def __str__(self):
         """Return file name or default string."""
