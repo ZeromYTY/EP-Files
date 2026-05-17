@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import HomePage from './pages/HomePage';
-import FileManager from './pages/FileManager';
+import Files from './pages/Files';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -13,9 +13,9 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Защищённые страницы */}
+      {/* Защищённые страницы (требуют входа) */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/files" element={<FileManager />} />
+        <Route path="/files" element={<Files />} />
       </Route>
 
       {/* Редирект с неизвестных путей */}
