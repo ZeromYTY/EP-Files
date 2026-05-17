@@ -1,157 +1,141 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-  Box,
+  Container,
+  Paper,
+  Typography,
   TextField,
   Button,
-  Typography,
-  Paper,
-  Container,
   Alert,
-  CircularProgress,
+  Box,
 } from '@mui/material';
-import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+// Схема валидации
+const schema = yup.object({
+  name: yup
+    .string()
+    .min(2, 'Минимум 2 символа')
+    .max(50, 'Максимум 50 символов')
+    .required('Имя обязательно'),
+  email: yup
+    .string()
+    .email('Введите корректный email')
+    .required('Email обязателен'),
+  password: yup
+    .string()
+    .min(6, 'Минимум 6 символов')
+    .required('Пароль обязателен'),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref('password')], 'Пароли должны совпадать')
+    .required('Подтвердите пароль'),
+}).required();
 
 export default function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const { register: registerUser } = useAuth();
   const navigate = useNavigate();
+  const [error, setError] = useState('');
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: yupResolver(schema),
+  });
 
-    if (password !== passwordConfirm) {
-      setError('Пароли не совпадают');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Пароль должен быть не менее 6 символов');
-      return;
-    }
-
-    setLoading(true);
-
+  const onSubmit = async (data) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/register/`, {
-        email,
-        password,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      });
-
-      setSuccess('Регистрация успешна! Переходим к входу...');
-      setTimeout(() => navigate('/login'), 2000);
+      setError('');
+      await registerUser(data.name, data.email, data.password);
+      navigate('/files');
     } catch (err) {
-      console.error('Registration error:', err);
-      
-      // Обработка ошибок валидации сервера
-      const data = err.response?.data;
-      
-      if (!err.response) {
-        // Ошибка сети или сервер недоступен
-        setError('Ошибка подключения. Убедитесь, что сервер запущен на http://localhost:8000');
-      } else if (data?.email) {
-        setError(Array.isArray(data.email) ? data.email[0] : data.email);
-      } else if (data?.password) {
-        setError(Array.isArray(data.password) ? data.password[0] : data.password);
-      } else if (data?.error) {
-        setError(data.error);
-      } else if (data && Object.keys(data).length > 0) {
-        // Если есть другие поля с ошибками
-        const firstError = Object.values(data)[0];
-        setError(Array.isArray(firstError) ? firstError[0] : firstError);
-      } else {
-        setError('Ошибка при регистрации. Попробуйте снова.');
-      }
-    } finally {
-      setLoading(false);
+      setError(
+        err.response?.data?.error || err.response?.data?.message || 'Ошибка при регистрации'
+      );
     }
   };
 
   return (
     <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '80vh',
-        }}
-      >
-        <Paper elevation={3} sx={{ padding: 4, width: '100%' }}>
-          <Typography variant="h4" gutterBottom align="center" sx={{ mb: 3 }}>
-            Регистрация в EP Files
-          </Typography>
+      <Paper sx={{ p: 4, mt: 8 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Регистрация
+        </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-          <Box component="form" onSubmit={handleRegister}>
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              margin="normal"
-              required
-              disabled={loading}
-            />
-            <TextField
-              fullWidth
-              label="Пароль"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              disabled={loading}
-            />
-            <TextField
-              fullWidth
-              label="Подтвердите пароль"
-              type="password"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-              margin="normal"
-              required
-              disabled={loading}
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Зарегистрироваться'}
-            </Button>
-          </Box>
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <TextField
+            fullWidth
+            label="Имя"
+            margin="normal"
+            autoComplete="name"
+            {...register('name')}
+            error={!!errors.name}
+            helperText={errors.name?.message}
+          />
 
-          <Typography align="center" sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            margin="normal"
+            autoComplete="email"
+            {...register('email')}
+            error={!!errors.email}
+            helperText={errors.email?.message}
+          />
+
+          <TextField
+            fullWidth
+            label="Пароль"
+            type="password"
+            margin="normal"
+            autoComplete="new-password"
+            {...register('password')}
+            error={!!errors.password}
+            helperText={errors.password?.message}
+          />
+
+          <TextField
+            fullWidth
+            label="Подтвердите пароль"
+            type="password"
+            margin="normal"
+            autoComplete="new-password"
+            {...register('confirmPassword')}
+            error={!!errors.confirmPassword}
+            helperText={errors.confirmPassword?.message}
+          />
+
+          <Button
+            fullWidth
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={isSubmitting}
+            sx={{ mt: 3, mb: 2 }}
+          >
+            {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
+          </Button>
+
+          <Typography align="center" color="text.secondary">
             Уже есть аккаунт?{' '}
-            <Button
-              color="primary"
-              onClick={() => navigate('/login')}
-              sx={{ textTransform: 'none' }}
-            >
-              Войдите
-            </Button>
+            <Link to="/login" style={{ textDecoration: 'none' }}>
+              Войти
+            </Link>
           </Typography>
-        </Paper>
-      </Box>
+        </Box>
+      </Paper>
     </Container>
   );
 }

@@ -1,0 +1,10 @@
+[run]
+source =
+    ep_files_app
+    main
+
+omit =
+    */migrations/*
+    */tests.py
+    tests/*
+    manage.py
