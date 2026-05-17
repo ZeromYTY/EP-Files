@@ -17,6 +17,16 @@ from .api.permission_views import (
     my_permissions, accessible_files, accessible_folders,
 )
 
+from .api.public_link_views import (
+    enable_file_public_link,
+    disable_file_public_link,
+    public_download_file,
+    enable_folder_public_link,
+    disable_folder_public_link,
+    public_folder_detail,
+    public_folder_file_download,
+)
+
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),
@@ -61,4 +71,17 @@ urlpatterns = [
     path("admin/users/<int:user_id>/block/", admin_block_user, name="admin_block_user"),
     path("admin/users/<int:user_id>/unblock/", admin_unblock_user, name="admin_unblock_user"),
     path("admin/users/<int:user_id>/delete/", admin_delete_user, name="admin_delete_user"),
+    path("files/<int:file_id>/public-link/", enable_file_public_link, name="enable_file_public_link"),
+    path("files/<int:file_id>/public-link/disable/", disable_file_public_link, name="disable_file_public_link"),
+
+    path("folders/<int:folder_id>/public-link/", enable_folder_public_link, name="enable_folder_public_link"),
+    path("folders/<int:folder_id>/public-link/disable/", disable_folder_public_link, name="disable_folder_public_link"),
+
+    path("public/files/<str:token>/", public_download_file, name="public_download_file"),
+    path("public/folders/<str:token>/", public_folder_detail, name="public_folder_detail"),
+    path(
+        "public/folders/<str:token>/files/<int:file_id>/",
+        public_folder_file_download,
+        name="public_folder_file_download",
+),
 ]
