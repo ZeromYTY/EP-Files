@@ -12,11 +12,28 @@ logger = logging.getLogger(__name__)
 
 
 class PermissionCheckMiddleware:
+    """Middleware для сквозной автоматической проверки прав доступа к ресурсам файловой системы.
+
+    Перехватывает входящие HTTP-запросы на этапе их обработки Django, сопоставляет запрошенные
+    URL-адреса с регулярными выражениями защищаемых ресурсов (файлов и папок) и валидирует
+    права аутентифицированного пользователя через ``PermissionService``. В случае отсутствия
+    необходимых привилегий прерывает дальнейшее выполнение запроса и мгновенно возвращает
+    структурированный ответ с кодом 403 Forbidden.
+
+    Attributes:
+        FILE_PATTERNS (list): Набор кортежей из регулярного выражения URL-адреса файла
+            и требуемого уровня доступа (``'read'`` или ``'write'``).
+        FOLDER_PATTERNS (list): Набор кортежей из регулярного выражения URL-адреса папки
+            и требуемого уровня доступа (``'read'`` или ``'write'``).
+
+    Methods:
+        __init__(get_response): Сохраняет ссылку на следующий компонент в конвейере обработки.
+        __call__(request): Точка входа middleware, управляющая жизненным циклом запроса.
+        _check_permissions(request): Маршрутизирует запрос на основе URL-шаблонов.
+        _check_file_permission(...): Выполняет проверку прав доступа на уровне файла.
+        _check_folder_permission(...): Выполняет проверку прав доступа на уровне папки.
     """
-    Middleware для автоматической проверки прав доступа к файлам и папкам
-    """
-    
-    # Паттерны URL, требующие проверки прав
+
     FILE_PATTERNS = [
         (r'^/api/files/(\d+)/download/$', 'read'),
         (r'^/api/files/(\d+)/$', 'write'),  # DELETE
@@ -31,10 +48,28 @@ class PermissionCheckMiddleware:
     ]
     
     def __init__(self, get_response):
+        """Инициализирует слой промежуточного ПО (middleware).
+
+                Args:
+                    get_response (callable): Следующий обработчик (middleware или view)
+                        в цепочке выполнения Django.
+                """
         self.get_response = get_response
     
     def __call__(self, request):
-        # Проверяем права доступа перед обработкой запроса
+        """Основной метод обработки входящего HTTP-запроса.
+
+                Проверяет, авторизован ли пользователь. Если да, запускает логику верификации
+                прав. При обнаружении нарушений безопасности возвращает объект ошибки.
+                При успешной проверке передает управление дальше по цепочке.
+
+                Args:
+                    request (HttpRequest): Объект текущего веб-запроса Django.
+
+                Returns:
+                    HttpResponse: Объект ``JsonResponse`` со статусом 403 при блокировке,
+                    либо стандартный ответ ``HttpResponse`` от нижележащих слоев системы.
+                """
         if request.user and request.user.is_authenticated:
             permission_check = self._check_permissions(request)
             if permission_check is not None:
@@ -44,16 +79,23 @@ class PermissionCheckMiddleware:
         return response
     
     def _check_permissions(self, request):
-        """
-        Проверить права доступа для текущего запроса
-        
+        """Идентифицирует запрашиваемый ресурс по URL-шаблонам и проверяет права на него.
+
+        Итерируется по спискам регулярных выражений ``FILE_PATTERNS`` и ``FOLDER_PATTERNS``.
+        Если путь совпадает с шаблоном, извлекает ID ресурса и передает его в
+        соответствующий специализированный метод проверки.
+
+        Args:
+            request (HttpRequest): Объект текущего веб-запроса Django.
+
         Returns:
-            JsonResponse с ошибкой если доступ запрещен, иначе None
+            Optional[JsonResponse]: Объект ``JsonResponse`` (403 Forbidden), если
+            доступ к ресурсу строго запрещен, или ``None``, если проверка пройдена
+            или URL не подлежит валидации.
         """
         path = request.path
         method = request.method
-        
-        # Проверяем файлы
+
         for pattern, required_permission in self.FILE_PATTERNS:
             match = re.match(pattern, path)
             if match:
@@ -64,8 +106,7 @@ class PermissionCheckMiddleware:
                     required_permission,
                     method
                 )
-        
-        # Проверяем папки
+
         for pattern, required_permission in self.FOLDER_PATTERNS:
             match = re.match(pattern, path)
             if match:
@@ -79,23 +120,34 @@ class PermissionCheckMiddleware:
         return None
     
     def _check_file_permission(self, user, file_id, required_permission, method):
-        """
-        Проверить права доступа к файлу
+        """Осуществляет детальную верификацию прав доступа пользователя к конкретному файлу.
+
+        Извлекает объект файла из БД. Если файл не найден, делегирует обработку слою View
+        (возвращая None). Если метод запроса эквивалентен ``DELETE``, уровень доступа
+        принудительно повышается до ``'write'``. При отказе в доступе фиксирует инцидент
+        в логах и формирует JSON-ответ.
+
+        Args:
+            user (User): Экземпляр модели авторизованного пользователя.
+            file_id (int): Идентификатор проверяемого файла.
+            required_permission (str): Запрашиваемый тип операции (``'read'`` или ``'write'``).
+            method (str): HTTP-метод текущего запроса (например, 'GET', 'DELETE').
+
+        Returns:
+            Optional[JsonResponse]: ``JsonResponse`` с описанием ошибки и кодом 403,
+            если у пользователя нет прав на файл, иначе ``None``.
         """
         try:
             file = File.objects.get(id=file_id)
         except File.DoesNotExist:
-            # Файл не найден - пусть view обработает
             return None
-        
-        # Определяем требуемые права на основе метода
+
         if method == 'DELETE':
             required_permission = 'write'
-        
-        # Проверяем права
+
         if required_permission == 'read':
             has_permission = permission_service.can_read_file(user, file)
-        else:  # write
+        else:
             has_permission = permission_service.can_write_file(user, file)
         
         if not has_permission:
@@ -116,19 +168,30 @@ class PermissionCheckMiddleware:
         return None
     
     def _check_folder_permission(self, user, folder_id, required_permission):
-        """
-        Проверить права доступа к папке
+        """Осуществляет детальную верификацию прав доступа пользователя к конкретной папке.
+
+        Извлекает объект директории из БД. Если она отсутствует, возвращает ``None``
+        для последующей обработки стандартными механизмами Django (404 Not Found).
+        При нехватке прав формирует предупреждение (warning) в системе логирования
+        и блокирует запрос.
+
+        Args:
+            user (User): Экземпляр модели авторизованного пользователя.
+            folder_id (int): Идентификатор проверяемой папки.
+            required_permission (str): Запрашиваемый тип операции (``'read'`` или ``'write'``).
+
+        Returns:
+            Optional[JsonResponse]: ``JsonResponse`` с описанием ошибки и кодом 403,
+            если у пользователя нет прав на папку, иначе ``None``.
         """
         try:
             folder = Folder.objects.get(id=folder_id)
         except Folder.DoesNotExist:
-            # Папка не найдена - пусть view обработает
             return None
-        
-        # Проверяем права
+
         if required_permission == 'read':
             has_permission = permission_service.can_read_folder(user, folder)
-        else:  # write
+        else:
             has_permission = permission_service.can_write_folder(user, folder)
         
         if not has_permission:

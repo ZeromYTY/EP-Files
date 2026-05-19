@@ -95,7 +95,6 @@ export default function HomePage() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-      {/* Header */}
       <Box
         sx={{
           backgroundColor: '#fff',
@@ -146,9 +145,7 @@ export default function HomePage() {
         </Container>
       </Box>
 
-      {/* Main Content */}
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        {/* Hero Section */}
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Typography variant="h2" sx={{ fontWeight: 700, mb: 2, color: '#202124' }}>
             {user ? `Добро пожаловать, ${user.name || 'Пользователь'}!` : 'Безопасное хранилище файлов'}
@@ -170,7 +167,6 @@ export default function HomePage() {
           )}
         </Box>
 
-        {/* Stats for logged in users */}
         {user && storageStats && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
             <Grid container spacing={3} sx={{ maxWidth: 1200 }}>
@@ -259,8 +255,6 @@ export default function HomePage() {
             </Grid>
           </Box>
         )}
-
-        {/* Recent Files for logged in users */}
         {user && recentFiles.length > 0 && (
           <Paper sx={{ p: 3, mb: 6 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -298,10 +292,6 @@ export default function HomePage() {
             </List>
           </Paper>
         )}
-
-
-
-        {/* CTA Section */}
         {!user && (
           <Paper
             sx={{
@@ -366,8 +356,6 @@ export default function HomePage() {
           </Paper>
         )}
       </Container>
-
-      {/* Footer */}
       <Box sx={{ backgroundColor: '#202124', color: '#fff', py: 4, mt: 6 }}>
         <Container maxWidth="lg">
           <Grid container spacing={4}>

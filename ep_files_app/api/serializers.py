@@ -13,10 +13,16 @@ from ep_files_app.models.permissions import Permission
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Сериализатор для чтения данных пользователя.
+    """Сериализатор для чтения общедоступных данных и профиля пользователя.
 
-    Используется в ответах API, где нужно отобразить профиль.
-    Не включает чувствительные поля, такие как ``password``.
+    Используется в эндпоинтах вывода списков или детальной информации о пользователях
+    внутри ответов API. Исключает из сериализации конфиденциальные данные, такие как
+    хэшированные пароли, внутренние токены сессий и административные метки.
+
+    Attributes:
+        Meta.model (User): Связанная модель пользователя Django.
+        Meta.fields (list[str]): Набор полей, сериализуемых для передачи клиенту:
+            ``['id', 'name', 'email', 'is_staff', 'is_superuser', 'is_active', 'date_joined']``.
     """
 
     class Meta:
@@ -25,15 +31,19 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Сериализатор для регистрации нового пользователя.
+    """Сериализатор для создания (регистрации) новых учетных записей пользователей.
 
-    Проверяет уникальность ``email``, минимальную длину пароля
-    (6 символов) и хэширует пароль перед сохранением.
+    Обеспечивает сквозную валидацию входящих параметров: проверяет уникальность
+    адреса электронной почты в рамках системы, осуществляет контроль минимальной
+    длины пароля и гарантирует безопасное хэширование перед фиксацией записи в БД.
 
-    Поля:
-        name (str): Отображаемое имя, необязательное.
-        email (str): Должен быть уникальным среди всех пользователей.
-        password (str): Только запись; минимум 6 символов.
+    Args:
+        name (CharField): Необязательное имя пользователя, доступно только для записи.
+        password (CharField): Пароль пользователя, доступен только для записи (не выводится в GET).
+
+    Attributes:
+        Meta.model (User): Связанная модель пользователя Django.
+        Meta.fields (list[str]): Поля, принимаемые на вход: ``['name', 'email', 'password']``.
     """
 
     name = serializers.CharField(write_only=True, required=False)
@@ -44,45 +54,69 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ["name", "email", "password"]
 
     def validate_email(self, value):
-        """Отклонить дублирующийся email-адрес.
+        """Проверяет уникальность адреса электронной почты среди зарегистрированных пользователей.
 
-        Аргументы:
-            value (str): Значение email из запроса.
+        Выполняет прямой запрос к базе данных :class:`User` для поиска дубликатов.
+        Если пользователь с переданным email уже существует, генерирует ошибку валидации.
 
-        Возвращает:
-            str: Прошедший валидацию email.
+        Args:
+            value (str): Проверяемый адрес электронной почты, переданный клиентом.
 
-        Исключения:
-            serializers.ValidationError: Если email уже зарегистрирован.
+        Returns:
+            str: Нормализованный и проверенный адрес электронной почты.
+
+        Raises:
+            ValidationError: Если в системе уже зарегистрирован пользователь с аналогичным email.
+
+        Examples:
+            >>> serializer = UserRegistrationSerializer()
+            >>> serializer.validate_email("existing_user@example.com")
+            Traceback (most recent call last):
+                ...
+            ValidationError: ['Пользователь с такой почтой уже есть.']
         """
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Пользователь с такой почтой уже есть.")
         return value
 
     def validate_password(self, value):
-        """Проверить минимальную длину пароля.
+        """Проверяет соответствие пароля базовым критериям безопасности по длине.
 
-        Аргументы:
-            value (str): Значение пароля из запроса.
+        Гарантирует, что переданный пароль содержит не менее 6 символов. Не выполняет
+        хэширование на данном этапе (хэширование делегировано методу ``create``).
 
-        Возвращает:
-            str: Прошедший валидацию пароль.
+        Args:
+            value (str): Необработанная строка пароля из тела запроса.
 
-        Исключения:
-            serializers.ValidationError: Если пароль короче 6 символов.
+        Returns:
+            str: Проверенная строка пароля для последующего сохранения.
+
+        Raises:
+            ValidationError: Если длина строки строго меньше 6 символов.
+
+        Examples:
+            >>> serializer = UserRegistrationSerializer()
+            >>> serializer.validate_password("123")
+            Traceback (most recent call last):
+                ...
+            ValidationError: ['Пароль должен содержать минимум 6 символов.']
         """
         if len(value) < 6:
             raise serializers.ValidationError("Пароль должен содержать минимум 6 символов.")
         return value
 
     def create(self, validated_data):
-        """Создать и сохранить нового пользователя с хэшированным паролем.
+        """Инициализирует и сохраняет объект нового пользователя с хэшированием пароля.
 
-        Аргументы:
-            validated_data (dict): Прошедшие валидацию поля из запроса.
+        Извлекает поля ``name`` и ``password`` из очищенных данных. Создает экземпляр
+        модели :class:`User` и использует встроенный метод ``set_password()`` для
+        преобразования сырого пароля в безопасный криптографический хэш (PBKDF2/Argon2).
 
-        Возвращает:
-            User: Созданный экземпляр пользователя.
+        Args:
+            validated_data (dict): Прошедший валидацию словарь параметров (email, password, name).
+
+        Returns:
+            User: Сохраненный в базе данных экземпляр созданного пользователя.
         """
         name = validated_data.pop("name", "")
         password = validated_data.pop("password")
@@ -93,14 +127,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class FileSerializer(serializers.ModelSerializer):
-    """Сериализатор для чтения данных файла.
+    """Сериализатор для чтения метаданных и параметров объектов файлов.
 
-    Добавляет email владельца и вычисляемый URL для скачивания
-    к стандартным полям метаданных файла.
+    Обогащает стандартную модельную структуру вычисляемыми данными: подтягивает
+    электронную почту владельца из связанной сущности и динамически генерирует
+    внутренний URL-адрес для инициализации процедуры скачивания файла.
 
-    Поля:
-        owner_email (str): Email владельца файла (только чтение).
-        download_url (str): Относительный URL для скачивания (вычисляемое).
+    Args:
+        owner_email (EmailField): Электронный адрес владельца. Доступен только для чтения.
+        download_url (SerializerMethodField): Вычисляемая ссылка на скачивание файла.
+
+    Attributes:
+        Meta.model (File): Связанная модель файла Django.
+        Meta.fields (list[str]): Набор выводимых полей:
+            ``['id', 'name', 'size', 'date', 'owner_email', 'download_url', 'folder']``.
     """
 
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
@@ -111,20 +151,44 @@ class FileSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "size", "date", "owner_email", "download_url", "folder"]
 
     def get_download_url(self, obj):
-        """Сформировать URL для скачивания файла.
+        """Формирует относительный путь API для скачивания бинарного содержимого файла.
 
-        Аргументы:
-            obj (File): Экземпляр файла, который сериализуется.
+        Использует первичный ключ (ID) текущего сериализуемого объекта файла
+        для сборки роута скачивания.
 
-        Возвращает:
-            str: Относительный путь, например ``/api/download/42/``.
+        Args:
+            obj (File): Экземпляр обрабатываемой в данный момент модели файла.
+
+        Returns:
+            str: Относительный URI вида ``/api/download/<file_id>/``.
+
+        Examples:
+            >>> class MockFile: id = 105
+            >>> serializer = FileSerializer()
+            >>> serializer.get_download_url(MockFile())
+            '/api/download/105/'
         """
         return f"/api/download/{obj.id}/"
 
 
 
 class FileHistorySerializer(serializers.ModelSerializer):
-    """Сериализатор для истории файлов"""
+    """Сериализатор для вывода записей аудита и истории изменений файлов.
+
+    Предназначен исключительно для чтения (Read-Only). Агрегирует информацию
+    о действиях пользователей или системы над файловыми объектами, включая IP-адреса,
+    типы событий с их человекочитаемым описанием и фиксацию старых/новых значений полей.
+
+    Args:
+        user_name (SerializerMethodField): Имя или email исполнителя действия.
+        user_email (EmailField): Email исполнителя из связанной модели (только чтение).
+        event_display (CharField): Текстовое описание произошедшего события.
+        event_type_display (CharField): Человекочитаемое представление типа события.
+
+    Attributes:
+        Meta.model (FileHistory): Модель, фиксирующая историю операций над файлами.
+        Meta.read_only_fields (list[str]): Все поля заблокированы для изменения извне.
+    """
     user_name = serializers.SerializerMethodField()
     user_email = serializers.EmailField(source='user.email', read_only=True)
     event_display = serializers.CharField(read_only=True)
@@ -151,7 +215,18 @@ class FileHistorySerializer(serializers.ModelSerializer):
         read_only_fields = fields
     
     def get_user_name(self, obj):
-        """Получить имя пользователя"""
+        """Определяет текстовое имя пользователя, инициировавшего системное событие.
+
+        Если событие привязано к конкретному аккаунту, возвращает его заполненное
+        имя (name) или email. Если событие создано автоматическим процессом
+        без участия пользователя, возвращает строковую константу.
+
+        Args:
+            obj (FileHistory): Экземпляр модели записи истории.
+
+        Returns:
+            str: Имя пользователя, его email или строка "Система".
+        """
         if obj.user:
             return obj.user.name or obj.user.email
         return 'Система'
@@ -159,7 +234,25 @@ class FileHistorySerializer(serializers.ModelSerializer):
 
 
 class PermissionSerializer(serializers.ModelSerializer):
-    """Сериализатор для прав доступа"""
+    """Сериализатор для управления и просмотра прав доступа к ресурсам.
+
+    Определяет уровни доступа пользователей (чтение/запись/управление) к объектам
+    файлов или папок. Подтягивает связанные метаданные выдавшего права сотрудника,
+    наименования целевых ресурсов и обрабатывает флаги наследования разрешений.
+
+    Args:
+        user_email (EmailField): Email пользователя, которому выдаются права.
+        user_name (CharField): Имя пользователя, получающего права доступа.
+        granted_by_email (EmailField): Email администратора/владельца, давшего доступ.
+        granted_by_name (CharField): Имя сотрудника, выдавшего права доступа.
+        resource_type (CharField): Строковое определение типа ресурса (файл/папка).
+        resource_name (SerializerMethodField): Название целевого объекта доступа.
+        permission_type_display (CharField): Понятный текст уровня доступа.
+
+    Attributes:
+        Meta.model (Permission): Модель матрицы прав доступа.
+        Meta.read_only_fields (list[str]): Полный список полей защищен от записи через этот класс.
+    """
     user_email = serializers.EmailField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.name', read_only=True)
     granted_by_email = serializers.EmailField(source='granted_by.email', read_only=True)
@@ -191,7 +284,18 @@ class PermissionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
     
     def get_resource_name(self, obj):
-        """Получить имя ресурса"""
+        """Извлекает название целевого объекта (файла или папки), на который выдано право.
+
+        Анализирует внешние ключи связи (Foreign Keys). Если право выдано на файл,
+        будет возвращено имя файла, если на папку — имя папки. При отсутствии связей
+        возвращает пустое значение.
+
+        Args:
+            obj (Permission): Экземпляр проверяемой модели прав доступа.
+
+        Returns:
+            str: Имя файла или папки, либо ``None`` при отсутствии привязки.
+        """
         if obj.file:
             return obj.file.name
         elif obj.folder:
