@@ -121,7 +121,7 @@ export default function FileManager() {
       const [foldersRes, filesRes, favsRes] = await Promise.all([
         api.get('/folders/'),
         api.get('/files/'),
-        api.get('favorites/all/')
+        api.get('/favorites/all/')
       ]);
 
       setFavoriteIds({

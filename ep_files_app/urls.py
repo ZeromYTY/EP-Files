@@ -11,6 +11,7 @@ from .api.views import (
     admin_list_users, admin_stats, admin_block_user,
     admin_unblock_user, admin_delete_user,
     save_text_file, read_text_file, toggle_favorite,
+    download_folder, get_user_favorites, get_files,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -35,9 +36,10 @@ urlpatterns = [
     path("test-auth/", protected_test_view, name="test_auth"),
 
     path("upload/", upload_file, name="file_upload"),
-    path("files/", list_files, name="list_files"),
+    path("files/", get_files, name="get_files"),
     path("files/accessible/", accessible_files, name="accessible_files"),
-    path("files/<int:file_id>/download/", download_file, name="download_file"),
+    path("download/<int:file_id>/", download_file, name="download_file"),
+    path("files/<int:file_id>/download/", download_file, name="download_file_alt"),
     path("files/<int:file_id>/", delete_file, name="delete_file"),
     path("files/<int:file_id>/detail/", file_detail, name="file_detail"),
     path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
@@ -52,6 +54,7 @@ urlpatterns = [
     path("folders/<int:folder_id>/rename/", folder_rename, name="folder_rename"),
     path("folders/<int:folder_id>/move/", folder_move, name="folder_move"),
     path("folders/<int:folder_id>/delete/", folder_delete, name="folder_delete"),
+    path("folders/<int:folder_id>/download/", download_folder, name="download_folder"),
 
     path("files/<int:file_id>/history/", file_history, name="file_history"),
     path("history/", user_activity_history, name="user_activity_history"),
@@ -66,6 +69,9 @@ urlpatterns = [
     path("folders/<int:folder_id>/permissions/", list_folder_permissions, name="list_folder_permissions"),
 
     path("permissions/my/", my_permissions, name="my_permissions"),
+
+    path("favorites/all/", get_user_favorites, name="get_user_favorites"),
+    path("favorites/<int:item_id>/toggle/", toggle_favorite, name="toggle_favorite"),
 
     path("admin/users/", admin_list_users, name="admin_list_users"),
     path("admin/stats/", admin_stats, name="admin_stats"),

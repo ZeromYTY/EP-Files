@@ -53,7 +53,7 @@ export default function Files() {
     try {
       const [statsRes, favsRes] = await Promise.all([
         api.get('/storage/stats/'),
-        api.get('favorites/all/')
+        api.get('/favorites/all/')
       ]);
       setStorageStats(statsRes.data);
       setFavorites(favsRes.data.items || []);
