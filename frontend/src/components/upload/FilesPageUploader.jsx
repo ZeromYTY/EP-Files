@@ -1,77 +1,135 @@
-import { useDropzone } from 'react-dropzone';
-import { Box, Typography, LinearProgress, Paper } from '@mui/material';
+import { useRef, useState } from 'react';
+import {
+  Box,
+  Typography,
+  LinearProgress,
+  Paper,
+} from '@mui/material';
 import { CloudUpload } from '@mui/icons-material';
 
-export default function FilesPageUploader({ onFileDropped, isUploading, uploadProgress }) {
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      if (acceptedFiles && acceptedFiles.length > 0) {
-        onFileDropped(acceptedFiles[0]);
-      }
-    },
-    disabled: isUploading,
-    maxFiles: 1,
-  });
+/**
+ * Drag&drop-зона для быстрой загрузки файла.
+ */
+export default function FilesPageUploader({
+  onFileDropped,
+  isUploading = false,
+  uploadProgress = 0,
+}) {
+  const fileInputRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleOpenFileDialog = () => {
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleDragEnter = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!isUploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!isUploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+
+    if (isUploading) return;
+
+    const droppedFile = event.dataTransfer.files?.[0];
+
+    if (droppedFile && onFileDropped) {
+      onFileDropped(droppedFile);
+    }
+  };
+
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+
+    if (selectedFile && onFileDropped) {
+      onFileDropped(selectedFile);
+    }
+
+    event.target.value = '';
+  };
 
   return (
-    <Box sx={{ mb: 4 }}>
-      <Paper
-        {...getRootProps()}
-        elevation={0}
-        sx={{
-          p: 4,
-          borderRadius: '12px',
-          border: '2px dashed',
-          borderColor: isDragActive ? '#2196F3' : '#e0e0e0',
-          backgroundColor: isDragActive ? '#e3f2fd' : '#fafafa',
-          cursor: isUploading ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
-          textAlign: 'center',
-          '&:hover': {
-            borderColor: '#2196F3',
-            backgroundColor: '#f5f5f5',
-          },
-        }}
-      >
-        <input {...getInputProps()} />
+    <Paper
+      onClick={handleOpenFileDialog}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      sx={{
+        p: 3,
+        mb: 3,
+        textAlign: 'center',
+        cursor: isUploading ? 'default' : 'pointer',
+        border: '2px dashed',
+        borderColor: isDragging ? '#2196F3' : '#90caf9',
+        backgroundColor: isDragging ? 'rgba(33, 150, 243, 0.08)' : 'rgba(33, 150, 243, 0.03)',
+        transition: 'all 0.2s ease',
+        '&:hover': {
+          borderColor: isUploading ? '#90caf9' : '#2196F3',
+          backgroundColor: isUploading
+            ? 'rgba(33, 150, 243, 0.03)'
+            : 'rgba(33, 150, 243, 0.08)',
+        },
+      }}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
 
-        <CloudUpload
-          sx={{
-            fontSize: 48,
-            color: isDragActive ? '#2196F3' : '#9e9e9e',
-            mb: 1,
-          }}
-        />
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+        <CloudUpload sx={{ fontSize: 44, color: '#2196F3' }} />
 
-        {isDragActive ? (
-          <Typography variant="h6" sx={{ color: '#2196F3', fontWeight: 600 }}>
-            Отпустите файл для загрузки...
-          </Typography>
-        ) : (
-          <>
-            <Typography variant="body1" sx={{ fontWeight: 600, color: '#202124', mb: 0.5 }}>
-              Перетащите файл сюда для быстрой загрузки
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+          {isUploading ? 'Загрузка файла...' : 'Перетащите файл сюда'}
+        </Typography>
+
+        <Typography variant="body2" color="text.secondary">
+          или нажмите на область, чтобы выбрать файл
+        </Typography>
+
+        {isUploading && (
+          <Box sx={{ width: '100%', mt: 2 }}>
+            <LinearProgress
+              variant="determinate"
+              value={uploadProgress}
+              sx={{ height: 8, borderRadius: 4 }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              {uploadProgress}%
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              или нажмите для выбора на компьютере (макс. 100 MB)
-            </Typography>
-          </>
-        )}
-      </Paper>
-
-      {isUploading && (
-        <Paper sx={{ p: 2, mt: 2, borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">Загрузка файла на сервер...</Typography>
-            <Typography variant="body2" fontWeight="bold" color="primary">{uploadProgress}%</Typography>
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={uploadProgress}
-            sx={{ height: 6, borderRadius: 3 }}
-          />
-        </Paper>
-      )}
-    </Box>
+        )}
+      </Box>
+    </Paper>
   );
 }
