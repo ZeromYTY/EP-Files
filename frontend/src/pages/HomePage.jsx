@@ -240,7 +240,7 @@ export default function HomePage() {
                       variant="contained"
                       fullWidth
                       component={Link}
-                      to="/files"
+                      to="/file-manager"
                       sx={{
                         backgroundColor: 'rgba(255,255,255,0.2)',
                         color: '#fff',
@@ -261,7 +261,7 @@ export default function HomePage() {
               <Typography variant="h5" sx={{ fontWeight: 600 }}>
                 Недавние файлы
               </Typography>
-              <Button component={Link} to="/files" endIcon={<Dashboard />}>
+              <Button component={Link} to="/file-manager" endIcon={<Dashboard />}>
                 Все файлы
               </Button>
             </Box>
@@ -273,7 +273,7 @@ export default function HomePage() {
                       '&:hover': { backgroundColor: '#f5f5f5', cursor: 'pointer' },
                       borderRadius: 1,
                     }}
-                    onClick={() => navigate('/files')}
+                    onClick={() => navigate('/file-manager')}
                   >
                     <ListItemAvatar>
                       <Avatar sx={{ bgcolor: '#2196F3' }}>

@@ -1,3 +1,5 @@
+"""Logging helpers for EP Files."""
+
 import logging
 
 

@@ -36,7 +36,8 @@ class PermissionCheckMiddleware:
 
     FILE_PATTERNS = [
         (r'^/api/files/(\d+)/download/$', 'read'),
-        (r'^/api/files/(\d+)/$', 'write'),  # DELETE
+        (r'^/api/files/(\d+)/$', 'write'),  # DELETE/PATCH rename
+        (r'^/api/files/(\d+)/move/$', 'write'),
         (r'^/api/files/(\d+)/detail/$', 'read'),
         (r'^/api/files/(\d+)/history/$', 'read'),
     ]
@@ -55,7 +56,7 @@ class PermissionCheckMiddleware:
                         в цепочке выполнения Django.
                 """
         self.get_response = get_response
-    
+
     def __call__(self, request):
         """Основной метод обработки входящего HTTP-запроса.
 

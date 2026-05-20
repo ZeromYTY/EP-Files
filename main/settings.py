@@ -168,24 +168,31 @@ SECURE_HSTS_PRELOAD = False
 # --- LOGGING ---
 os.makedirs(BASE_DIR / 'logs', exist_ok=True)
 
+DEFAULT_LOG_LEVEL = 'DEBUG' if DEBUG else 'INFO'
+LOG_LEVEL = os.environ.get('LOG_LEVEL', DEFAULT_LOG_LEVEL).upper()
+
+if LOG_LEVEL not in {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}:
+    LOG_LEVEL = DEFAULT_LOG_LEVEL
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    'verbose': {
+        '()': 'ep_files_app.logger.UserAwareFormatter',
+        'format': '{levelname} {asctime} {module} user={user} {message}',
+        'style': '{',
         },
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': LOG_LEVEL,
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs' / 'app.log',
             'formatter': 'verbose',
         },
         'console': {
-            'level': 'INFO',
+            'level': LOG_LEVEL,
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
@@ -193,8 +200,14 @@ LOGGING = {
     'loggers': {
         'ep_files_app': {
             'handlers': ['file', 'console'],
-            'level': 'INFO',
+            'level': LOG_LEVEL,
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },
 }
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
