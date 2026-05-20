@@ -54,6 +54,7 @@ import {
 } from '@mui/icons-material';
 
 import FileList from '../components/file-manager/FileList';
+import MoveFolderDialog from '../components/file-manager/MoveFolderDialog';
 
 export default function FileManager() {
   const { user, logout } = useAuth();
@@ -75,6 +76,7 @@ export default function FileManager() {
   const [fileToDelete, setFileToDelete] = useState(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -83,6 +85,30 @@ export default function FileManager() {
   const [tasks, setTasks] = useState([]);
   const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
 
+  const getApiErrorMessage = (err, fallbackMessage = 'Произошла ошибка') => {
+  const serverMessage =
+    err.response?.data?.error ||
+    err.response?.data?.detail ||
+    err.response?.data?.message;
+
+  if (!serverMessage) {
+    return fallbackMessage;
+  }
+
+  const translations = {
+    'Access denied': 'Нет прав для выполнения операции',
+    'Folder not found': 'Папка не найдена',
+    'File not found': 'Файл не найден',
+    'Target folder not found': 'Папка назначения не найдена',
+    'Cannot move folder into its own subtree': 'Нельзя переместить папку внутрь самой себя',
+    'New name is required': 'Введите новое название',
+    'Folder name is required': 'Введите название папки',
+    'Upload failed': 'Не удалось загрузить файл',
+    'Download failed': 'Не удалось скачать файл',
+  };
+
+  return translations[serverMessage] || serverMessage;
+};
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -100,6 +126,7 @@ export default function FileManager() {
         setError('');
       } catch (err) {
         console.error('Ошибка при поиске:', err);
+        setError(getApiErrorMessage(err, 'Ошибка при поиске'));
       } finally {
         setLoading(false);
       }
@@ -371,7 +398,11 @@ export default function FileManager() {
       loadData();
       removeTaskWithTimer(taskId);
     } catch (err) {
-      updateTask(taskId, { title: 'Ошибка удаления', subText: 'Ошибка сервера', status: 'error' });
+      updateTask(taskId, {
+        title: 'Ошибка удаления',
+        subText: getApiErrorMessage(err, 'Не удалось удалить объект'),
+        status: 'error'
+      });
       removeTaskWithTimer(taskId);
       setSelectedItem(null);
       setFileToDelete(null);
@@ -386,7 +417,7 @@ export default function FileManager() {
       setCreateFolderOpen(false);
       loadData();
     } catch (err) {
-      setError('Ошибка создания папки');
+      setError(getApiErrorMessage(err, 'Ошибка создания папки'));
     }
   };
 
@@ -403,7 +434,7 @@ export default function FileManager() {
       setNewName('');
       loadData();
     } catch (err) {
-      setError('Ошибка переименования');
+      setError(getApiErrorMessage(err, 'Ошибка переименования'));
     }
   };
 
@@ -423,6 +454,17 @@ export default function FileManager() {
   const handleMenuOpen = (e, item, type) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setSelectedItem({ ...item, type }); };
   const handleMenuClose = () => setMenuAnchor(null);
   const handleRenameClick = () => { setNewName(selectedItem.name || ''); setRenameDialogOpen(true); handleMenuClose(); };
+
+  const handleMoveClick = () => {
+  if (!selectedItem || selectedItem.type !== 'folder') {
+    setError('Перемещать сейчас можно только папки');
+    handleMenuClose();
+    return;
+  }
+
+  setMoveDialogOpen(true);
+  handleMenuClose();
+};
 
   const sortedItems = [
     ...folders.map(f => ({ ...f, type: 'folder', is_favorite: favoriteIds.folders.includes(f.id) })),
@@ -591,6 +633,18 @@ export default function FileManager() {
         </DialogActions>
       </Dialog>
 
+      <MoveFolderDialog
+  open={moveDialogOpen}
+  folder={selectedItem?.type === 'folder' ? selectedItem : null}
+  currentFolderId={currentFolderId}
+  onClose={() => setMoveDialogOpen(false)}
+  onMoved={() => {
+    setSuccess('Папка перемещена');
+    setSelectedItem(null);
+    loadData();
+  }}
+/>
+
       {/* Единственный диалог подтверждения удаления */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpenOpen(false)}>
         <DialogTitle sx={{ fontWeight: 600 }}>Удалить объект?</DialogTitle>
@@ -606,11 +660,18 @@ export default function FileManager() {
       </Dialog>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleRenameClick}>
-          <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
-        </MenuItem>
+          <MenuItem onClick={handleRenameClick}>
+              <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
+                </MenuItem>
 
-        <MenuItem onClick={() => { alert(`⭐ Состояние избранного изменено для: ${selectedItem?.name}`); handleMenuClose(); }}>
+            {selectedItem?.type === 'folder' && (
+                <MenuItem onClick={handleMoveClick}>
+                <FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
+                Переместить
+                </MenuItem>
+            )}
+
+      <MenuItem onClick={() => { alert(`⭐ Состояние избранного изменено для: ${selectedItem?.name}`); handleMenuClose(); }}>
           <Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />
           {selectedItem?.isFavorite ? 'Убрать из избранного' : 'В избранное'}
         </MenuItem>
