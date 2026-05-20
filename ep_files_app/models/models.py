@@ -5,14 +5,42 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from PIL import Image
 
 from main import settings
 
+class UserManager(BaseUserManager):
+    """Manager for custom user model."""
 
+    def create_user(self, email, password=None, **extra_fields):
+        """Create and return a regular user."""
+        if not email:
+            raise ValueError("Email is required")
 
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+
+        if password:
+            user.set_password(password)
+
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        """Create and return a superuser."""
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True")
+
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True")
+
+        return self.create_user(email, password, **extra_fields)
 
 class User(models.Model):
     """Кастомная модель пользователя Django, использующая email в качестве уникального идентификатора.
@@ -51,6 +79,7 @@ class User(models.Model):
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
+    objects = UserManager()
 
     class Meta:
         """Meta options for User model."""
