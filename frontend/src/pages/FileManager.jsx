@@ -55,6 +55,7 @@ import {
 
 import FileList from '../components/file-manager/FileList';
 import MoveFolderDialog from '../components/file-manager/MoveFolderDialog';
+import TextFileEditorDialog from '../components/file-manager/TextFileEditorDialog';
 
 export default function FileManager() {
   const { user, logout } = useAuth();
@@ -69,6 +70,12 @@ export default function FileManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [textEditorOpen, setTextEditorOpen] = useState(false);
+  const [textEditorFile, setTextEditorFile] = useState(null);
+  const [textEditorContent, setTextEditorContent] = useState('');
+  const [textEditorLoading, setTextEditorLoading] = useState(false);
+  const [textEditorSaving, setTextEditorSaving] = useState(false);
+  const [textEditorError, setTextEditorError] = useState('');
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -371,6 +378,49 @@ export default function FileManager() {
     }
   };
 
+  const openTextFileEditor = async (file) => {
+    if (!file) return;
+    setTextEditorError('');
+    setTextEditorLoading(true);
+    try {
+      const response = await api.get(`/files/${file.id}/content/`);
+      setTextEditorFile(file);
+      setTextEditorContent(response.data.content || '');
+      setTextEditorOpen(true);
+    } catch (err) {
+      console.error('Ошибка при загрузке содержимого файла:', err);
+      setError(getApiErrorMessage(err, 'Не удалось загрузить содержимое файла'));
+    } finally {
+      setTextEditorLoading(false);
+    }
+  };
+
+  const closeTextEditor = () => {
+    setTextEditorOpen(false);
+    setTextEditorFile(null);
+    setTextEditorContent('');
+    setTextEditorError('');
+    setTextEditorLoading(false);
+    setTextEditorSaving(false);
+  };
+
+  const handleTextEditorSave = async () => {
+    if (!textEditorFile) return;
+    setTextEditorSaving(true);
+    setTextEditorError('');
+    try {
+      await api.post(`/files/${textEditorFile.id}/save/`, { content: textEditorContent });
+      setSuccess('Файл успешно сохранён');
+      closeTextEditor();
+      loadData();
+    } catch (err) {
+      console.error('Ошибка при сохранении файла:', err);
+      setTextEditorError(getApiErrorMessage(err, 'Не удалось сохранить файл'));
+    } finally {
+      setTextEditorSaving(false);
+    }
+  };
+
   const handleDelete = () => {
     if (!selectedItem) return;
     setFileToDelete({ id: selectedItem.id, name: selectedItem.name, type: selectedItem.type });
@@ -465,6 +515,22 @@ export default function FileManager() {
   setMoveDialogOpen(true);
   handleMenuClose();
 };
+
+  const isEditableTextFile = (file) => {
+    if (!file?.name || file.type !== 'file') return false;
+    const extension = file.name.split('.').pop().toLowerCase();
+    return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
+  };
+
+  const handleEditTextFileClick = () => {
+    if (!selectedItem || !isEditableTextFile(selectedItem)) {
+      setError('Этот файл нельзя редактировать');
+      handleMenuClose();
+      return;
+    }
+    handleMenuClose();
+    openTextFileEditor(selectedItem);
+  };
 
   const sortedItems = [
     ...folders.map(f => ({ ...f, type: 'folder', is_favorite: favoriteIds.folders.includes(f.id) })),
@@ -645,6 +711,18 @@ export default function FileManager() {
   }}
 />
 
+      <TextFileEditorDialog
+        open={textEditorOpen}
+        file={textEditorFile}
+        content={textEditorContent}
+        loading={textEditorLoading}
+        saving={textEditorSaving}
+        error={textEditorError}
+        onChange={setTextEditorContent}
+        onCancel={closeTextEditor}
+        onSave={handleTextEditorSave}
+      />
+
       {/* Единственный диалог подтверждения удаления */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpenOpen(false)}>
         <DialogTitle sx={{ fontWeight: 600 }}>Удалить объект?</DialogTitle>
@@ -660,14 +738,19 @@ export default function FileManager() {
       </Dialog>
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
-          <MenuItem onClick={handleRenameClick}>
-              <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
-                </MenuItem>
+          {selectedItem && isEditableTextFile(selectedItem) && (
+        <MenuItem onClick={handleEditTextFileClick}>
+          <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Редактировать
+        </MenuItem>
+      )}
+      <MenuItem onClick={handleRenameClick}>
+        <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
+      </MenuItem>
 
-          <MenuItem onClick={handleMoveClick}>
-    <       FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
-            Переместить
-          </MenuItem>
+      <MenuItem onClick={handleMoveClick}>
+        <FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
+        Переместить
+      </MenuItem>
 
       <MenuItem onClick={() => { alert(`⭐ Состояние избранного изменено для: ${selectedItem?.name}`); handleMenuClose(); }}>
           <Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />
