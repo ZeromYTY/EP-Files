@@ -145,10 +145,11 @@ export default function FileManager() {
     setLoading(true);
     setError('');
     try {
+      const ts = Date.now();
       const [foldersRes, filesRes, favsRes] = await Promise.all([
-        api.get('/folders/'),
-        api.get('/files/'),
-        api.get('/favorites/all/')
+        api.get(`folders/?_ts=${ts}`),
+        api.get(`files/?_ts=${ts}`),
+        api.get(`favorites/all/?_ts=${ts}`)
       ]);
 
       setFavoriteIds({
@@ -159,17 +160,18 @@ export default function FileManager() {
       const allFolders = foldersRes.data.folders || [];
       const allFiles = filesRes.data || [];
 
-      // Функция рекурсивного подсчета веса папки
+      const filesByFolderMap = {};
+      allFiles.forEach(file => {
+        const folderId = file.folder;
+        if (!filesByFolderMap[folderId]) filesByFolderMap[folderId] = [];
+        filesByFolderMap[folderId].push(file);
+      });
+
       const calculateFolderSize = (folderId) => {
-        // 1. Вес файлов в этой конкретной папке
-        const directFilesSize = allFiles
-          .filter(f => f.folder === folderId)
-          .reduce((sum, f) => sum + (Number(f.size) || 0), 0);
+        const directFiles = filesByFolderMap[folderId] || [];
+        const directFilesSize = directFiles.reduce((sum, f) => sum + (Number(f.size) || 0), 0);
 
-        // 2. Ищем подпапки
         const subFolders = allFolders.filter(f => f.parent_id === folderId);
-
-        // 3. Плюсуем вес всех подпапок рекурсивно
         const subFoldersSize = subFolders.reduce((sum, subFolder) => {
           return sum + calculateFolderSize(subFolder.id);
         }, 0);
@@ -177,17 +179,17 @@ export default function FileManager() {
         return directFilesSize + subFoldersSize;
       };
 
-      // Проходимся по папкам текущего уровня и рассчитываем их честный вес
       const foldersWithSizes = allFolders
         .filter(f => f.parent_id === currentFolderId)
         .map(folder => ({
           ...folder,
-          size: calculateFolderSize(folder.id) // Записываем вычисленный размер
+          size: calculateFolderSize(folder.id)
         }));
 
-      setFolders(foldersWithSizes);
-      setFiles(allFiles.filter(f => (currentFolderId ? f.folder === currentFolderId : !f.folder)));
+      setFolders([...foldersWithSizes]);
+      setFiles([...allFiles.filter(f => (currentFolderId ? f.folder === currentFolderId : !f.folder))]);
       updateBreadcrumbs(allFolders);
+
     } catch (err) {
       console.error('Error loading data:', err);
       setError('Ошибка загрузки данных');
@@ -239,77 +241,81 @@ export default function FileManager() {
   const processUpload = async (incomingData, targetFolderId = currentFolderId) => {
     if (!incomingData) return;
 
-    let cleanFile = null;
+    let cleanFiles = [];
 
     try {
       if (incomingData instanceof File) {
-        cleanFile = incomingData;
-      } else if (incomingData instanceof FileList && incomingData.length > 0) {
-        cleanFile = incomingData[0];
-      } else if (Array.isArray(incomingData) && incomingData.length > 0) {
-        cleanFile = incomingData[0];
-      } else if (incomingData.target?.files && incomingData.target.files.length > 0) {
-        cleanFile = incomingData.target.files[0];
-      } else if (incomingData.files && incomingData.files.length > 0) {
-        cleanFile = incomingData.files[0];
+        cleanFiles = [incomingData];
+      } else if (incomingData instanceof FileList) {
+        cleanFiles = Array.from(incomingData);
+      } else if (Array.isArray(incomingData)) {
+        cleanFiles = incomingData;
+      } else if (incomingData.target?.files) {
+        cleanFiles = Array.from(incomingData.target.files);
+      } else if (incomingData.files) {
+        cleanFiles = Array.from(incomingData.files);
       }
     } catch (e) {
-      console.error('Ошибка распаковки файла:', e);
+      console.error('Ошибка распаковки файлов при загрузке:', e);
     }
 
-    if (!cleanFile) {
-      console.error('Не удалось извлечь файл из переданных данных');
+    if (cleanFiles.length === 0) {
+      console.error('Не удалось извлечь файлы из переданных данных');
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', cleanFile);
+    for (const cleanFile of cleanFiles) {
+      const formData = new FormData();
+      formData.append('file', cleanFile);
 
-    if (targetFolderId) {
-      formData.append('folder_id', targetFolderId);
-    }
+      if (targetFolderId) {
+        formData.append('folder_id', targetFolderId);
+      }
 
-    const taskId = 'upload-' + Date.now();
+      const taskId = 'upload-' + Date.now() + Math.random().toString(36).substr(2, 4);
 
-    try {
-      setIsWidgetMinimized(false);
-      addTask(taskId, cleanFile.name, 'Загрузка файла...', 'Отправка в облако', 'uploading', 0);
+      try {
+        setIsWidgetMinimized(false);
+        addTask(taskId, cleanFile.name, 'Загрузка файла...', 'Отправка в облако', 'uploading', 0);
 
-      await api.post('/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+        await api.post('/upload/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
-      await new Promise((resolve) => {
-        let currentSimulatedProgress = 0;
-        const interval = setInterval(() => {
-          currentSimulatedProgress += Math.floor(Math.random() * 8) + 4;
-          if (currentSimulatedProgress >= 100) {
-            currentSimulatedProgress = 100;
-            clearInterval(interval);
-            resolve();
-          }
-          updateTask(taskId, { progress: currentSimulatedProgress });
+        await new Promise((resolve) => {
+          let currentSimulatedProgress = 0;
+          const interval = setInterval(() => {
+            currentSimulatedProgress += Math.floor(Math.random() * 8) + 4;
+            if (currentSimulatedProgress >= 100) {
+              currentSimulatedProgress = 100;
+              clearInterval(interval);
+              resolve();
+            }
+            updateTask(taskId, { progress: currentSimulatedProgress });
+          }, 100);
+        });
+
+        updateTask(taskId, {
+          title: 'Загрузка завершена',
+          subText: 'Файл успешно сохранен',
+          status: 'success',
+          progress: 100
+        });
+
+        setTimeout(() => {
+          loadData();
         }, 100);
-      });
+        removeTaskWithTimer(taskId);
 
-      updateTask(taskId, {
-        title: 'Загрузка завершена',
-        subText: 'Файл успешно сохранен',
-        status: 'success',
-        progress: 100
-      });
-
-      loadData();
-      removeTaskWithTimer(taskId);
-
-    } catch (err) {
-      console.error('Критическая ошибка при отправке POST /api/upload/:', err);
-      updateTask(taskId, {
-        title: 'Ошибка загрузки',
-        subText: err.response?.data?.error || 'Не удалось загрузить файл',
-        status: 'error'
-      });
-      removeTaskWithTimer(taskId);
+      } catch (err) {
+        console.error(`Критическая ошибка при отправке файла ${cleanFile.name}:`, err);
+        updateTask(taskId, {
+          title: 'Ошибка загрузки',
+          subText: err.response?.data?.error || 'Не удалось загрузить файл',
+          status: 'error'
+        });
+        removeTaskWithTimer(taskId);
+      }
     }
   };
 
@@ -341,7 +347,6 @@ export default function FileManager() {
         'downloading'
       );
 
-      // ИСПРАВЛЕНО: Убрали ведущий слэш в путях, чтобы Axios корректно склеивал с базовым /api
       const url = isFolder ? `folders/${id}/download/` : `download/${id}/`;
       const response = await api.get(url, { responseType: 'blob' });
 
@@ -604,8 +609,6 @@ export default function FileManager() {
         }}
       >
         <MenuItem onClick={() => { handleCreateClose(); setCreateFolderOpen(true); }}><FolderIcon sx={{ color: '#FF9800', mr: 1.5, fontSize: 20 }} /> Папка</MenuItem>
-        <MenuItem onClick={handleCreateClose}><Description sx={{ color: '#2196F3', mr: 1.5, fontSize: 20 }} /> Документ</MenuItem>
-        <MenuItem onClick={handleCreateClose}><TableChart sx={{ color: '#4CAF50', mr: 1.5, fontSize: 20 }} /> Таблица</MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem onClick={() => { handleCreateClose(); document.getElementById('manual-file-input')?.click(); }}><Upload sx={{ color: '#9C27B0', mr: 1.5, fontSize: 20 }} /> Загрузить файл</MenuItem>
       </Menu>
@@ -621,7 +624,6 @@ export default function FileManager() {
         </DialogActions>
       </Dialog>
 
-      {/* Диалог переименования */}
       <Dialog open={renameDialogOpen} onClose={() => { setRenameDialogOpen(false); setNewName(''); }} maxWidth="sm" fullWidth>
         <DialogTitle>Переименовать {selectedItem?.type === 'folder' ? 'папку' : 'файл'}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
@@ -633,19 +635,6 @@ export default function FileManager() {
         </DialogActions>
       </Dialog>
 
-      <MoveFolderDialog
-  open={moveDialogOpen}
-  item={selectedItem}
-  currentFolderId={currentFolderId}
-  onClose={() => setMoveDialogOpen(false)}
-  onMoved={(movedItem) => {
-    setSuccess(movedItem?.type === 'folder' ? 'Папка перемещена' : 'Файл перемещён');
-    setSelectedItem(null);
-    loadData();
-  }}
-/>
-
-      {/* Единственный диалог подтверждения удаления */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpenOpen(false)}>
         <DialogTitle sx={{ fontWeight: 600 }}>Удалить объект?</DialogTitle>
         <DialogContent>
@@ -685,7 +674,6 @@ export default function FileManager() {
         </MenuItem>
       </Menu>
 
-      {/* Виджет фоновых операций Google-style */}
       {tasks.length > 0 && (
         <Paper
           elevation={4}

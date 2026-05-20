@@ -30,10 +30,7 @@ export default function Layout() {
         }}
       >
         <Toolbar>
-          {/* 🖼️ ЛОГОТИП + НАЗВАНИЕ */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            
-            {/* Логотип из папки public */}
             <Box 
               component={Link} 
               to="/"
@@ -68,8 +65,6 @@ export default function Layout() {
               </Typography>
             </Box>
           </Box>
-
-          {/* 🔘 Кнопки меню */}
           {!user ? (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button 

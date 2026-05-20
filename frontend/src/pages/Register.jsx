@@ -13,8 +13,6 @@ import {
   Alert,
   Box,
 } from '@mui/material';
-
-// Схема валидации
 const schema = yup.object({
   name: yup
     .string()

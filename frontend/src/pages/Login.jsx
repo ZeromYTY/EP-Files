@@ -14,7 +14,6 @@ import {
   Box,
 } from '@mui/material';
 
-// Схема валидации
 const schema = yup.object({
   email: yup
     .string()
