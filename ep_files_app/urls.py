@@ -5,7 +5,7 @@ from .api import views
 from .api.views import (
     RegisterView, LoginView, MeView, protected_test_view,
     upload_file, list_files, download_file, delete_file,
-    file_detail, user_storage_stats, search_files,
+    file_move, file_detail, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,
     admin_list_users, admin_stats, admin_block_user,
@@ -41,6 +41,7 @@ urlpatterns = [
     path("download/<int:file_id>/", download_file, name="download_file"),
     path("files/<int:file_id>/download/", download_file, name="download_file_alt"),
     path("files/<int:file_id>/", delete_file, name="delete_file"),
+    path("files/<int:file_id>/move/", file_move, name="file_move"),
     path("files/<int:file_id>/detail/", file_detail, name="file_detail"),
     path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
     path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),

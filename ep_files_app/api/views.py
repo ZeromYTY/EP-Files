@@ -26,6 +26,7 @@ from ep_files_app.models.models import (
 )
 from ep_files_app.models.file_history import FileHistory
 from ep_files_app.services.file_event_service import file_event_service
+from ep_files_app.services.permission_service import permission_service
 from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
 from ep_files_app.validators import (
     sanitize_filename, validate_file_extension,
@@ -323,6 +324,58 @@ def delete_file(request, file_id):
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def file_move(request, file_id):
+    """Move a file to root or another folder."""
+    try:
+        file_obj = File.objects.get(id=file_id)
+    except File.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not permission_service.can_write_file(request.user, file_obj):
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+    target_folder_id = request.data.get("folder_id")
+    target_folder = None
+
+    if target_folder_id not in (None, ""):
+        try:
+            target_folder = Folder.objects.get(id=target_folder_id)
+        except (Folder.DoesNotExist, ValueError, TypeError):
+            return Response({"error": "Target folder not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not permission_service.can_write_folder(request.user, target_folder):
+            return Response(
+                {"error": "Target folder access denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    old_path = file_obj.folder.get_full_path() if file_obj.folder else "Корень"
+    file_obj.folder = target_folder
+    file_obj.save(update_fields=["folder"])
+    new_path = target_folder.get_full_path() if target_folder else "Корень"
+
+    file_event_service.emit_move_event(
+        file=file_obj,
+        old_path=old_path,
+        new_path=new_path,
+        user=request.user,
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    logger.info(
+        "File moved: %s from %s to %s by user %s",
+        file_obj.name,
+        old_path,
+        new_path,
+        request.user.email,
+    )
+
+    return Response({
+        "message": "File moved successfully",
+        "file": FileSerializer(file_obj).data,
+    })
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

@@ -15,15 +15,19 @@ import {
 import api from '../../api/axios';
 
 /**
- * Модальное окно для перемещения папки в корень или в другую папку.
+ * Модальное окно для перемещения файла или папки.
  */
 export default function MoveFolderDialog({
   open,
+  item,
   folder,
   currentFolderId,
   onClose,
   onMoved,
 }) {
+  const movingItem = item || folder;
+  const isFolder = movingItem?.type === 'folder';
+
   const [folders, setFolders] = useState([]);
   const [targetFolderId, setTargetFolderId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,64 +53,74 @@ export default function MoveFolderDialog({
   }, [open, currentFolderId]);
 
   const isChildFolder = (possibleChildId, parentId) => {
-    let current = folders.find((item) => item.id === possibleChildId);
+    let current = folders.find((folderItem) => folderItem.id === possibleChildId);
 
     while (current) {
       if (current.parent_id === parentId) {
         return true;
       }
 
-      current = folders.find((item) => item.id === current.parent_id);
+      current = folders.find((folderItem) => folderItem.id === current.parent_id);
     }
 
     return false;
   };
 
   const getAvailableFolders = () => {
-    if (!folder) return [];
+    if (!movingItem) return [];
 
-    return folders.filter((item) => {
-      if (item.id === folder.id) return false;
-      if (isChildFolder(item.id, folder.id)) return false;
+    return folders.filter((folderItem) => {
+      if (isFolder && folderItem.id === movingItem.id) return false;
+      if (isFolder && isChildFolder(folderItem.id, movingItem.id)) return false;
 
       return true;
     });
   };
 
-  const handleMove = async () => {
-    if (!folder) return;
+  const getApiErrorMessage = (err) => (
+    err.response?.data?.error ||
+    err.response?.data?.detail ||
+    'Не удалось переместить объект'
+  );
 
-    const parentId = targetFolderId === '' ? null : targetFolderId;
+  const handleMove = async () => {
+    if (!movingItem) return;
+
+    const destinationId = targetFolderId === '' ? null : targetFolderId;
 
     try {
       setLoading(true);
       setLocalError('');
 
-      await api.patch(`/folders/${folder.id}/move/`, {
-        parent_id: parentId,
-      });
+      if (isFolder) {
+        await api.patch(`/folders/${movingItem.id}/move/`, {
+          parent_id: destinationId,
+        });
+      } else {
+        await api.patch(`/files/${movingItem.id}/move/`, {
+          folder_id: destinationId,
+        });
+      }
 
-      onMoved?.();
+      onMoved?.(movingItem);
       onClose();
     } catch (err) {
-      console.error('Ошибка перемещения папки:', err);
-      setLocalError(
-        err.response?.data?.error ||
-          err.response?.data?.detail ||
-          'Не удалось переместить папку'
-      );
+      console.error('Ошибка перемещения:', err);
+      setLocalError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
+  const itemTypeLabel = isFolder ? 'папку' : 'файл';
+
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Переместить папку</DialogTitle>
+      <DialogTitle>Переместить {itemTypeLabel}</DialogTitle>
 
       <DialogContent sx={{ pt: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Выберите, куда переместить папку “{folder?.name}”.
+          Выберите, куда переместить {itemTypeLabel} “{movingItem?.name}”.
         </Typography>
 
         {localError && (
@@ -116,18 +130,27 @@ export default function MoveFolderDialog({
         )}
 
         <FormControl fullWidth>
-          <InputLabel>Новая папка</InputLabel>
+          <InputLabel shrink>Новая папка</InputLabel>
           <Select
-            label="Новая папка"
-            value={targetFolderId}
-            onChange={(event) => setTargetFolderId(event.target.value)}
-            disabled={loading}
+              displayEmpty
+              label="Новая папка"
+              value={targetFolderId}
+              onChange={(event) => setTargetFolderId(event.target.value)}
+              disabled={loading}
+              renderValue={(selected) => {
+                if (selected === '') {
+                  return 'Корень';
+                }
+
+                const selectedFolder = folders.find((folderItem) => folderItem.id === selected);
+                return selectedFolder?.name || 'Корень';
+              }}
           >
             <MenuItem value="">Корень</MenuItem>
 
-            {getAvailableFolders().map((item) => (
-              <MenuItem key={item.id} value={item.id}>
-                {item.name}
+            {getAvailableFolders().map((folderItem) => (
+              <MenuItem key={folderItem.id} value={folderItem.id}>
+                {folderItem.name}
               </MenuItem>
             ))}
           </Select>
