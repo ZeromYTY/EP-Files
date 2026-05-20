@@ -37,6 +37,7 @@ import {
   CheckCircle
 } from '@mui/icons-material';
 
+
 export default function Files() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -44,23 +45,28 @@ export default function Files() {
   const [storageStats, setStorageStats] = useState(null);
   const [favorites, setFavorites] = useState([]);
 
+  // Система тасок для виджета скачивания прямо в профиле
   const [tasks, setTasks] = useState([]);
   const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
 
   const fetchProfileData = async () => {
     try {
-      const ts = Date.now();
       const [statsRes, favsRes] = await Promise.all([
-        api.get(`/storage/stats/?_ts=${ts}`),
-        api.get(`favorites/all/?_ts=${ts}`)
+        api.get('/storage/stats/'),
+        api.get('/favorites/all/')
       ]);
       setStorageStats(statsRes.data);
       setFavorites(favsRes.data.items || []);
       setError('');
     } catch (err) {
       console.error('Ошибка при загрузке профиля:', err);
-      setStorageStats({ used_space: 0, available_space: 1024*1024*1024, total_space: 1024*1024*1024 });
-      setError('Не удалось загрузить актуальные данные профиля');
+      setStorageStats({
+        total_size: 0,
+        available_space: 1024 * 1024 * 1024,
+        storage_limit: 1024 * 1024 * 1024,
+        usage_percent: 0,
+      });
+      setError('Не удалось загрузить актуальный список избранного');
     }
   };
 
@@ -68,10 +74,6 @@ export default function Files() {
     fetchProfileData();
   }, []);
 
-    const location = window.location.pathname;
-    useEffect(() => {
-        fetchProfileData();
-    }, [location]);
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const formatFileSize = (bytes) => {
@@ -82,6 +84,7 @@ export default function Files() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  // Функции управления фоновыми задачами виджета
   const addTask = (id, name, title, subText, status, progress = 0) => {
     setTasks(prev => [...prev, { id, name, title, subText, status, progress }]);
   };
@@ -92,6 +95,7 @@ export default function Files() {
     setTimeout(() => { setTasks(prev => prev.filter(t => t.id !== id)); }, 5000);
   };
 
+  // НАША УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СКАЧИВАНИЯ ПРЯМО ИЗ ИЗБРАННОГО
   const handleDownloadFav = async (id, name, type) => {
     const taskId = 'download-fav-' + Date.now() + Math.random().toString(36).substr(2, 4);
     try {
@@ -107,10 +111,11 @@ export default function Files() {
         'downloading'
       );
 
+      // ИСПРАВЛЕНО: Стучимся строго по рабочим путям, которые мы настроили в urls.py
       const url = isFolder ? `folders/${id}/download/` : `download/${id}/`;
       const response = await api.get(url, { responseType: 'blob' });
 
-      const blobUrl = window.URL.createObjectURL(response.data);
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = blobUrl;
       link.setAttribute('download', isFolder ? `${displayName}.zip` : displayName);
@@ -124,10 +129,6 @@ export default function Files() {
         subText: 'Сохранено на устройство',
         status: 'success'
       });
-
-      fetchProfileData();
-      removeTaskWithTimer(taskId);
-
     } catch (err) {
       console.error('Ошибка при скачивании из избранного:', err);
       updateTask(taskId, {
@@ -135,19 +136,23 @@ export default function Files() {
         subText: err.response?.status === 404 ? 'Объект не найден' : 'Нет прав доступа',
         status: 'error'
       });
-      removeTaskWithTimer(taskId);
     }
   };
 
-  const usedSpace = storageStats?.used_space || 0;
-  const totalSpace = storageStats?.total_space || 1024 * 1024 * 1024;
-  const usagePercent = Math.min(Math.round((usedSpace / totalSpace) * 100), 100);
+  const usedSpace = storageStats?.total_size || 0;
+  const totalSpace = storageStats?.storage_limit || 1024 * 1024 * 1024;
+  const usagePercent = Math.min(
+    storageStats?.usage_percent ?? Math.round((usedSpace / totalSpace) * 100),
+    100
+  );
+
 
   return (
     <Container maxWidth="md" sx={{ py: 6, position: 'relative' }}>
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Grid container spacing={4}>
+        {/* Левая карточка: Юзер */}
         <Grid item xs={12} md={5}>
           <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', textAlign: 'center', backgroundColor: '#fff' }}>
             <Avatar
@@ -197,6 +202,7 @@ export default function Files() {
           </Paper>
         </Grid>
 
+        {/* Правая карточка: Статистика */}
         <Grid item xs={12} md={7}>
           <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff', height: '100%' }}>
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3 }}>
@@ -244,6 +250,7 @@ export default function Files() {
         </Grid>
       </Grid>
 
+      {/* СЕКЦИЯ ИЗБРАННОГО С КНОПКАМИ БЫСТРОГО СКАЧИВАНИЯ */}
       <Box sx={{ mt: 5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Star sx={{ color: '#FFC107', fontSize: '1.8rem' }} />
@@ -288,6 +295,7 @@ export default function Files() {
                       </Typography>
                     </Box>
 
+                    {/* ЗАМЕНИЛИ СТРЕЛОЧКУ НА ПРЯМОЕ БЫСТРОЕ СКАЧИВАНИЕ */}
                     <Tooltip title={item.type === 'folder' ? "Скачать как ZIP-архив" : "Скачать файл"}>
                       <IconButton
                         size="small"
@@ -305,6 +313,7 @@ export default function Files() {
         )}
       </Box>
 
+      {/* ВСПЛЫВАЮЩИЙ ВИДЖЕТ ФОНОВЫХ ОПЕРАЦИЙ ДЛЯ СКАЧИВАНИЯ ИЗ ПРОФИЛЯ */}
       {tasks.length > 0 && (
         <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 12px 36px rgba(0,0,0,0.16)', zIndex: 2000, overflow: 'hidden', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ffffff', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>
@@ -327,7 +336,7 @@ export default function Files() {
                   )}
                   <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
-                    <Typography variant="caption" color="text.secondary" display="block">{task.subText}</Typography>
+                    <Typography variant="caption" sx={{ color: task.status === 'success' ? '#16a34a' : task.status === 'error' ? '#ef4444' : '#64748b', display: 'block' }}>{task.subText}</Typography>
                   </Box>
                 </Box>
               ))}

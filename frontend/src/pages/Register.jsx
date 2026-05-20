@@ -46,15 +46,43 @@ export default function Register() {
     resolver: yupResolver(schema),
   });
 
+  const getRegisterErrorMessage = (err) => {
+    const responseData = err.response?.data;
+
+    if (!responseData) {
+      return 'Ошибка при регистрации';
+    }
+
+    if (responseData.error || responseData.message || responseData.detail) {
+      return responseData.error || responseData.message || responseData.detail;
+    }
+
+    const fieldLabels = {
+      name: 'Имя',
+      email: 'Email',
+      password: 'Пароль',
+      non_field_errors: 'Ошибка',
+    };
+
+    const messages = Object.entries(responseData)
+      .map(([field, value]) => {
+        const label = fieldLabels[field] || field;
+        const text = Array.isArray(value) ? value.join(' ') : value;
+
+        return `${label}: ${text}`;
+      })
+      .join('\n');
+
+    return messages || 'Ошибка при регистрации';
+  };
+
   const onSubmit = async (data) => {
     try {
       setError('');
       await registerUser(data.name, data.email, data.password);
       navigate('/files');
     } catch (err) {
-      setError(
-        err.response?.data?.error || err.response?.data?.message || 'Ошибка при регистрации'
-      );
+      setError(getRegisterErrorMessage(err));
     }
   };
 
@@ -66,7 +94,7 @@ export default function Register() {
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
             {error}
           </Alert>
         )}

@@ -44,8 +44,15 @@ export default function Login() {
       await login(data.email, data.password);
       navigate('/files');
     } catch (err) {
+      const serverError =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.response?.data?.detail;
+
       setError(
-        err.response?.data?.error || err.response?.data?.message || 'Неверный email или пароль'
+        serverError === 'Invalid credentials'
+          ? 'Неверный email или пароль'
+          : serverError || 'Неверный email или пароль'
       );
     }
   };
