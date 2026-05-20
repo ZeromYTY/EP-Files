@@ -85,6 +85,30 @@ export default function FileManager() {
   const [tasks, setTasks] = useState([]);
   const [isWidgetMinimized, setIsWidgetMinimized] = useState(false);
 
+  const getApiErrorMessage = (err, fallbackMessage = 'Произошла ошибка') => {
+  const serverMessage =
+    err.response?.data?.error ||
+    err.response?.data?.detail ||
+    err.response?.data?.message;
+
+  if (!serverMessage) {
+    return fallbackMessage;
+  }
+
+  const translations = {
+    'Access denied': 'Нет прав для выполнения операции',
+    'Folder not found': 'Папка не найдена',
+    'File not found': 'Файл не найден',
+    'Target folder not found': 'Папка назначения не найдена',
+    'Cannot move folder into its own subtree': 'Нельзя переместить папку внутрь самой себя',
+    'New name is required': 'Введите новое название',
+    'Folder name is required': 'Введите название папки',
+    'Upload failed': 'Не удалось загрузить файл',
+    'Download failed': 'Не удалось скачать файл',
+  };
+
+  return translations[serverMessage] || serverMessage;
+};
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -102,6 +126,7 @@ export default function FileManager() {
         setError('');
       } catch (err) {
         console.error('Ошибка при поиске:', err);
+        setError(getApiErrorMessage(err, 'Ошибка при поиске'));
       } finally {
         setLoading(false);
       }
@@ -373,7 +398,11 @@ export default function FileManager() {
       loadData();
       removeTaskWithTimer(taskId);
     } catch (err) {
-      updateTask(taskId, { title: 'Ошибка удаления', subText: 'Ошибка сервера', status: 'error' });
+      updateTask(taskId, {
+        title: 'Ошибка удаления',
+        subText: getApiErrorMessage(err, 'Не удалось удалить объект'),
+        status: 'error'
+      });
       removeTaskWithTimer(taskId);
       setSelectedItem(null);
       setFileToDelete(null);
@@ -388,7 +417,7 @@ export default function FileManager() {
       setCreateFolderOpen(false);
       loadData();
     } catch (err) {
-      setError('Ошибка создания папки');
+      setError(getApiErrorMessage(err, 'Ошибка создания папки'));
     }
   };
 
@@ -405,7 +434,7 @@ export default function FileManager() {
       setNewName('');
       loadData();
     } catch (err) {
-      setError('Ошибка переименования');
+      setError(getApiErrorMessage(err, 'Ошибка переименования'));
     }
   };
 
