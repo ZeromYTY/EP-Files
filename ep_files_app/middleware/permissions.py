@@ -33,8 +33,21 @@ class PermissionCheckMiddleware:
     
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
+        user_label = (
+            request.user.email
+            if request.user and request.user.is_authenticated
+            else "anonymous"
+        )
+
+        logger.debug(
+            "Permission middleware request: %s %s",
+            request.method,
+            request.path,
+            extra={"user": user_label},
+        )
+
         # Проверяем права доступа перед обработкой запроса
         if request.user and request.user.is_authenticated:
             permission_check = self._check_permissions(request)
