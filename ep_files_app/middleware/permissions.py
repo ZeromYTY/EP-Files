@@ -19,7 +19,8 @@ class PermissionCheckMiddleware:
     # Паттерны URL, требующие проверки прав
     FILE_PATTERNS = [
         (r'^/api/files/(\d+)/download/$', 'read'),
-        (r'^/api/files/(\d+)/$', 'write'),  # DELETE
+        (r'^/api/files/(\d+)/$', 'write'),  # DELETE/PATCH rename
+        (r'^/api/files/(\d+)/move/$', 'write'),
         (r'^/api/files/(\d+)/detail/$', 'read'),
         (r'^/api/files/(\d+)/history/$', 'read'),
     ]

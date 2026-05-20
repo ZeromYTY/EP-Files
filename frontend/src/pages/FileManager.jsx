@@ -456,8 +456,8 @@ export default function FileManager() {
   const handleRenameClick = () => { setNewName(selectedItem.name || ''); setRenameDialogOpen(true); handleMenuClose(); };
 
   const handleMoveClick = () => {
-  if (!selectedItem || selectedItem.type !== 'folder') {
-    setError('Перемещать сейчас можно только папки');
+  if (!selectedItem) {
+    setError('Не выбран объект для перемещения');
     handleMenuClose();
     return;
   }
@@ -635,11 +635,11 @@ export default function FileManager() {
 
       <MoveFolderDialog
   open={moveDialogOpen}
-  folder={selectedItem?.type === 'folder' ? selectedItem : null}
+  item={selectedItem}
   currentFolderId={currentFolderId}
   onClose={() => setMoveDialogOpen(false)}
-  onMoved={() => {
-    setSuccess('Папка перемещена');
+  onMoved={(movedItem) => {
+    setSuccess(movedItem?.type === 'folder' ? 'Папка перемещена' : 'Файл перемещён');
     setSelectedItem(null);
     loadData();
   }}
@@ -664,12 +664,10 @@ export default function FileManager() {
               <Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать
                 </MenuItem>
 
-            {selectedItem?.type === 'folder' && (
-                <MenuItem onClick={handleMoveClick}>
-                <FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
-                Переместить
-                </MenuItem>
-            )}
+          <MenuItem onClick={handleMoveClick}>
+    <       FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />
+            Переместить
+          </MenuItem>
 
       <MenuItem onClick={() => { alert(`⭐ Состояние избранного изменено для: ${selectedItem?.name}`); handleMenuClose(); }}>
           <Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />
