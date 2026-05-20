@@ -567,8 +567,6 @@ export default function FileManager() {
         }}
       >
         <MenuItem onClick={() => { handleCreateClose(); setCreateFolderOpen(true); }}><FolderIcon sx={{ color: '#FF9800', mr: 1.5, fontSize: 20 }} /> Папка</MenuItem>
-        <MenuItem onClick={handleCreateClose}><Description sx={{ color: '#2196F3', mr: 1.5, fontSize: 20 }} /> Документ</MenuItem>
-        <MenuItem onClick={handleCreateClose}><TableChart sx={{ color: '#4CAF50', mr: 1.5, fontSize: 20 }} /> Таблица</MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem onClick={() => { handleCreateClose(); document.getElementById('manual-file-input')?.click(); }}><Upload sx={{ color: '#9C27B0', mr: 1.5, fontSize: 20 }} /> Загрузить файл</MenuItem>
       </Menu>
