@@ -10,35 +10,59 @@ logger = logging.getLogger(__name__)
 
 
 class PermissionService:
-    """
-    Централизованный сервис для проверки и управления правами доступа
+    """Централизованный сервис для проверки и управления правами доступа.
+
+    Инфраструктурный компонент системы, реализующий бизнес-логику разграничения
+    прав пользователей (ACL) на уровне файлов и папок. Инкапсулирует в себе
+    алгоритмы наследования разрешений по древовидной структуре каталогов,
+    операции создания, обновления и отзыва индивидуальных прав доступа, а также
+    методы генерации списков доступных ресурсов для конкретных пользователей.
+
+    Все методы класса спроектированы как статические (``@staticmethod``) и не требуют
+    инициализации экземпляра сервиса для своей работы.
+
+    Methods:
+        can_read_file(user, file): Проверяет права на чтение конкретного файла.
+        can_write_file(user, file): Проверяет права на изменение конкретного файла.
+        can_read_folder(user, folder): Проверяет права на просмотр конкретной папки.
+        can_write_folder(user, folder): Проверяет права на изменение конкретной папки.
+        grant_permission(granted_by, user, ...): Выдает или обновляет права доступа на ресурс.
+        revoke_permission(user, file, folder): Аннулирует права доступа к ресурсу.
+        get_user_permissions(user): Собирает все индивидуальные права пользователя.
+        get_resource_permissions(file, folder): Находит все выданные права на ресурс.
+        get_accessible_files(user): Возвращает список доступных пользователю файлов.
+        get_accessible_folders(user): Возвращает список доступных пользователю папок.
     """
     
     @staticmethod
     def can_read_file(user: User, file: File) -> bool:
-        """
-        Проверить, может ли пользователь читать файл
-        
+        """Проверяет наличие у пользователя прав на чтение (просмотр) файла.
+
+        Разрешение предоставляется, если выполняется хотя бы одно из условий:
+        1. Пользователь является прямым владельцем файла.
+        2. Существует прямая запись прав доступа для данного файла с типом READ или READ_WRITE.
+        3. Пользователь наследует права на чтение от родительских папок, в которых расположен файл.
+
         Args:
-            user: Пользователь
-            file: Файл
-            
+            user (User): Экземпляр модели пользователя, чьи права проверяются.
+            file (File): Экземпляр модели файла, к которому запрашивается доступ.
+
         Returns:
-            True если есть права на чтение
+            bool: True, если доступ на чтение разрешен, иначе False.
+
+        Examples:
+            >>> is_allowed = PermissionService.can_read_file(current_user, target_file)
         """
-        # Владелец всегда может читать
         if file.owner == user:
             return True
-        
-        # Проверяем прямые права на файл
+
         if Permission.objects.filter(
             user=user,
             file=file,
             permission_type__in=[Permission.READ, Permission.READ_WRITE]
         ).exists():
             return True
-        
-        # Проверяем наследуемые права от родительских папок
+
         if file.folder:
             return PermissionService._check_inherited_permissions(
                 user=user,
@@ -50,29 +74,33 @@ class PermissionService:
     
     @staticmethod
     def can_write_file(user: User, file: File) -> bool:
-        """
-        Проверить, может ли пользователь изменять файл
-        
+        """Проверяет наличие у пользователя прав на изменение (запись/удаление) файла.
+
+        Разрешение предоставляется, если выполняется хотя бы одно из условий:
+        1. Пользователь является прямым владельцем файла.
+        2. Существует прямая запись прав доступа для данного файла с типом READ_WRITE.
+        3. Пользователь наследует права на запись от родительских папок, в которых расположен файл.
+
         Args:
-            user: Пользователь
-            file: Файл
-            
+            user (User): Экземпляр модели пользователя, чьи права проверяются.
+            file (File): Экземпляр модели файла, к которому запрашивается доступ на модификацию.
+
         Returns:
-            True если есть права на запись
+            bool: True, если доступ на запись разрешен, иначе False.
+
+        Examples:
+            >>> is_allowed = PermissionService.can_write_file(current_user, target_file)
         """
-        # Владелец всегда может изменять
         if file.owner == user:
             return True
-        
-        # Проверяем прямые права на файл
+
         if Permission.objects.filter(
             user=user,
             file=file,
             permission_type=Permission.READ_WRITE
         ).exists():
             return True
-        
-        # Проверяем наследуемые права от родительских папок
+
         if file.folder:
             return PermissionService._check_inherited_permissions(
                 user=user,
@@ -84,29 +112,32 @@ class PermissionService:
     
     @staticmethod
     def can_read_folder(user: User, folder: Folder) -> bool:
-        """
-        Проверить, может ли пользователь читать папку
-        
+        """Проверяет наличие у пользователя прав на чтение (просмотр содержимого) папки.
+
+        Разрешение предоставляется, если выполняется хотя бы одно из условий:
+        1. Пользователь является прямым владельцем папки.
+        2. Существует прямая запись прав доступа для данной папки с типом READ или READ_WRITE.
+        3. Пользователь наследует права на чтение от вышестоящих (родительских) директорий.
+
         Args:
-            user: Пользователь
-            folder: Папка
-            
+            user (User): Экземпляр модели пользователя, чьи права проверяются.
+            folder (Folder): Экземпляр модели папки, к которой запрашивается доступ.
+
         Returns:
-            True если есть права на чтение
+            bool: True, если доступ на чтение папки разрешен, иначе False.
+
+        Examples:
+            >>> is_allowed = PermissionService.can_read_folder(current_user, target_folder)
         """
-        # Владелец всегда может читать
         if folder.owner == user:
             return True
-        
-        # Проверяем прямые права на папку
+
         if Permission.objects.filter(
             user=user,
             folder=folder,
             permission_type__in=[Permission.READ, Permission.READ_WRITE]
         ).exists():
             return True
-        
-        # Проверяем наследуемые права от родительских папок
         if folder.parent:
             return PermissionService._check_inherited_permissions(
                 user=user,
@@ -115,32 +146,36 @@ class PermissionService:
             )
         
         return False
-    
+
     @staticmethod
     def can_write_folder(user: User, folder: Folder) -> bool:
-        """
-        Проверить, может ли пользователь изменять папку
-        
+        """Проверяет наличие у пользователя прав на изменение папки.
+
+        Разрешение предоставляется, если выполняется хотя бы одно из условий:
+        1. Пользователь является владельцем папки.
+        2. Существует прямая запись прав доступа для данной папки с типом READ_WRITE.
+        3. Пользователь наследует права на запись от вышестоящих (родительских) директорий.
+
         Args:
-            user: Пользователь
-            folder: Папка
-            
+            user (User): Экземпляр модели пользователя, чьи права проверяются.
+            folder (Folder): Экземпляр модели папки, для которой запрашивается доступ на запись.
+
         Returns:
-            True если есть права на запись
+            bool: True, если доступ на изменение папки разрешен, иначе False.
+
+        Examples:
+            >>> is_allowed = PermissionService.can_write_folder(current_user, target_folder)
         """
-        # Владелец всегда может изменять
         if folder.owner == user:
             return True
-        
-        # Проверяем прямые права на папку
+
         if Permission.objects.filter(
             user=user,
             folder=folder,
             permission_type=Permission.READ_WRITE
         ).exists():
             return True
-        
-        # Проверяем наследуемые права от родительских папок
+
         if folder.parent:
             return PermissionService._check_inherited_permissions(
                 user=user,
@@ -156,21 +191,27 @@ class PermissionService:
         folder: Folder,
         permission_type: str
     ) -> bool:
-        """
-        Проверить наследуемые права от родительских папок
-        
+        """Рекурсивно проверяет наследуемые права доступа вверх по дереву каталогов.
+
+        Итерируется от текущей папки к её родителям (parent) до корня файловой системы.
+        Если на каком-либо уровне обнаруживается запись прав с флагом ``inherit=True``,
+        функция валидирует соответствие типа найденного разрешения запрашиваемому.
+
         Args:
-            user: Пользователь
-            folder: Папка для проверки
-            permission_type: Тип прав (READ или READ_WRITE)
-            
+            user (User): Экземпляр модели пользователя, чьи права проверяются.
+            folder (Folder): Начальная папка (родитель ресурса), с которой запускается обход дерева.
+            permission_type (str): Запрашиваемый уровень прав (``Permission.READ`` или ``Permission.READ_WRITE``).
+
         Returns:
-            True если есть наследуемые права
+            bool: True, если найдено наследуемое правило, покрывающее запрашиваемый тип прав. Иначе False.
+
+        Note:
+            При поиске прав уровня ``Permission.READ_WRITE`` тип найденного правила обязан строго
+            соответствовать ``Permission.READ_WRITE``. Для ``Permission.READ`` достаточно любого правила.
         """
         current_folder = folder
         
         while current_folder:
-            # Проверяем права на текущую папку с наследованием
             permission = Permission.objects.filter(
                 user=user,
                 folder=current_folder,
@@ -178,13 +219,10 @@ class PermissionService:
             ).first()
             
             if permission:
-                # Если нужны права на запись, проверяем что они есть
                 if permission_type == Permission.READ_WRITE:
                     return permission.permission_type == Permission.READ_WRITE
-                # Для чтения достаточно любых прав
                 return True
-            
-            # Переходим к родительской папке
+
             current_folder = current_folder.parent
         
         return False
@@ -198,22 +236,27 @@ class PermissionService:
         permission_type: str = Permission.READ,
         inherit: bool = True
     ) -> Permission:
-        """
-        Выдать права доступа
-        
+        """Выдает или обновляет права доступа пользователя к определенному ресурсу.
+
+        Использует атомарную операцию создания или обновления (update_or_create) для связки
+        пользователя с файлом или папкой. По окончании операции записывает событие в системный лог.
+
         Args:
-            granted_by: Пользователь, выдающий права (должен быть владельцем)
-            user: Пользователь, получающий права
-            file: Файл (если права на файл)
-            folder: Папка (если права на папку)
-            permission_type: Тип прав (READ или READ_WRITE)
-            inherit: Наследовать права на вложенные элементы
-            
+            granted_by (User): Пользователь, делегирующий права (обычно владелец ресурса).
+            user (User): Пользователь, которому предоставляются права.
+            file (File, optional): Экземпляр целевого файла, если права выдаются на файл.
+            folder (Folder, optional): Экземпляр целевой папки, если права выдаются на папку.
+            permission_type (str, optional): Тип прав (``READ`` или ``READ_WRITE``). По умолчанию ``Permission.READ``.
+            inherit (bool, optional): Флаг наследования прав на вложенные элементы (актуально для папок). По умолчанию True.
+
         Returns:
-            Созданное право доступа
-            
+            Permission: Созданный или обновленный экземпляр модели Permission.
+
         Raises:
-            ValidationError: Если права не могут быть выданы
+            ValidationError: Если параметры распределения прав нарушают бизнес-логику БД.
+
+        Examples:
+            >>> perm = PermissionService.grant_permission(owner_user, guest_user, folder=target_folder)
         """
         permission, created = Permission.objects.update_or_create(
             user=user,
@@ -241,16 +284,21 @@ class PermissionService:
         file: Optional[File] = None,
         folder: Optional[Folder] = None
     ) -> bool:
-        """
-        Отозвать права доступа
-        
+        """Полностью отзывает (удаляет) права доступа пользователя к указанному ресурсу.
+
+        Формирует динамический запрос фильтрации на основе переданных аргументов (файл и/или папка)
+        и удаляет соответствующие записи из таблицы разрешений.
+
         Args:
-            user: Пользователь, у которого отзываются права
-            file: Файл (если права на файл)
-            folder: Папка (если права на папку)
-            
+            user (User): Пользователь, у которого аннулируются права.
+            file (File, optional): Целевой файл, доступ к которому необходимо закрыть.
+            folder (Folder, optional): Целевая папка, доступ к которой необходимо закрыть.
+
         Returns:
-            True если права были отозваны
+            bool: True, если была удалена хотя бы одна запись прав доступа. False, если прав не существовало.
+
+        Examples:
+            >>> was_revoked = PermissionService.revoke_permission(guest_user, file=target_file)
         """
         query = Q(user=user)
         
@@ -272,14 +320,19 @@ class PermissionService:
     
     @staticmethod
     def get_user_permissions(user: User) -> List[Permission]:
-        """
-        Получить все права доступа пользователя
-        
+        """Возвращает полный список всех индивидуальных прав доступа, выданных пользователю.
+
+        Оптимизирует запрос к базе данных с помощью ``select_related`` для предзагрузки
+        связанных сущностей (файлы, папки, инициаторы прав), минимизируя проблему N+1.
+
         Args:
-            user: Пользователь
-            
+            user (User): Пользователь, для которого собирается статистика разрешений.
+
         Returns:
-            Список прав доступа
+            List[Permission]: Список объектов прав доступа, привязанных к данному пользователю.
+
+        Examples:
+            >>> active_perms = PermissionService.get_user_permissions(current_user)
         """
         return list(Permission.objects.filter(user=user).select_related(
             'file', 'folder', 'granted_by'
@@ -290,15 +343,20 @@ class PermissionService:
         file: Optional[File] = None,
         folder: Optional[Folder] = None
     ) -> List[Permission]:
-        """
-        Получить все права доступа к ресурсу
-        
+        """Возвращает список всех действующих прав доступа, привязанных к конкретному ресурсу.
+
+        Позволяет узнать, какие пользователи обладают доступом к файлу или папке. Объединяет условия
+        поиска через оператор OR (``|``), если переданы оба параметра, и оптимизирует связи.
+
         Args:
-            file: Файл
-            folder: Папка
-            
+            file (File, optional): Файл, для которого запрашивается аудит разрешений.
+            folder (Folder, optional): Папка, для которой запрашивается аудит разрешений.
+
         Returns:
-            Список прав доступа
+            List[Permission]: Список объектов прав доступа, действующих для данного ресурса.
+
+        Examples:
+            >>> resource_perms = PermissionService.get_resource_permissions(file=target_file)
         """
         query = Q()
         
@@ -310,57 +368,77 @@ class PermissionService:
         return list(Permission.objects.filter(query).select_related(
             'user', 'granted_by'
         ))
-    
+
     @staticmethod
     def get_accessible_files(user: User) -> List[File]:
-        """
-        Получить все файлы, к которым у пользователя есть доступ
-        
+        """Возвращает полный список файлов, доступных пользователю для чтения или изменения.
+
+        Формирует выборку на основе двух критериев: прямое владение файлом
+        и наличие явных индивидуальных разрешений в таблице ``Permission``.
+        Результаты объединяются на уровне базы данных с исключением дубликатов.
+
         Args:
-            user: Пользователь
-            
+            user (User): Экземпляр модели пользователя, для которого запрашивается
+                список доступных файлов.
+
         Returns:
-            Список файлов
+            List[File]: Список уникальных объектов файлов, к которым пользователь
+            имеет легитимный доступ.
+
+        Examples:
+            >>> files = PermissionService.get_accessible_files(current_user)
+
+        Note:
+            Данный метод учитывает только собственные файлы и файлы с прямыми правами.
+            Файлы, доступные исключительно по наследованию от папок, в эту выборку
+            не попадают.
         """
-        # Файлы, которыми владеет пользователь
         owned_files = File.objects.filter(owner=user)
-        
-        # Файлы, на которые есть прямые права
+
         permitted_file_ids = Permission.objects.filter(
             user=user,
             file__isnull=False
         ).values_list('file_id', flat=True)
         
         permitted_files = File.objects.filter(id__in=permitted_file_ids)
-        
-        # Объединяем и убираем дубликаты
+
         all_files = (owned_files | permitted_files).distinct()
         
         return list(all_files)
     
     @staticmethod
     def get_accessible_folders(user: User) -> List[Folder]:
-        """
-        Получить все папки, к которым у пользователя есть доступ
-        
+        """Возвращает полный список папок, доступных пользователю для просмотра или изменения.
+
+        Формирует выборку на основе двух критериев: прямое владение папкой
+        и наличие явных индивидуальных разрешений в таблице ``Permission``.
+        Объединение множеств выполняется через OR-запрос (``|``) с вызовом ``distinct()``.
+
         Args:
-            user: Пользователь
-            
+            user (User): Экземпляр модели пользователя, для которого запрашивается
+                список доступных папок.
+
         Returns:
-            Список папок
+            List[Folder]: Список уникальных объектов папок, к которым пользователь
+            имеет легитимный доступ.
+
+        Examples:
+            >>> folders = PermissionService.get_accessible_folders(current_user)
+
+        Note:
+            Метод возвращает папки, на которые у пользователя есть явные права.
+            Вложенные папки, доступные только за счет флага наследования (inherit),
+            не включаются в итоговый список.
         """
-        # Папки, которыми владеет пользователь
         owned_folders = Folder.objects.filter(owner=user)
-        
-        # Папки, на которые есть прямые права
+
         permitted_folder_ids = Permission.objects.filter(
             user=user,
             folder__isnull=False
         ).values_list('folder_id', flat=True)
         
         permitted_folders = Folder.objects.filter(id__in=permitted_folder_ids)
-        
-        # Объединяем и убираем дубликаты
+
         all_folders = (owned_folders | permitted_folders).distinct()
         
         return list(all_folders)

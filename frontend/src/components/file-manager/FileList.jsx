@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Grid, Paper, Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { Folder, Description, TableChart, PictureAsPdf, CloudUpload, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import { Folder, Description, TableChart, PictureAsPdf, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
 import FileRow from './FileRow';
 
 function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, onFileDropped, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
@@ -43,19 +43,19 @@ function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, on
       onClick={() => onFolderClick(folder.id)}
     >
       <Tooltip title="Скачать как ZIP">
-          <IconButton
-            className="download-btn"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onDownloadClick) onDownloadClick(folder.id, folder.name, 'folder'); // Жестко пишем 'folder'
-            }}
-            sx={{ position: 'absolute', top: 8, right: 40, opacity: 0, transition: 'opacity 0.2s', color: '#2196F3', zIndex: 30 }}
-            size="small"
-          >
-            <DownloadIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <IconButton
+          className="download-btn"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (onDownloadClick) onDownloadClick(folder.id, folder.name, 'folder');
+          }}
+          sx={{ position: 'absolute', top: 8, right: 40, opacity: 0, transition: 'opacity 0.2s', color: '#2196F3', zIndex: 30 }}
+          size="small"
+        >
+          <DownloadIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
 
       <IconButton
         className="grid-menu-btn"
@@ -70,16 +70,18 @@ function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, on
         <MoreVert fontSize="small" />
       </IconButton>
 
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, pointerEvents: 'none' }}>
-        <Folder sx={{ fontSize: 40, color: '#FF9800' }} />
+      <Box sx={{ pointerEvents: 'none' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          <Folder sx={{ fontSize: 40, color: '#FF9800' }} />
+        </Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6 }}>
+          {folder.name}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          {formatDate(folder.created_at || folder.updated_at || folder.date || new Date().toISOString())}
+          {folder.size > 0 && ` • ${formatFileSize(folder.size)}`}
+        </Typography>
       </Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6, pointerEvents: 'none' }}>
-        {folder.name}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ pointerEvents: 'none', display: 'block' }}>
-        {formatDate(folder.created_at || folder.updated_at || folder.date || new Date().toISOString())}
-        {folder.size > 0 && ` • ${formatFileSize(folder.size)}`}
-      </Typography>
     </Paper>
   );
 }
@@ -87,51 +89,105 @@ function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, on
 export default function FileList({ files, viewMode, onFolderClick, onDownloadClick, onDeleteClick, onFileDropped, onMenuOpen }) {
   const [activeDropFolderId, setActiveDropFolderId] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
+  const extractFilesFromEntry = (item) => {
+    return new Promise((resolve) => {
+      if (item.isFile) {
+        item.file((file) => resolve([file]));
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        const allFilesFromDir = [];
 
-  const handleFolderDrop = (e, folderId) => {
+        const readEntries = () => {
+          dirReader.readEntries(async (entries) => {
+            if (entries.length === 0) {
+              resolve(allFilesFromDir);
+            } else {
+              const promises = entries.map(entry => extractFilesFromEntry(entry));
+              const results = await Promise.all(promises);
+              allFilesFromDir.push(...results.flat());
+              readEntries();
+            }
+          });
+        };
+        readEntries();
+      } else {
+        resolve([]);
+      }
+    });
+  };
+
+  const getDroppedFiles = async (e) => {
+    const items = e.dataTransfer.items;
+    if (!items) return Array.from(e.dataTransfer.files || []);
+
+    const promises = [];
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry();
+      if (entry) promises.push(extractFilesFromEntry(entry));
+    }
+
+    const results = await Promise.all(promises);
+    return results.flat();
+  };
+
+  const handleFolderDrop = async (e, folderId) => {
     e.preventDefault();
     e.stopPropagation();
     setActiveDropFolderId(null);
     setIsDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && onFileDropped) {
-      onFileDropped(e.dataTransfer.files, folderId);
+    if (onFileDropped) {
+      const allFiles = await getDroppedFiles(e);
+      if (allFiles.length > 0) {
+        onFileDropped(allFiles, folderId);
+      }
     }
   };
 
-  const handleGlobalDrop = (e) => {
+  const handleGlobalDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
 
-    if (!activeDropFolderId && e.dataTransfer.files && e.dataTransfer.files.length > 0 && onFileDropped) {
-      onFileDropped(e.dataTransfer.files, null);
+    if (!activeDropFolderId && onFileDropped) {
+      const allFiles = await getDroppedFiles(e);
+      if (allFiles.length > 0) {
+        onFileDropped(allFiles, null);
+      }
     }
     setActiveDropFolderId(null);
   };
 
   useEffect(() => {
-    const handleDragLeaveGlobal = (e) => {
-      if (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-        setActiveDropFolderId(null);
-        setIsDragActive(false);
-      }
-    };
+    let dragTimeout = null;
 
-    const handleGlobalDragEnd = (e) => {
+    const handleGlobalDragOver = (e) => {
       e.preventDefault();
-      setActiveDropFolderId(null);
-      setIsDragActive(false);
+      setIsDragActive(true);
+
+      if (dragTimeout) clearTimeout(dragTimeout);
+
+      dragTimeout = setTimeout(() => {
+        setIsDragActive(false);
+        setActiveDropFolderId(null);
+      }, 400);
     };
 
-    window.addEventListener('dragleave', handleDragLeaveGlobal);
-    window.addEventListener('dragend', handleGlobalDragEnd);
-    window.addEventListener('drop', handleGlobalDragEnd);
+    const handleGlobalDropOrEnd = () => {
+      if (dragTimeout) clearTimeout(dragTimeout);
+      setIsDragActive(false);
+      setActiveDropFolderId(null);
+    };
+
+    window.addEventListener('dragover', handleGlobalDragOver);
+    window.addEventListener('dragend', handleGlobalDropOrEnd);
+    window.addEventListener('drop', handleGlobalDropOrEnd);
 
     return () => {
-      window.removeEventListener('dragleave', handleDragLeaveGlobal);
-      window.removeEventListener('dragend', handleGlobalDragEnd);
-      window.removeEventListener('drop', handleGlobalDragEnd);
+      if (dragTimeout) clearTimeout(dragTimeout);
+      window.removeEventListener('dragover', handleGlobalDragOver);
+      window.removeEventListener('dragend', handleGlobalDropOrEnd);
+      window.removeEventListener('drop', handleGlobalDropOrEnd);
     };
   }, []);
 
@@ -291,39 +347,18 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
 
   return (
     <Box
-      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragActive(true); }}
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragActive(true); }}
       onDrop={handleGlobalDrop}
-      sx={{ position: 'relative', width: '100%', minHeight: '300px' }}
+      sx={{
+        position: 'relative',
+        width: '100%',
+        minHeight: '300px',
+        borderRadius: '12px',
+        transition: 'box-shadow 0.2s ease',
+        boxShadow: isDragActive && !activeDropFolderId
+          ? '0 0 0 3px #ffffff, 0 0 0 6px #2196F3'
+          : 'none'
+      }}
     >
-      {isDragActive && !activeDropFolderId && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(33, 150, 243, 0.03)',
-            border: '2px dashed #2196F3',
-            borderRadius: '12px',
-            zIndex: 5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            backdropFilter: 'blur(1px)'
-          }}
-        >
-          <Box sx={{ textAlign: 'center', backgroundColor: '#ffffff', px: 4, py: 2.5, borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <CloudUpload sx={{ fontSize: 44, color: '#2196F3', mb: 1, display: 'block', mx: 'auto' }} />
-            <Typography variant="body2" sx={{ color: '#2196F3', fontWeight: 600 }}>
-              Отпустите мышь для загрузки в текущую папку
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
       {viewMode === 'grid' ? renderGridMode() : renderListMode()}
     </Box>
   );
