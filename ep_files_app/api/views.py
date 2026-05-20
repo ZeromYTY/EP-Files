@@ -50,6 +50,11 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         user = serializer.instance
+        logger.info(
+            "User registered: %s",
+            user.email,
+            extra={"user": user.email},
+        )
         refresh = RefreshToken.for_user(user)
         data = {
             "token": str(refresh.access_token),
@@ -71,12 +76,22 @@ class LoginView(APIView):
         password = request.data.get("password")
         user = User.objects.filter(email=email).first()
         if user and check_password(password, user.password_hash):
+            logger.info(
+                "User logged in: %s",
+                user.email,
+                extra={"user": user.email},
+            )
             refresh = RefreshToken.for_user(user)
             return Response({
                 "token": str(refresh.access_token),
                 "refresh": str(refresh),
                 "user": UserSerializer(user).data,
             })
+        logger.warning(
+            "Failed login attempt for email: %s",
+            email,
+            extra={"user": email or "anonymous"},
+        )
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
