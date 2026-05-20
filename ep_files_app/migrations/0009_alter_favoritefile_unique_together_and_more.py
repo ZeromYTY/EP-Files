@@ -8,18 +8,13 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ep_files_app', '0008_favoritefile'),
+    ('ep_files_app', '0007_alter_file_id_alter_filehistory_id_alter_folder_id_and_more'),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
             name='favoritefile',
             unique_together=set(),
-        ),
-        migrations.AddField(
-            model_name='favoritefile',
-            name='folder',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='ep_files_app.folder'),
         ),
         migrations.AlterField(
             model_name='favoritefile',
