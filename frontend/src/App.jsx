@@ -6,11 +6,8 @@ import Files from './pages/Files';
 import FileManager from './pages/FileManager';
 import Admin from './pages/Admin'; 
 import ProtectedRoute from './components/ProtectedRoute';
-import { useAuth } from './context/AuthContext'; 
 
 function App() {
-  const { user } = useAuth();
-
   return (
     <Routes>
       {/* Публичные роуты */}
@@ -18,27 +15,13 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Защищенные роуты для всех авторизованных пользователей */}
+      {/* Защищенные роуты */}
       <Route element={<ProtectedRoute />}>
         <Route path="/files" element={<Files />} />
         <Route path="/file-manager" element={<FileManager />} />
         
-        {/* Роут админки с автоматической проверкой */}
-        {user?.role === 'admin' && (
-          <Button 
-            color="inherit" 
-            component={Link} 
-            to="/admin"
-            startIcon={<AdminPanelSettings />}
-            sx={{ 
-              fontWeight: 600,
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' }
-            }}
-          >
-            Админка
-          </Button>
-        )}
+        {/* ВРЕМЕННО ДЛЯ ТЕСТА: Открываем прямой доступ к админке */}
+        <Route path="/admin" element={<Admin />} />
       </Route>
 
       {/* Редирект для любых несуществующих страниц */}

@@ -20,64 +20,36 @@ import {
 import { Block, DeleteForever, CheckCircleOutline, AdminPanelSettings, Equalizer, People, Link } from '@mui/icons-material';
 
 export default function Admin() {
-  // Динамические состояния для реальных данных
-  const [stats, setStats] = useState({ totalVolume: "0 KB", activeUsers: 0, publicLinks: 0 });
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Реалистичная статистика для тестовой базы данных
+  const [stats, setStats] = useState({ 
+    totalVolume: "428.5 GB", 
+    activeUsers: 5, 
+    publicLinks: 34 
+  });
+
+  // НАБОР ТЕСТОВЫХ ПОЛЬЗОВАТЕЛЕЙ (Имейлы, роли, файлы)
+  const [users, setUsers] = useState([
+    { id: 1, login: "admin@test.ru", role: "admin", filesCount: 4, regDate: "21.05.2026", isBlocked: false },
+    { id: 2, login: "ivan@test.ru", role: "user", filesCount: 42, regDate: "12.01.2026", isBlocked: false },
+    { id: 3, login: "amirkhan@test.ru", role: "user", filesCount: 0, regDate: "03.03.2026", isBlocked: true },
+    { id: 4, login: "elena_design@test.ru", role: "user", filesCount: 118, regDate: "15.04.2026", isBlocked: false },
+    { id: 5, login: "dmitry_tech@test.ru", role: "user", filesCount: 15, regDate: "19.05.2026", isBlocked: false },
+  ]);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Функция загрузки данных с бэкенда
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        setLoading(true);
-        
-        // ВАЖНО: Замените эти URL на реальные эндпоинты вашего Django API, когда они будут готовы
-        // const statsResponse = await fetch('/api/admin/stats/');
-        // const usersResponse = await fetch('/api/admin/users/');
-        // const statsData = await statsResponse.json();
-        // const usersData = await usersResponse.json();
-        // setStats(statsData);
-        // setUsers(usersData);
-
-        setError(null);
-      } catch (err) {
-        console.error("Ошибка загрузки данных админки:", err);
-        setError("Не удалось загрузить данные с сервера.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdminData();
-  }, []);
-
-  // Обработчик блокировки (отправка запроса на бэк)
-  const toggleBlockUser = async (id, login, currentStatus) => {
-    try {
-      // Пример запроса к бэку:
-      // await fetch(`/api/admin/users/${id}/toggle-block/`, { method: 'POST' });
-      
-      // Локально обновляем интерфейс после успешного запроса:
-      setUsers(users.map(u => u.id === id ? { ...u, isBlocked: !u.isBlocked } : u));
-      console.log(`[ADMIN] Изменен статус блокировки для ${login}`);
-    } catch (err) {
-      alert("Ошибка при изменении статуса пользователя");
-    }
+  // Имитация переключения блокировки на фронте
+  const toggleBlockUser = (id, login) => {
+    setUsers(users.map(u => u.id === id ? { ...u, isBlocked: !u.isBlocked } : u));
+    console.log(`[ADMIN ACTION] Переключен статус блокировки для: ${login}`);
   };
 
-  // Обработчик удаления файлов пользователя
-  const handleDeleteContent = async (id, login) => {
+  // Имитация удаления всех файлов пользователя
+  const handleDeleteContent = (id, login) => {
     if (window.confirm(`Вы уверены, что хотите удалить ВСЕ файлы пользователя ${login}?`)) {
-      try {
-        // Пример запроса к бэку:
-        // await fetch(`/api/admin/users/${id}/delete-content/`, { method: 'DELETE' });
-        
-        setUsers(users.map(u => u.id === id ? { ...u, filesCount: 0 } : u));
-        console.log(`[ADMIN] Удален контент пользователя ${login}`);
-      } catch (err) {
-        alert("Ошибка при удалении контента");
-      }
+      setUsers(users.map(u => u.id === id ? { ...u, filesCount: 0 } : u));
+      console.log(`[ADMIN ACTION] Удален весь контент пользователя: ${login}`);
     }
   };
 
@@ -148,7 +120,7 @@ export default function Admin() {
         <Table>
           <TableHead sx={{ backgroundColor: '#f5f7fa' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Логин</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Логин (Email)</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Роль</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Кол-во файлов</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Дата регистрации</TableCell>
@@ -157,65 +129,57 @@ export default function Admin() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                  Пользователи не найдены или API бэкенда ещё не подключен.
+            {users.map((user) => (
+              <TableRow 
+                key={user.id} 
+                sx={{ 
+                  backgroundColor: user.isBlocked ? '#fff1f0' : 'inherit',
+                  '&:hover': { backgroundColor: user.isBlocked ? '#ffe1e0' : '#fcfdfe' }
+                }}
+              >
+                <TableCell sx={{ fontWeight: 500 }}>{user.login}</TableCell>
+                <TableCell>
+                  <Chip 
+                    label={user.role} 
+                    color={user.role === 'admin' ? 'secondary' : 'default'} 
+                    size="small" 
+                    sx={{ fontWeight: 'bold' }}
+                  />
+                </TableCell>
+                <TableCell>{user.filesCount}</TableCell>
+                <TableCell>{user.regDate}</TableCell>
+                <TableCell>
+                  {user.isBlocked ? (
+                    <Typography variant="body2" sx={{ color: '#ff4d4f', fontWeight: 'bold' }}>Заблокирован</Typography>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#52c41a' }}>Активен</Typography>
+                  )}
+                </TableCell>
+                <TableCell align="center">
+                  <Button
+                    variant="contained"
+                    size="small"
+                    color={user.isBlocked ? "success" : "warning"}
+                    startIcon={user.isBlocked ? <CheckCircleOutline /> : <Block />}
+                    onClick={() => toggleBlockUser(user.id, user.login)}
+                    sx={{ mr: 1, textTransform: 'none' }}
+                  >
+                    {user.isBlocked ? 'Разблокировать' : 'Блокировать'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteForever />}
+                    disabled={user.filesCount === 0}
+                    onClick={() => handleDeleteContent(user.id, user.login)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Удалить файлы
+                  </Button>
                 </TableCell>
               </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow 
-                  key={user.id} 
-                  sx={{ 
-                    backgroundColor: user.isBlocked ? '#fff1f0' : 'inherit',
-                    '&:hover': { backgroundColor: user.isBlocked ? '#ffe1e0' : '#fcfdfe' }
-                  }}
-                >
-                  <TableCell sx={{ fontWeight: 500 }}>{user.login || user.username}</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={user.role || 'user'} 
-                      color={user.role === 'admin' ? 'secondary' : 'default'} 
-                      size="small" 
-                      sx={{ fontWeight: 'bold' }}
-                    />
-                  </TableCell>
-                  <TableCell>{user.filesCount || 0}</TableCell>
-                  <TableCell>{user.regDate || user.date_joined}</TableCell>
-                  <TableCell>
-                    {user.isBlocked ? (
-                      <Typography variant="body2" sx={{ color: '#ff4d4f', fontWeight: 'bold' }}>Заблокирован</Typography>
-                    ) : (
-                      <Typography variant="body2" sx={{ color: '#52c41a' }}>Активен</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Button
-                      variant="contained"
-                      size="small"
-                      color={user.isBlocked ? "success" : "warning"}
-                      startIcon={user.isBlocked ? <CheckCircleOutline /> : <Block />}
-                      onClick={() => toggleBlockUser(user.id, user.login, user.isBlocked)}
-                      sx={{ mr: 1, textTransform: 'none' }}
-                    >
-                      {user.isBlocked ? 'Разблокировать' : 'Блокировать'}
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      color="error"
-                      startIcon={<DeleteForever />}
-                      disabled={!user.filesCount}
-                      onClick={() => handleDeleteContent(user.id, user.login)}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Удалить файлы
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
