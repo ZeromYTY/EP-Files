@@ -60,7 +60,12 @@ export default function Files() {
       setError('');
     } catch (err) {
       console.error('Ошибка при загрузке профиля:', err);
-      setStorageStats({ used_space: 0, available_space: 1024*1024*1024, total_space: 1024*1024*1024 });
+      setStorageStats({
+        total_size: 0,
+        available_space: 1024 * 1024 * 1024,
+        storage_limit: 1024 * 1024 * 1024,
+        usage_percent: 0,
+      });
       setError('Не удалось загрузить актуальный список избранного');
     }
   };
@@ -134,9 +139,12 @@ export default function Files() {
     }
   };
 
-  const usedSpace = storageStats?.used_space || 0;
-  const totalSpace = storageStats?.total_space || 1024 * 1024 * 1024;
-  const usagePercent = Math.min(Math.round((usedSpace / totalSpace) * 100), 100);
+  const usedSpace = storageStats?.total_size || 0;
+  const totalSpace = storageStats?.storage_limit || 1024 * 1024 * 1024;
+  const usagePercent = Math.min(
+    storageStats?.usage_percent ?? Math.round((usedSpace / totalSpace) * 100),
+    100
+  );
 
 
   return (

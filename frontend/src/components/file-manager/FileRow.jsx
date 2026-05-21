@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
 import { StarBorder, Star, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
-import api from '../../api/axios'; // Убедись, что путь к axios правильный
+import api from '../../api/axios';
 
 const isEditableTextFile = (file) => {
   if (!file?.name || file.type !== 'file') return false;
@@ -9,13 +9,26 @@ const isEditableTextFile = (file) => {
   return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
 };
 
-export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, onDownloadClick, onMenuOpen, onEditClick }) {
-  // Инициализируем звезду из базы данных коллеги
+export default function FileRow({
+  file,
+  getFileIcon,
+  formatFileSize,
+  formatDate,
+  onFolderClick,
+  onDownloadClick,
+  onMenuOpen,
+  onEditClick,
+  activeDropFolderId,
+  setActiveDropFolderId,
+  handleFolderDrop
+}) {
   const [isFavorite, setIsFavorite] = useState(file.is_favorite || false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
 
   const isFolder = file.type === 'folder';
   const rawDate = file.created_at || file.updated_at || file.date || new Date().toISOString();
+
+  const isFolderHovered = isFolder && activeDropFolderId === file.id;
 
   const handleDownload = (e) => {
     e.stopPropagation();
@@ -35,13 +48,12 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
   useEffect(() => {
     setIsFavorite(file.is_favorite);
   }, [file.is_favorite]);
+
   const handleToggleFavorite = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     try {
-      // Передаем тип объекта в теле запроса, чтобы Django знал, куда писать связь в БД
       const response = await api.post(`/favorite/${file.id}/`, { type: file.type });
-
       const newFavoriteStatus = response.data.is_favorite;
       setIsFavorite(newFavoriteStatus);
 
@@ -69,38 +81,57 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
   return (
     <>
       <Box
+        onDragOver={(e) => {
+          if (!isFolder) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (activeDropFolderId !== file.id) setActiveDropFolderId(file.id);
+        }}
+        onDragLeave={(e) => {
+          if (!isFolder) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setActiveDropFolderId(null);
+        }}
+        onDrop={(e) => {
+          if (!isFolder) return;
+          if (handleFolderDrop) handleFolderDrop(e, file.id);
+        }}
         sx={{
           display: 'grid',
           gridTemplateColumns: '40px 1fr 150px 120px 120px',
           p: 2,
           alignItems: 'center',
           cursor: isFolder ? 'pointer' : 'default',
-          transition: 'background-color 0.2s ease',
-          '&:hover': { backgroundColor: '#f5f8ff' },
+          transition: 'all 0.15s ease',
+          backgroundColor: isFolderHovered ? '#e0f2fe' : '#fff',
+          boxShadow: isFolderHovered ? 'inset 0 0 0 2px #2196F3' : 'none',
+          '&:hover': { backgroundColor: isFolderHovered ? '#e0f2fe' : '#f5f8ff' },
           borderBottom: '1px solid #f0f0f0',
-          position: 'relative'
+          position: 'relative',
+          zIndex: isFolderHovered ? 10 : 1,
         }}
         onClick={() => isFolder && onFolderClick(file.id)}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
           {getFileIcon(file)}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          <Typography variant="body2" noWrap sx={{ fontWeight: 500, color: '#202124', '&:hover': { color: '#2196F3' } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, pointerEvents: 'none' }}>
+          <Typography variant="body2" noWrap sx={{ fontWeight: 500, color: '#202124' }}>
             {file.name}
           </Typography>
         </Box>
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ pointerEvents: 'none' }}>
           {formatDate(rawDate)}
         </Typography>
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ pointerEvents: 'none' }}>
           {isFolder ? '—' : (file.size ? formatFileSize(file.size) : '0 Б')}
         </Typography>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, zIndex: 10 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, zIndex: 20 }}>
           <Tooltip title={isFolder ? "Скачать ZIP-архив" : "Скачать файл"}>
             <IconButton size="small" onClick={handleDownload} sx={{ color: '#2196F3' }}>
               <DownloadIcon sx={{ fontSize: 18 }} />
@@ -119,7 +150,6 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
             </Tooltip>
           )}
 
-          {/* ЖЕЛЕЗОБЕТОННАЯ КНОПКА ЗВЕЗДЫ */}
           <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
             <IconButton
               size="small"
