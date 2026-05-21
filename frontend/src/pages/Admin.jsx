@@ -1,188 +1,323 @@
-import { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Grid, 
-  Card, 
-  CardContent, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  Button, 
-  Chip,
+import { useCallback, useEffect, useState } from 'react';
+import api from '../api/axios';
+import { useAuth } from '../context/authContextValue';
+import {
   Alert,
-  CircularProgress
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Container,
+  Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
-import { Block, DeleteForever, CheckCircleOutline, AdminPanelSettings, Equalizer, People, Link } from '@mui/icons-material';
+import {
+  Block,
+  CheckCircleOutline,
+  DeleteOutline,
+  Refresh,
+} from '@mui/icons-material';
 
 export default function Admin() {
-  // Реалистичная статистика для тестовой базы данных
-  const stats = { 
-    totalVolume: "428.5 GB", 
-    activeUsers: 5, 
-    publicLinks: 34 
+  const { user: currentUser } = useAuth();
+
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 Б';
+
+    const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+    let size = bytes;
+    let index = 0;
+
+    while (size >= 1024 && index < units.length - 1) {
+      size /= 1024;
+      index += 1;
+    }
+
+    return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[index]}`;
   };
 
-  // НАБОР ТЕСТОВЫХ ПОЛЬЗОВАТЕЛЕЙ (Имейлы, роли, файлы)
-  const [users, setUsers] = useState([
-    { id: 1, login: "admin@test.ru", role: "admin", filesCount: 4, regDate: "21.05.2026", isBlocked: false },
-    { id: 2, login: "ivan@test.ru", role: "user", filesCount: 42, regDate: "12.01.2026", isBlocked: false },
-    { id: 3, login: "amirkhan@test.ru", role: "user", filesCount: 0, regDate: "03.03.2026", isBlocked: true },
-    { id: 4, login: "elena_design@test.ru", role: "user", filesCount: 118, regDate: "15.04.2026", isBlocked: false },
-    { id: 5, login: "dmitry_tech@test.ru", role: "user", filesCount: 15, regDate: "19.05.2026", isBlocked: false },
-  ]);
-
-  const loading = false;
-  const error = null;
-
-  // Имитация переключения блокировки на фронте
-  const toggleBlockUser = (id, login) => {
-    setUsers(users.map(u => u.id === id ? { ...u, isBlocked: !u.isBlocked } : u));
-    console.log(`[ADMIN ACTION] Переключен статус блокировки для: ${login}`);
+  const formatDate = (value) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('ru-RU');
   };
 
-  // Имитация удаления всех файлов пользователя
-  const handleDeleteContent = (id, login) => {
-    if (window.confirm(`Вы уверены, что хотите удалить ВСЕ файлы пользователя ${login}?`)) {
-      setUsers(users.map(u => u.id === id ? { ...u, filesCount: 0 } : u));
-      console.log(`[ADMIN ACTION] Удален весь контент пользователя: ${login}`);
+  const fetchAdminData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const [statsResponse, usersResponse] = await Promise.all([
+        api.get('/admin/stats/'),
+        api.get('/admin/users/'),
+      ]);
+
+      setStats(statsResponse.data);
+      setUsers(usersResponse.data.users || []);
+    } catch (err) {
+      console.error('Ошибка загрузки админ-панели:', err);
+      setError('Не удалось загрузить реальные данные админ-панели');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAdminData();
+  }, [fetchAdminData]);
+
+  const toggleBlockUser = async (targetUser) => {
+    const action = targetUser.is_active ? 'block' : 'unblock';
+
+    try {
+      setActionLoading(`${action}-${targetUser.id}`);
+      setError('');
+      setSuccess('');
+
+      await api.patch(`/admin/users/${targetUser.id}/${action}/`);
+
+      setSuccess(
+        targetUser.is_active
+          ? `Пользователь ${targetUser.email} заблокирован`
+          : `Пользователь ${targetUser.email} разблокирован`
+      );
+
+      await fetchAdminData();
+    } catch (err) {
+      console.error('Ошибка изменения статуса пользователя:', err);
+      setError('Не удалось изменить статус пользователя');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const deleteUserFiles = async (targetUser) => {
+    if (targetUser.file_count === 0) return;
+
+    const confirmed = window.confirm(
+      `Удалить все файлы пользователя ${targetUser.email}? Аккаунт останется.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(`delete-files-${targetUser.id}`);
+      setError('');
+      setSuccess('');
+
+      const response = await api.delete(
+        `/admin/users/${targetUser.id}/files/delete/`
+      );
+
+      setSuccess(
+        `Удалено файлов: ${response.data.files_deleted} у пользователя ${targetUser.email}`
+      );
+
+      await fetchAdminData();
+    } catch (err) {
+      console.error('Ошибка удаления файлов пользователя:', err);
+      setError('Не удалось удалить файлы пользователя');
+    } finally {
+      setActionLoading('');
     }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: '#0f172a',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Alert 
-        severity="error" 
-        icon={<AdminPanelSettings fontSize="inherit" />}
-        sx={{ mb: 4, fontWeight: 'bold', backgroundColor: '#fff1f0', color: '#ff4d4f', borderLeft: '5px solid #ff4d4f' }}
-      >
-        РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ — Будьте аккуратны с деструктивными действиями.
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Alert severity="warning" sx={{ mb: 3 }}>
+        РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ — будьте аккуратны с деструктивными действиями.
       </Alert>
 
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 3, color: '#2c3e50' }}>
-        Панель управления
+      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+        Админ-панель EP Files
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Реальные пользователи, статистика и административные действия
+      </Typography>
 
-      {/* Блок статистики */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
-          <Card sx={{ borderTop: '4px solid #2196F3', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="textSecondary" variant="subtitle2" gutterBottom>Общий объём файлов</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#2196F3' }}>{stats.totalVolume}</Typography>
-              </Box>
-              <Equalizer sx={{ color: '#2196F3', fontSize: 40, opacity: 0.7 }} />
-            </CardContent>
-          </Card>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          {success}
+        </Alert>
+      )}
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 3 }}>
+            <Typography color="text.secondary">Всего пользователей</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              {stats?.total_users ?? 0}
+            </Typography>
+          </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <Card sx={{ borderTop: '4px solid #4CAF50', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="textSecondary" variant="subtitle2" gutterBottom>Активные пользователи</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#4CAF50' }}>{stats.activeUsers}</Typography>
-              </Box>
-              <People sx={{ color: '#4CAF50', fontSize: 40, opacity: 0.7 }} />
-            </CardContent>
-          </Card>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 3 }}>
+            <Typography color="text.secondary">Активные пользователи</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              {stats?.active_users ?? 0}
+            </Typography>
+          </Paper>
         </Grid>
-        <Grid item xs={12} sm={4}>
-          <Card sx={{ borderTop: '4px solid #FF9800', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="textSecondary" variant="subtitle2" gutterBottom>Публичные ссылки</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, color: '#FF9800' }}>{stats.publicLinks}</Typography>
-              </Box>
-              <Link sx={{ color: '#FF9800', fontSize: 40, opacity: 0.7 }} />
-            </CardContent>
-          </Card>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 3 }}>
+            <Typography color="text.secondary">Всего файлов</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              {stats?.total_files ?? 0}
+            </Typography>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, borderRadius: 3 }}>
+            <Typography color="text.secondary">Общий объём</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+              {formatFileSize(stats?.total_size_bytes)}
+            </Typography>
+          </Paper>
         </Grid>
       </Grid>
 
-      {/* Таблица пользователей */}
-      <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Список пользователей</Typography>
-      <TableContainer component={Paper} sx={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderRadius: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          variant="outlined"
+          startIcon={<Refresh />}
+          onClick={fetchAdminData}
+        >
+          Обновить данные
+        </Button>
+      </Box>
+
+      <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
         <Table>
-          <TableHead sx={{ backgroundColor: '#f5f7fa' }}>
+          <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Логин (Email)</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Роль</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Кол-во файлов</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Дата регистрации</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Статус</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="center">Действия</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Роль</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell>Кол-во файлов</TableCell>
+              <TableCell>Объём файлов</TableCell>
+              <TableCell>Дата регистрации</TableCell>
+              <TableCell align="right">Действия</TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
-            {users.map((user) => (
-              <TableRow 
-                key={user.id} 
-                sx={{ 
-                  backgroundColor: user.isBlocked ? '#fff1f0' : 'inherit',
-                  '&:hover': { backgroundColor: user.isBlocked ? '#ffe1e0' : '#fcfdfe' }
-                }}
-              >
-                <TableCell sx={{ fontWeight: 500 }}>{user.login}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={user.role} 
-                    color={user.role === 'admin' ? 'secondary' : 'default'} 
-                    size="small" 
-                    sx={{ fontWeight: 'bold' }}
-                  />
-                </TableCell>
-                <TableCell>{user.filesCount}</TableCell>
-                <TableCell>{user.regDate}</TableCell>
-                <TableCell>
-                  {user.isBlocked ? (
-                    <Typography variant="body2" sx={{ color: '#ff4d4f', fontWeight: 'bold' }}>Заблокирован</Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#52c41a' }}>Активен</Typography>
-                  )}
-                </TableCell>
-                <TableCell align="center">
-                  <Button
-                    variant="contained"
-                    size="small"
-                    color={user.isBlocked ? "success" : "warning"}
-                    startIcon={user.isBlocked ? <CheckCircleOutline /> : <Block />}
-                    onClick={() => toggleBlockUser(user.id, user.login)}
-                    sx={{ mr: 1, textTransform: 'none' }}
-                  >
-                    {user.isBlocked ? 'Разблокировать' : 'Блокировать'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    startIcon={<DeleteForever />}
-                    disabled={user.filesCount === 0}
-                    onClick={() => handleDeleteContent(user.id, user.login)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Удалить файлы
-                  </Button>
+            {users.map((targetUser) => {
+              const isCurrentUser = currentUser?.id === targetUser.id;
+
+              return (
+                <TableRow key={targetUser.id} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    {targetUser.email}
+                  </TableCell>
+
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={targetUser.is_staff ? 'admin' : 'user'}
+                      color={targetUser.is_staff ? 'secondary' : 'default'}
+                    />
+                  </TableCell>
+
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={targetUser.is_active ? 'Активен' : 'Заблокирован'}
+                      color={targetUser.is_active ? 'success' : 'error'}
+                    />
+                  </TableCell>
+
+                  <TableCell>{targetUser.file_count}</TableCell>
+
+                  <TableCell>{formatFileSize(targetUser.total_size)}</TableCell>
+
+                  <TableCell>{formatDate(targetUser.date_joined)}</TableCell>
+
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color={targetUser.is_active ? 'warning' : 'success'}
+                      startIcon={
+                        targetUser.is_active ? <Block /> : <CheckCircleOutline />
+                      }
+                      disabled={
+                        isCurrentUser ||
+                        actionLoading === `block-${targetUser.id}` ||
+                        actionLoading === `unblock-${targetUser.id}`
+                      }
+                      onClick={() => toggleBlockUser(targetUser)}
+                      sx={{ mr: 1 }}
+                    >
+                      {targetUser.is_active ? 'Блокировать' : 'Разблокировать'}
+                    </Button>
+
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<DeleteOutline />}
+                      disabled={
+                        targetUser.file_count === 0 ||
+                        actionLoading === `delete-files-${targetUser.id}`
+                      }
+                      onClick={() => deleteUserFiles(targetUser)}
+                    >
+                      Удалить файлы
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+
+            {users.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  Пользователи не найдены
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </TableContainer>
-    </Box>
+    </Container>
   );
 }

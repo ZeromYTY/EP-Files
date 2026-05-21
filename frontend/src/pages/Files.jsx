@@ -41,6 +41,10 @@ import {
 export default function Files() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const isAdmin = Boolean(user?.is_staff || user?.is_superuser);
+  const displayName = user?.name || user?.email || 'Пользователь';
+
   const [error, setError] = useState('');
   const [storageStats, setStorageStats] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -172,25 +176,50 @@ export default function Files() {
               {(user?.name || user?.email || 'U').toUpperCase()}
             </Avatar>
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>
-              {user?.name || 'Пользователь'}
+              {displayName}
             </Typography>
+
+            <Typography
+              variant="body2"
+              sx={{
+                mb: 0.5,
+                fontWeight: 700,
+                color: isAdmin ? '#dc2626' : '#64748b',
+              }}
+            >
+              {isAdmin ? 'Роль: Администратор' : 'Роль: Пользователь'}
+            </Typography>
+
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Личный кабинет ep-files
+              {isAdmin ? 'Личный кабинет администратора ep-files' : 'Личный кабинет ep-files'}
             </Typography>
 
             <Divider sx={{ my: 2 }} />
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Button
                 variant="contained"
                 fullWidth
-                component={Link}
-                to="/file-manager"
+                onClick={() => navigate('/file-manager')}
                 startIcon={<Folder />}
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, py: 1 }}
               >
                 В файловый менеджер
               </Button>
+
+              {isAdmin && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  fullWidth
+                  onClick={() => navigate('/admin')}
+                  startIcon={<Shield />}
+                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, py: 1 }}
+                >
+                  Войти в админ-панель
+                </Button>
+              )}
+
               <Button
                 variant="outlined"
                 color="error"
