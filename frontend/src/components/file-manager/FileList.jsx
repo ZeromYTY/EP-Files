@@ -3,7 +3,7 @@ import { Grid, Paper, Box, Typography, IconButton, Tooltip } from '@mui/material
 import { Folder, Description, TableChart, PictureAsPdf, CloudUpload, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
 import FileRow from './FileRow';
 
-function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, onFileDropped, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
+function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
   const isFolderHovered = activeDropFolderId === folder.id;
 
   return (
@@ -239,7 +239,6 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
                 onFolderClick={onFolderClick}
                 onMenuOpen={onMenuOpen}
                 onDownloadClick={onDownloadClick}
-                onFileDropped={onFileDropped}
                 formatDate={formatDate}
                 formatFileSize={formatFileSize}
                 activeDropFolderId={activeDropFolderId}

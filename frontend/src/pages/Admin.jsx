@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -21,11 +21,11 @@ import { Block, DeleteForever, CheckCircleOutline, AdminPanelSettings, Equalizer
 
 export default function Admin() {
   // Реалистичная статистика для тестовой базы данных
-  const [stats, setStats] = useState({ 
+  const stats = { 
     totalVolume: "428.5 GB", 
     activeUsers: 5, 
     publicLinks: 34 
-  });
+  };
 
   // НАБОР ТЕСТОВЫХ ПОЛЬЗОВАТЕЛЕЙ (Имейлы, роли, файлы)
   const [users, setUsers] = useState([
@@ -36,8 +36,8 @@ export default function Admin() {
     { id: 5, login: "dmitry_tech@test.ru", role: "user", filesCount: 15, regDate: "19.05.2026", isBlocked: false },
   ]);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const loading = false;
+  const error = null;
 
   // Имитация переключения блокировки на фронте
   const toggleBlockUser = (id, login) => {

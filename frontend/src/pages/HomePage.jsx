@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContextValue';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 import FilesPageUploader from '../components/upload/FilesPageUploader';
@@ -393,7 +393,7 @@ export default function HomePage() {
         )}
 
         {/* Recent Files for logged in users */}
-        {user && recentFiles.length > 0 && (
+        {user && (loading || recentFiles.length > 0) && (
           <Paper sx={{ p: 3, mb: 6 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -404,6 +404,11 @@ export default function HomePage() {
               </Button>
             </Box>
 
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <LinearProgress sx={{ width: '100%', maxWidth: 320 }} />
+              </Box>
+            ) : (
             <List>
               {recentFiles.map((file, index) => (
                 <Box key={file.id}>
@@ -434,6 +439,7 @@ export default function HomePage() {
                 </Box>
               ))}
             </List>
+            )}
           </Paper>
         )}
 

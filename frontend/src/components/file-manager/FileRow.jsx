@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
 import { StarBorder, Star, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
 import api from '../../api/axios';
@@ -22,10 +22,11 @@ export default function FileRow({
   setActiveDropFolderId,
   handleFolderDrop
 }) {
-  const [isFavorite, setIsFavorite] = useState(file.is_favorite || false);
+  const [favoriteOverride, setFavoriteOverride] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
 
   const isFolder = file.type === 'folder';
+  const isFavorite = favoriteOverride ?? Boolean(file.is_favorite);
   const rawDate = file.created_at || file.updated_at || file.date || new Date().toISOString();
 
   const isFolderHovered = isFolder && activeDropFolderId === file.id;
@@ -45,17 +46,13 @@ export default function FileRow({
     }
   };
 
-  useEffect(() => {
-    setIsFavorite(file.is_favorite);
-  }, [file.is_favorite]);
-
   const handleToggleFavorite = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     try {
       const response = await api.post(`/favorite/${file.id}/`, { type: file.type });
       const newFavoriteStatus = response.data.is_favorite;
-      setIsFavorite(newFavoriteStatus);
+      setFavoriteOverride(newFavoriteStatus);
 
       setToast({
         open: true,

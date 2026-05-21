@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContextValue';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 import {
@@ -97,6 +97,7 @@ export default function Files() {
 
   // НАША УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СКАЧИВАНИЯ ПРЯМО ИЗ ИЗБРАННОГО
   const handleDownloadFav = async (id, name, type) => {
+    // eslint-disable-next-line react-hooks/purity
     const taskId = 'download-fav-' + Date.now() + Math.random().toString(36).substr(2, 4);
     try {
       setIsWidgetMinimized(false);
@@ -129,6 +130,7 @@ export default function Files() {
         subText: 'Сохранено на устройство',
         status: 'success'
       });
+      removeTaskWithTimer(taskId);
     } catch (err) {
       console.error('Ошибка при скачивании из избранного:', err);
       updateTask(taskId, {
@@ -136,6 +138,7 @@ export default function Files() {
         subText: err.response?.status === 404 ? 'Объект не найден' : 'Нет прав доступа',
         status: 'error'
       });
+      removeTaskWithTimer(taskId);
     }
   };
 

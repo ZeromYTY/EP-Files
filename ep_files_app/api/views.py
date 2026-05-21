@@ -1659,8 +1659,9 @@ def save_text_file(request, file_id):
     if content is None:
         return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Only sanitize HTML/CSS/JS content to avoid corrupting code files like .py, .json, .csv
-    if ext in {".html", ".js", ".css"}:
+    # Sanitize formats that may be rendered or previewed in the browser.
+    # Keep data/code-oriented formats untouched to avoid corrupting valid syntax.
+    if ext in {".txt", ".md", ".xml", ".html", ".css", ".js"}:
         sanitized_content = _sanitize_text_content(content)
     else:
         sanitized_content = content

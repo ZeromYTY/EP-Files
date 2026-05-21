@@ -21,38 +21,7 @@ export default function FileUpload({ onUploadComplete, onUploadError, folderId =
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [errors, setErrors] = useState([]);
 
-  const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    const newErrors = [];
-
-    rejectedFiles.forEach(fileRejection => {
-      if (fileRejection.errors?.code === 'file-too-large') {
-        newErrors.push(`Файл "${fileRejection.file.name}" слишком большой (макс. 100 MB)`);
-      } else {
-        newErrors.push(`Файл "${fileRejection.file.name}" не может быть загружен`);
-      }
-    });
-
-    if (newErrors.length > 0) {
-      setErrors(prev => [...prev, ...newErrors]);
-    }
-
-    if (acceptedFiles.length > 0) {
-      const filesToUpload = acceptedFiles.map(file => ({
-        file,
-        id: Math.random().toString(36).substr(2, 9),
-        progress: 0,
-        status: 'uploading',
-      }));
-
-      setUploadingFiles(prev => [...prev, ...filesToUpload]);
-
-      filesToUpload.forEach(uploadFile => {
-        uploadFileToDjango(uploadFile);
-      });
-    }
-  }, [folderId, onUploadComplete, onUploadError]);
-
-  const uploadFileToDjango = async (uploadFile) => {
+  const uploadFileToDjango = useCallback(async (uploadFile) => {
     const formData = new FormData();
     formData.append('file', uploadFile.file);
 
@@ -97,7 +66,38 @@ export default function FileUpload({ onUploadComplete, onUploadError, folderId =
         onUploadError(error);
       }
     }
-  };
+  }, [folderId, onUploadComplete, onUploadError]);
+
+  const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
+    const newErrors = [];
+
+    rejectedFiles.forEach(fileRejection => {
+      if (fileRejection.errors?.code === 'file-too-large') {
+        newErrors.push(`Файл "${fileRejection.file.name}" слишком большой (макс. 100 MB)`);
+      } else {
+        newErrors.push(`Файл "${fileRejection.file.name}" не может быть загружен`);
+      }
+    });
+
+    if (newErrors.length > 0) {
+      setErrors(prev => [...prev, ...newErrors]);
+    }
+
+    if (acceptedFiles.length > 0) {
+      const filesToUpload = acceptedFiles.map(file => ({
+        file,
+        id: Math.random().toString(36).substr(2, 9),
+        progress: 0,
+        status: 'uploading',
+      }));
+
+      setUploadingFiles(prev => [...prev, ...filesToUpload]);
+
+      filesToUpload.forEach(uploadFile => {
+        uploadFileToDjango(uploadFile);
+      });
+    }
+  }, [uploadFileToDjango]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

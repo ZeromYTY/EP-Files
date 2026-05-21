@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContextValue';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import {
@@ -140,12 +140,14 @@ export default function FileManager() {
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
       loadData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolderId]);
 
   const loadData = async () => {
@@ -205,11 +207,6 @@ export default function FileManager() {
     }
   };
 
-    const handleCreateFolderClick = () => {
-        handleCreateClose();
-        setCreateFolderOpen(true);
-    };
-
   const updateBreadcrumbs = (allFolders) => {
     if (!currentFolderId) {
       setBreadcrumbs([]);
@@ -225,11 +222,6 @@ export default function FileManager() {
     }
     setBreadcrumbs(path);
   };
-
-  const getPathArray = () => [
-    { id: null, name: 'Главная' },
-    ...breadcrumbs.map(b => ({ id: b.id, name: b.name }))
-  ];
 
   const addTask = (id, name, title, subText, status, progress = 0) => {
     setTasks(prev => [...prev, { id, name, title, subText, status, progress }]);
@@ -326,12 +318,6 @@ export default function FileManager() {
     }
   };
 
-
-  const handleFileDropped = (acceptedFiles) => {
-    if (acceptedFiles && acceptedFiles.length > 0) {
-      processUpload(acceptedFiles[0], currentFolderId);
-    }
-  };
 
   const handleManualUpload = (event) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -592,7 +578,11 @@ export default function FileManager() {
 
         <Box sx={{ mb: 3 }}><Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>{getCurrentLocationName()}</Typography><Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography></Box>
 
-        {sortedItems.length === 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
+            <CircularProgress />
+          </Box>
+        ) : sortedItems.length === 0 ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center' }}>
             <Box sx={{ width: 96, height: 96, backgroundColor: '#e8f0fe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
               <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', margin: 'auto' }} />

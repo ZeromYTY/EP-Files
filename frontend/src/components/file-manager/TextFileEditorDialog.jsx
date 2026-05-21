@@ -5,17 +5,9 @@ import CloseIcon from '@mui/icons-material/Close';
 export default function TextFileEditorDialog({ open, file, content, onChange, onSave, onCancel, loading, saving, error }) {
   const textareaRef = useRef(null);
   const gutterRef = useRef(null);
-  const [lines, setLines] = useState(1);
-  const [localError, setLocalError] = useState('');
-
-  useEffect(() => {
-    setLocalError(error || '');
-  }, [error]);
-
-  useEffect(() => {
-    const count = (content || '').split('\n').length;
-    setLines(count);
-  }, [content]);
+  const [dismissedError, setDismissedError] = useState('');
+  const lines = (content || '').split('\n').length;
+  const visibleError = error && error !== dismissedError ? error : '';
 
   useEffect(() => {
     const handler = (e) => {
@@ -50,9 +42,9 @@ export default function TextFileEditorDialog({ open, file, content, onChange, on
           Можно использовать Ctrl+S для сохранения. Редактирование для простых текстовых файлов (.txt, .md, .json, .csv, .log, .xml, .html, .js, .py).
         </DialogContentText>
 
-        {(localError) && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLocalError('')}>
-            {localError}
+        {visibleError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDismissedError(error || '')}>
+            {visibleError}
           </Alert>
         )}
 
