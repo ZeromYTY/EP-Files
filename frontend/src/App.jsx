@@ -4,8 +4,9 @@ import Register from './pages/Register';
 import HomePage from './pages/HomePage';
 import Files from './pages/Files';
 import FileManager from './pages/FileManager';
-import Admin from './pages/Admin'; 
+import Admin from './pages/Admin';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -19,9 +20,11 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/files" element={<Files />} />
         <Route path="/file-manager" element={<FileManager />} />
-        
-        {/* ВРЕМЕННО ДЛЯ ТЕСТА: Открываем прямой доступ к админке */}
-        <Route path="/admin" element={<Admin />} />
+
+        {/* Админка доступна только staff/superuser */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<Admin />} />
+        </Route>
       </Route>
 
       {/* Редирект для любых несуществующих страниц */}
