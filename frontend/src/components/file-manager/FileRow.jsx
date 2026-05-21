@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
-import { StarBorder, Star, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import { StarBorder, Star, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
 import api from '../../api/axios';
+
+const isEditableTextFile = (file) => {
+  if (!file?.name || file.type !== 'file') return false;
+  const extension = file.name.split('.').pop().toLowerCase();
+  return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
+};
 
 export default function FileRow({
   file,
@@ -11,6 +17,7 @@ export default function FileRow({
   onFolderClick,
   onDownloadClick,
   onMenuOpen,
+  onEditClick,
   activeDropFolderId,
   setActiveDropFolderId,
   handleFolderDrop
@@ -27,6 +34,14 @@ export default function FileRow({
     e.stopPropagation();
     if (onDownloadClick) {
       onDownloadClick(file.id, file.name, file.type);
+    }
+  };
+
+  const handleEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onEditClick && isEditableTextFile(file)) {
+      onEditClick(file);
     }
   };
 
@@ -122,6 +137,18 @@ export default function FileRow({
               <DownloadIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
+
+          {onEditClick && !isFolder && isEditableTextFile(file) && (
+            <Tooltip title="Редактировать файл">
+              <IconButton
+                size="small"
+                onClick={handleEdit}
+                sx={{ color: '#1976D2' }}
+              >
+                <Edit sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
 
           <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
             <IconButton

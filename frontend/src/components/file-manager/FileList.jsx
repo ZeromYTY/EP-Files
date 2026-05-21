@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Grid, Paper, Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { Folder, Description, TableChart, PictureAsPdf, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import { Folder, Description, TableChart, PictureAsPdf, CloudUpload, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
 import FileRow from './FileRow';
 
 function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, onFileDropped, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
@@ -86,7 +86,7 @@ function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, on
   );
 }
 
-export default function FileList({ files, viewMode, onFolderClick, onDownloadClick, onDeleteClick, onFileDropped, onMenuOpen }) {
+export default function FileList({ files, viewMode, onFolderClick, onDownloadClick, onDeleteClick, onFileDropped, onMenuOpen, onEditClick }) {
   const [activeDropFolderId, setActiveDropFolderId] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const extractFilesFromEntry = (item) => {
@@ -201,6 +201,12 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
     return <Description {...iconProps} sx={{ ...iconProps.sx, color: '#2196F3' }} />;
   };
 
+  const isEditableTextFile = (file) => {
+    if (!file?.name || file.type !== 'file') return false;
+    const extension = file.name.split('.').pop().toLowerCase();
+    return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
+  };
+
   const formatFileSize = (bytes) => {
     if (!bytes) return '';
     const k = 1024;
@@ -273,6 +279,22 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
                   </IconButton>
                 </Tooltip>
 
+                {isEditableTextFile(file) && onEditClick && (
+                  <Tooltip title="Редактировать файл">
+                    <IconButton
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onEditClick(file);
+                      }}
+                      sx={{ position: 'absolute', top: 8, right: 72, opacity: 0.8, transition: 'opacity 0.2s', color: '#1976D2', zIndex: 30 }}
+                      size="small"
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
                 <IconButton
                   className="grid-menu-btn"
                   onClick={(e) => {
@@ -334,6 +356,7 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
           formatDate={formatDate}
           onFolderClick={onFolderClick}
           onDownloadClick={onDownloadClick}
+          onEditClick={onEditClick}
           onDeleteClick={onDeleteClick}
           onMenuOpen={onMenuOpen}
           onFileDropped={onFileDropped}

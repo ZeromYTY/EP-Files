@@ -68,4 +68,7 @@ export const downloadFileApi = async (fileId, fileName) => {
   window.URL.revokeObjectURL(url);
 };
 
+export const readTextFileApi = (fileId) => api.get(`/files/${fileId}/content/`);
+export const saveTextFileApi = (fileId, content) => api.post(`/files/${fileId}/save/`, { content });
+
 export default api;
