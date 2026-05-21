@@ -56,7 +56,7 @@ import {
 import FileList from '../components/file-manager/FileList';
 import MoveFolderDialog from '../components/file-manager/MoveFolderDialog';
 
-export default function FileManager() {
+export default function FileManager({ onPreviewFile }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [favoriteIds, setFavoriteIds] = useState({ files: [], folders: [] });
@@ -536,18 +536,19 @@ export default function FileManager() {
           </Box>
         ) : (
           <FileList
-          files={sortedItems}
-          viewMode={viewMode}
-          onFolderClick={handleFolderClick}
-          onDownloadClick={handleDownload}
-          onDeleteClick={handleDelete}
-          onMenuOpen={handleMenuOpen}
-          onFileDropped={(filesArray, targetFolderId) => {
-            if (filesArray && filesArray.length > 0) {
-              processUpload(filesArray[0], targetFolderId);
-            }
-          }}
-        />
+            files={sortedItems}
+            viewMode={viewMode}
+            onFolderClick={handleFolderClick}
+            onDownloadClick={handleDownload}
+            onPreviewClick={onPreviewFile}
+            onDeleteClick={handleDelete}
+            onMenuOpen={handleMenuOpen}
+            onFileDropped={(filesArray, targetFolderId) => {
+              if (filesArray && filesArray.length > 0) {
+                processUpload(filesArray[0], targetFolderId);
+              }
+            }}
+          />
         )}
       </Container>
 

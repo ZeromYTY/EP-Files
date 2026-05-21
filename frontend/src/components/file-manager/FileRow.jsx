@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
-import { StarBorder, Star, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import { StarBorder, Star, MoreVert, Download as DownloadIcon, Visibility } from '@mui/icons-material';
 import api from '../../api/axios';
 
 export default function FileRow({
@@ -10,6 +10,7 @@ export default function FileRow({
   formatDate,
   onFolderClick,
   onDownloadClick,
+  onPreviewClick,
   onMenuOpen,
   activeDropFolderId,
   setActiveDropFolderId,
@@ -30,9 +31,13 @@ export default function FileRow({
     }
   };
 
-  useEffect(() => {
-    setIsFavorite(file.is_favorite);
-  }, [file.is_favorite]);
+  const handlePreview = (e) => {
+    e.stopPropagation();
+    if (!isFolder && onPreviewClick) {
+      onPreviewClick(file);
+    }
+  };
+
 
   const handleToggleFavorite = async (e) => {
     e.preventDefault();
@@ -96,7 +101,13 @@ export default function FileRow({
           position: 'relative',
           zIndex: isFolderHovered ? 10 : 1,
         }}
-        onClick={() => isFolder && onFolderClick(file.id)}
+        onClick={() => {
+          if (isFolder) {
+            onFolderClick(file.id);
+          } else if (onPreviewClick) {
+            onPreviewClick(file);
+          }
+        }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
           {getFileIcon(file)}
@@ -117,6 +128,13 @@ export default function FileRow({
         </Typography>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, zIndex: 20 }}>
+          {!isFolder && (
+            <Tooltip title="Предпросмотр">
+              <IconButton size="small" onClick={handlePreview} sx={{ color: '#2196F3' }}>
+                <Visibility sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title={isFolder ? "Скачать ZIP-архив" : "Скачать файл"}>
             <IconButton size="small" onClick={handleDownload} sx={{ color: '#2196F3' }}>
               <DownloadIcon sx={{ fontSize: 18 }} />
