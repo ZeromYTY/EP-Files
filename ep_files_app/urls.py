@@ -9,7 +9,7 @@ from .api.views import (
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,
     admin_list_users, admin_stats, admin_block_user,
-    admin_unblock_user, admin_delete_user,
+    admin_unblock_user, admin_delete_user_files, admin_delete_user,
     save_text_file, read_text_file, toggle_favorite,
     download_folder, get_user_favorites, get_files,
 )
@@ -78,6 +78,11 @@ urlpatterns = [
     path("admin/stats/", admin_stats, name="admin_stats"),
     path("admin/users/<int:user_id>/block/", admin_block_user, name="admin_block_user"),
     path("admin/users/<int:user_id>/unblock/", admin_unblock_user, name="admin_unblock_user"),
+    path(
+        "admin/users/<int:user_id>/files/delete/",
+        admin_delete_user_files,
+        name="admin_delete_user_files",
+    ),
     path("admin/users/<int:user_id>/delete/", admin_delete_user, name="admin_delete_user"),
     path("files/<int:file_id>/public-link/", enable_file_public_link, name="enable_file_public_link"),
     path("files/<int:file_id>/public-link/disable/", disable_file_public_link, name="disable_file_public_link"),

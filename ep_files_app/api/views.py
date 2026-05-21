@@ -1514,6 +1514,43 @@ def admin_unblock_user(request, user_id):
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated, IsAdminUser])
+def admin_delete_user_files(request, user_id):
+    """Удаляет все файлы пользователя, но не удаляет сам аккаунт."""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    files = File.objects.filter(owner=user)
+    deleted_count = 0
+    deleted_size = 0
+
+    for file_obj in files:
+        deleted_size += file_obj.size or 0
+
+        try:
+            if file_obj.file:
+                file_obj.file.delete(save=False)
+        except Exception as exc:
+            logger.error("Error deleting user file by admin: %s", str(exc))
+
+        file_obj.delete()
+        deleted_count += 1
+
+    logger.warning(
+        "Admin %s deleted %d file(s) of user %s",
+        request.user.email,
+        deleted_count,
+        user.email,
+    )
+
+    return Response({
+        "status": "files_deleted",
+        "user_id": user.id,
+        "email": user.email,
+        "files_deleted": deleted_count,
+        "deleted_size": deleted_size,
+    })
 def admin_delete_user(request, user_id):
     """Полностью и безвозвратно удаляет пользователя и все связанные файлы с диска.
 
