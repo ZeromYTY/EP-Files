@@ -2,27 +2,27 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { AuthContext } from './authContextValue';
 
+async function loadStoredUser(setUser) {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const response = await api.get('/auth/me/');
+    setUser(response.data.user);
+  } catch {
+    localStorage.removeItem('token');
+    setUser(null);
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Проверяем токен при загрузке приложения
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          // Проверяем валидность токена (опционально)
-          const response = await api.get('/auth/me/');
-          setUser(response.data.user);
-        } catch {
-          localStorage.removeItem('token');
-          setUser(null);
-        }
-      }
+      await loadStoredUser(setUser);
       setLoading(false);
     };
-
     checkAuth();
   }, []);
 
@@ -47,9 +47,5 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, login, register, logout, loading }}>{children}</AuthContext.Provider>;
 }

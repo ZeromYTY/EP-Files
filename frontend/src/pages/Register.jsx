@@ -4,15 +4,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../context/authContextValue';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Alert,
-  Box,
-} from '@mui/material';
+import { Alert, Box, Button, Container, Paper, TextField, Typography } from '@mui/material';
 const schema = yup.object({
   name: yup
     .string()
@@ -33,6 +25,31 @@ const schema = yup.object({
     .required('Подтвердите пароль'),
 }).required();
 
+function getRegisterErrorMessage(err) {
+  const responseData = err.response?.data;
+  if (!responseData) return 'Ошибка при регистрации';
+  if (responseData.error || responseData.message || responseData.detail) {
+    return responseData.error || responseData.message || responseData.detail;
+  }
+  const fieldLabels = { name: 'Имя', email: 'Email', password: 'Пароль', non_field_errors: 'Ошибка' };
+  const messages = Object.entries(responseData).map(([field, value]) => `${fieldLabels[field] || field}: ${Array.isArray(value) ? value.join(' ') : value}`).join('\n');
+  return messages || 'Ошибка при регистрации';
+}
+
+function RegisterForm({ register, errors, isSubmitting, onSubmit, handleSubmit, error }) {
+  return (
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
+      {error && <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>{error}</Alert>}
+      <TextField fullWidth label="Имя" margin="normal" autoComplete="name" {...register('name')} error={!!errors.name} helperText={errors.name?.message} />
+      <TextField fullWidth label="Email" type="email" margin="normal" autoComplete="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
+      <TextField fullWidth label="Пароль" type="password" margin="normal" autoComplete="new-password" {...register('password')} error={!!errors.password} helperText={errors.password?.message} />
+      <TextField fullWidth label="Подтвердите пароль" type="password" margin="normal" autoComplete="new-password" {...register('confirmPassword')} error={!!errors.confirmPassword} helperText={errors.confirmPassword?.message} />
+      <Button fullWidth type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ mt: 3, mb: 2 }}>{isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}</Button>
+      <Typography align="center" color="text.secondary">Уже есть аккаунт? <Link to="/login" style={{ textDecoration: 'none' }}>Войти</Link></Typography>
+    </Box>
+  );
+}
+
 export default function Register() {
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
@@ -45,36 +62,6 @@ export default function Register() {
   } = useForm({
     resolver: yupResolver(schema),
   });
-
-  const getRegisterErrorMessage = (err) => {
-    const responseData = err.response?.data;
-
-    if (!responseData) {
-      return 'Ошибка при регистрации';
-    }
-
-    if (responseData.error || responseData.message || responseData.detail) {
-      return responseData.error || responseData.message || responseData.detail;
-    }
-
-    const fieldLabels = {
-      name: 'Имя',
-      email: 'Email',
-      password: 'Пароль',
-      non_field_errors: 'Ошибка',
-    };
-
-    const messages = Object.entries(responseData)
-      .map(([field, value]) => {
-        const label = fieldLabels[field] || field;
-        const text = Array.isArray(value) ? value.join(' ') : value;
-
-        return `${label}: ${text}`;
-      })
-      .join('\n');
-
-    return messages || 'Ошибка при регистрации';
-  };
 
   const onSubmit = async (data) => {
     try {
@@ -89,78 +76,8 @@ export default function Register() {
   return (
     <Container maxWidth="sm">
       <Paper sx={{ p: 4, mt: 8 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Регистрация
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
-            {error}
-          </Alert>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <TextField
-            fullWidth
-            label="Имя"
-            margin="normal"
-            autoComplete="name"
-            {...register('name')}
-            error={!!errors.name}
-            helperText={errors.name?.message}
-          />
-
-          <TextField
-            fullWidth
-            label="Email"
-            type="email"
-            margin="normal"
-            autoComplete="email"
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
-          />
-
-          <TextField
-            fullWidth
-            label="Пароль"
-            type="password"
-            margin="normal"
-            autoComplete="new-password"
-            {...register('password')}
-            error={!!errors.password}
-            helperText={errors.password?.message}
-          />
-
-          <TextField
-            fullWidth
-            label="Подтвердите пароль"
-            type="password"
-            margin="normal"
-            autoComplete="new-password"
-            {...register('confirmPassword')}
-            error={!!errors.confirmPassword}
-            helperText={errors.confirmPassword?.message}
-          />
-
-          <Button
-            fullWidth
-            type="submit"
-            variant="contained"
-            size="large"
-            disabled={isSubmitting}
-            sx={{ mt: 3, mb: 2 }}
-          >
-            {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
-          </Button>
-
-          <Typography align="center" color="text.secondary">
-            Уже есть аккаунт?{' '}
-            <Link to="/login" style={{ textDecoration: 'none' }}>
-              Войти
-            </Link>
-          </Typography>
-        </Box>
+        <Typography variant="h4" component="h1" gutterBottom align="center">Регистрация</Typography>
+        <RegisterForm register={register} errors={errors} isSubmitting={isSubmitting} onSubmit={onSubmit} handleSubmit={handleSubmit} error={error} />
       </Paper>
     </Container>
   );

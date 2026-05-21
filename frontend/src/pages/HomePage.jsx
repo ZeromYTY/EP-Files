@@ -1,42 +1,56 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/authContextValue';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Box, Container } from '@mui/material';
 import api from '../api/axios';
-import FilesPageUploader from '../components/upload/FilesPageUploader';
+import { useAuth } from '../context/authContextValue';
 import {
-  Box,
-  Container,
-  Typography,
-  Button,
-  Grid,
-  Paper,
-  Card,
-  CardContent,
-  Chip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Divider,
-  LinearProgress,
-  Alert,
-} from '@mui/material';
-import {
-  CloudUpload,
-  InsertDriveFile,
-  Folder,
-  Storage,
-  TrendingUp,
-  Login as LoginIcon,
-  PersonAdd,
-  Dashboard,
-} from '@mui/icons-material';
+  GuestCta,
+  HomeFooter,
+  HomeHeader,
+  HomeHero,
+  QuickActionsPanel,
+  RecentFilesPanel,
+  StorageStatsPanel,
+} from '../components/home/HomeSections';
 
-export default function HomePage() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 Б';
+  const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const size = bytes / (1024 ** unitIndex);
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}`;
+}
 
+function formatDate(dateValue) {
+  if (!dateValue) return 'Только что';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 'Только что';
+  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+async function uploadQuickFile({ file, setUploadError, setIsQuickUploading, setQuickUploadProgress, refresh }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    setUploadError('');
+    setIsQuickUploading(true);
+    setQuickUploadProgress(0);
+    await api.post('/upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: ({ loaded, total }) => total && setQuickUploadProgress(Math.round((loaded * 100) / total)),
+    });
+    setQuickUploadProgress(100);
+    await refresh();
+  } catch (err) {
+    console.error('Ошибка быстрой загрузки файла:', err);
+    setUploadError(err.response?.data?.error || err.response?.data?.detail || 'Не удалось загрузить файл');
+  } finally {
+    setIsQuickUploading(false);
+    setTimeout(() => setQuickUploadProgress(0), 800);
+  }
+}
+
+function useHomePageData(user) {
   const [recentFiles, setRecentFiles] = useState([]);
   const [storageStats, setStorageStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -44,49 +58,11 @@ export default function HomePage() {
   const [isQuickUploading, setIsQuickUploading] = useState(false);
   const [quickUploadProgress, setQuickUploadProgress] = useState(0);
 
-  useEffect(() => {
-    if (user) {
-      fetchRecentFiles();
-      fetchStorageStats();
-    }
-  }, [user]);
-
-  const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return '0 Б';
-
-    const units = ['Б', 'КБ', 'МБ', 'ГБ'];
-    const unitIndex = Math.floor(Math.log(bytes) / Math.log(1024));
-    const safeUnitIndex = Math.min(unitIndex, units.length - 1);
-    const size = bytes / (1024 ** safeUnitIndex);
-
-    return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[safeUnitIndex]}`;
-  };
-
-  const formatDate = (dateValue) => {
-    if (!dateValue) return 'Только что';
-
-    const date = new Date(dateValue);
-
-    if (Number.isNaN(date.getTime())) {
-      return 'Только что';
-    }
-
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   const fetchRecentFiles = async () => {
     try {
       setLoading(true);
-
       const response = await api.get('/files/');
-      const files = Array.isArray(response.data)
-        ? response.data
-        : response.data.files || [];
-
+      const files = Array.isArray(response.data) ? response.data : response.data.files || [];
       setRecentFiles(files.slice(0, 5));
     } catch (err) {
       console.error('Ошибка загрузки файлов:', err);
@@ -104,451 +80,60 @@ export default function HomePage() {
     }
   };
 
+  useEffect(() => {
+    if (user) { fetchRecentFiles(); fetchStorageStats(); }
+  }, [user]);
+
+  const refresh = async () => {
+    await Promise.all([fetchRecentFiles(), fetchStorageStats()]);
+  };
+
+  const processQuickUpload = async (incomingFile) => {
+    const file = incomingFile instanceof File ? incomingFile : incomingFile?.[0];
+    if (!file) return;
+    await uploadQuickFile({ file, setUploadError, setIsQuickUploading, setQuickUploadProgress, refresh });
+  };
+
+  return { recentFiles, storageStats, loading, uploadError, setUploadError, isQuickUploading, quickUploadProgress, processQuickUpload };
+}
+
+export default function HomePage() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const homeData = useHomePageData(user);
+  const handleQuickUploadClick = () => document.getElementById('home-quick-upload-input')?.click();
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  const processQuickUpload = async (incomingFile) => {
-    const file = incomingFile instanceof File ? incomingFile : incomingFile?.[0];
-
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setUploadError('');
-      setIsQuickUploading(true);
-      setQuickUploadProgress(0);
-
-      await api.post('/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          if (!progressEvent.total) return;
-
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-
-          setQuickUploadProgress(percentCompleted);
-        },
-      });
-
-      setQuickUploadProgress(100);
-      await fetchRecentFiles();
-      await fetchStorageStats();
-    } catch (err) {
-      console.error('Ошибка быстрой загрузки файла:', err);
-      setUploadError(
-        err.response?.data?.error ||
-          err.response?.data?.detail ||
-          'Не удалось загрузить файл'
-      );
-    } finally {
-      setIsQuickUploading(false);
-      setTimeout(() => setQuickUploadProgress(0), 800);
-    }
-  };
-
-  const handleQuickUploadClick = () => {
-    document.getElementById('home-quick-upload-input')?.click();
-  };
-
   const handleQuickUploadChange = (event) => {
     const selectedFile = event.target.files?.[0];
-
-    if (selectedFile) {
-      processQuickUpload(selectedFile);
-    }
-
+    if (selectedFile) homeData.processQuickUpload(selectedFile);
     event.target.value = '';
   };
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-      <input
-        id="home-quick-upload-input"
-        type="file"
-        style={{ display: 'none' }}
-        onChange={handleQuickUploadChange}
-      />
-
-      {/* Header */}
-      <Box
-        sx={{
-          backgroundColor: '#fff',
-          borderBottom: '1px solid #e0e0e0',
-          py: 2,
-        }}
-      >
-        <Container maxWidth="lg">
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box
-              component={Link}
-              to="/"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                textDecoration: 'none',
-              }}
-            >
-              <Folder sx={{ fontSize: 40, color: '#2196F3' }} />
-              <Typography variant="h5" sx={{ fontWeight: 600, color: '#2196F3' }}>
-                EP-Files
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {!user ? (
-                <>
-                  <Button
-                    variant="outlined"
-                    component={Link}
-                    to="/login"
-                    startIcon={<LoginIcon />}
-                  >
-                    Вход
-                  </Button>
-                  <Button
-                    variant="contained"
-                    component={Link}
-                    to="/register"
-                    startIcon={<PersonAdd />}
-                  >
-                    Регистрация
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Chip
-                    avatar={(
-                      <Avatar sx={{ bgcolor: '#2196F3' }}>
-                        {user.name?.[0] || user.email?.[0] || 'U'}
-                      </Avatar>
-                    )}
-                    label={user.name || user.email}
-                    sx={{ px: 1 }}
-                  />
-                  <Button
-                    variant="contained"
-                    component={Link}
-                    to="/file-manager"
-                    startIcon={<Dashboard />}
-                  >
-                    Мои файлы
-                  </Button>
-                  <Button variant="outlined" color="error" onClick={handleLogout}>
-                    Выйти
-                  </Button>
-                </>
-              )}
-            </Box>
-          </Box>
-        </Container>
-      </Box>
-
-      {/* Main Content */}
+      <input id="home-quick-upload-input" type="file" style={{ display: 'none' }} onChange={handleQuickUploadChange} />
+      <HomeHeader user={user} onLogout={handleLogout} />
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        {/* Hero Section */}
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="h2" sx={{ fontWeight: 700, mb: 2, color: '#202124' }}>
-            {user
-              ? `Добро пожаловать, ${user.name || 'Пользователь'}!`
-              : 'Безопасное хранилище файлов'}
-          </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-            {user
-              ? 'Управляйте своими файлами быстро и безопасно'
-              : 'Загружайте, храните и делитесь файлами с максимальной защитой'}
-          </Typography>
-
-          {!user && (
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-              <Button
-                variant="contained"
-                size="large"
-                component={Link}
-                to="/register"
-                startIcon={<PersonAdd />}
-              >
-                Начать бесплатно
-              </Button>
-              <Button variant="outlined" size="large" component={Link} to="/login">
-                Войти
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        {/* Stats for logged in users */}
-        {user && storageStats && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
-            <Grid container spacing={3} sx={{ maxWidth: 1200 }}>
-              <Grid item xs={12} md={4}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  }}
-                >
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <InsertDriveFile sx={{ fontSize: 40, color: '#fff', mr: 2 }} />
-                      <Box>
-                        <Typography variant="h3" sx={{ color: '#fff', fontWeight: 700 }}>
-                          {storageStats.total_files || 0}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Всего файлов
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                      {storageStats.recent_files_count || 0} загружено за неделю
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                  }}
-                >
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Storage sx={{ fontSize: 40, color: '#fff', mr: 2 }} />
-                      <Box>
-                        <Typography variant="h3" sx={{ color: '#fff', fontWeight: 700 }}>
-                          {formatFileSize(storageStats.total_size)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Использовано
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={storageStats.usage_percent || 0}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(255,255,255,0.3)',
-                        '& .MuiLinearProgress-bar': { backgroundColor: '#fff' },
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{ color: 'rgba(255,255,255,0.7)', mt: 1, display: 'block' }}
-                    >
-                      {storageStats.usage_percent || 0}% из{' '}
-                      {formatFileSize(storageStats.storage_limit)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                  }}
-                >
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <TrendingUp sx={{ fontSize: 40, color: '#fff', mr: 2 }} />
-                      <Box>
-                        <Typography variant="h3" sx={{ color: '#fff', fontWeight: 700 }}>
-                          {formatFileSize(storageStats.available_space)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                          Доступно
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      onClick={handleQuickUploadClick}
-                      startIcon={<CloudUpload />}
-                      disabled={isQuickUploading}
-                      sx={{
-                        backgroundColor: 'rgba(255,255,255,0.2)',
-                        color: '#fff',
-                        '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' },
-                      }}
-                    >
-                      Загрузить файлы
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* Recent Files for logged in users */}
-        {user && (loading || recentFiles.length > 0) && (
-          <Paper sx={{ p: 3, mb: 6 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                Недавние файлы
-              </Typography>
-              <Button component={Link} to="/file-manager" endIcon={<Dashboard />}>
-                Все файлы
-              </Button>
-            </Box>
-
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <LinearProgress sx={{ width: '100%', maxWidth: 320 }} />
-              </Box>
-            ) : (
-            <List>
-              {recentFiles.map((file, index) => (
-                <Box key={file.id}>
-                  <ListItem
-                    sx={{
-                      '&:hover': { backgroundColor: '#f5f5f5', cursor: 'pointer' },
-                      borderRadius: 1,
-                    }}
-                    onClick={() => navigate('/file-manager')}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: '#2196F3' }}>
-                        <InsertDriveFile />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={file.name}
-                      secondary={`${formatFileSize(file.size)} • ${formatDate(
-                        file.updated_at || file.created_at || file.date
-                      )}`}
-                    />
-                    <Chip
-                      label={formatDate(file.updated_at || file.created_at || file.date)}
-                      size="small"
-                    />
-                  </ListItem>
-                  {index < recentFiles.length - 1 && <Divider />}
-                </Box>
-              ))}
-            </List>
-            )}
-          </Paper>
-        )}
-
-        {/* CTA Section */}
-        {!user && (
-          <Paper
-            sx={{
-              p: 6,
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: '#fff',
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
-              Готовы начать?
-            </Typography>
-            <Typography variant="h6" sx={{ mb: 4, opacity: 0.9 }}>
-              Создайте аккаунт за 30 секунд и получите 100 MB бесплатно
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              component={Link}
-              to="/register"
-              sx={{
-                backgroundColor: '#fff',
-                color: '#667eea',
-                px: 4,
-                py: 1.5,
-                fontSize: '1.1rem',
-                '&:hover': { backgroundColor: '#f5f5f5' },
-              }}
-            >
-              Создать аккаунт бесплатно
-            </Button>
-          </Paper>
-        )}
-
-        {/* Quick actions */}
+        <HomeHero user={user} />
+        {user && <StorageStatsPanel stats={homeData.storageStats} formatFileSize={formatFileSize} isUploading={homeData.isQuickUploading} onUploadClick={handleQuickUploadClick} />}
+        {user && <RecentFilesPanel files={homeData.recentFiles} loading={homeData.loading} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={() => navigate('/file-manager')} />}
+        {!user && <GuestCta />}
         {user && (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-              Быстрые действия
-            </Typography>
-
-            {uploadError && (
-              <Alert severity="error" sx={{ mb: 3 }} onClose={() => setUploadError('')}>
-                {uploadError}
-              </Alert>
-            )}
-
-            <FilesPageUploader
-              onFileDropped={processQuickUpload}
-              isUploading={isQuickUploading}
-              uploadProgress={quickUploadProgress}
-            />
-
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleQuickUploadClick}
-                startIcon={<CloudUpload />}
-                disabled={isQuickUploading}
-                sx={{ px: 4 }}
-              >
-                Загрузить файл
-              </Button>
-
-              <Button
-                variant="outlined"
-                size="large"
-                component={Link}
-                to="/file-manager"
-                startIcon={<Folder />}
-                sx={{ px: 4 }}
-              >
-                Мои файлы
-              </Button>
-            </Box>
-          </Paper>
+          <QuickActionsPanel
+            uploadError={homeData.uploadError}
+            onClearError={() => homeData.setUploadError('')}
+            onFileDropped={homeData.processQuickUpload}
+            isUploading={homeData.isQuickUploading}
+            uploadProgress={homeData.quickUploadProgress}
+            onUploadClick={handleQuickUploadClick}
+          />
         )}
       </Container>
-
-      {/* Footer */}
-      <Box sx={{ backgroundColor: '#202124', color: '#fff', py: 4, mt: 6 }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                EP-Files
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                Безопасное облачное хранилище для ваших файлов. Загружайте, храните и
-                управляйте документами с максимальной защитой.
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={6} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                © 2026 EP-Files. Все права защищены.
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>
-                Сделано с ❤️ для безопасного хранения файлов
-              </Typography>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+      <HomeFooter />
     </Box>
   );
 }

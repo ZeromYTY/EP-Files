@@ -124,22 +124,14 @@ def test_folder_crud_api():
     response = client.post("/api/folders/create/", {"name": ""}, format="json")
     assert response.status_code == 400
 
-    response = client.post(
-        "/api/folders/create/",
-        {"name": "Child", "parent_id": 999999},
-        format="json",
-    )
+    response = client.post("/api/folders/create/", {"name": "Child", "parent_id": 999999}, format="json")
     assert response.status_code == 404
 
     response = client.post("/api/folders/create/", {"name": "Root"}, format="json")
     assert response.status_code == 201
     root_id = response.data["id"]
 
-    response = client.post(
-        "/api/folders/create/",
-        {"name": "Child", "parent_id": root_id},
-        format="json",
-    )
+    response = client.post("/api/folders/create/", {"name": "Child", "parent_id": root_id}, format="json")
     assert response.status_code == 201
     child_id = response.data["id"]
 
@@ -150,25 +142,13 @@ def test_folder_crud_api():
     response = client.patch(f"/api/folders/{root_id}/rename/", {"name": ""}, format="json")
     assert response.status_code == 400
 
-    response = client.patch(
-        f"/api/folders/{root_id}/rename/",
-        {"name": "Root Renamed"},
-        format="json",
-    )
+    response = client.patch(f"/api/folders/{root_id}/rename/", {"name": "Root Renamed"}, format="json")
     assert response.status_code == 200
 
-    response = client.patch(
-        f"/api/folders/{root_id}/move/",
-        {"parent_id": child_id},
-        format="json",
-    )
+    response = client.patch(f"/api/folders/{root_id}/move/", {"parent_id": child_id}, format="json")
     assert response.status_code == 400
 
-    response = client.patch(
-        f"/api/folders/{child_id}/move/",
-        {"parent_id": None},
-        format="json",
-    )
+    response = client.patch(f"/api/folders/{child_id}/move/", {"parent_id": None}, format="json")
     assert response.status_code == 200
 
     response = client.delete(f"/api/folders/{child_id}/delete/")

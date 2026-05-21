@@ -83,39 +83,19 @@ def test_file_permission_errors(settings, tmp_path):
     owner_client = auth_client(owner)
     stranger_client = auth_client(stranger)
 
-    response = owner_client.post(
-        "/api/files/999999/permissions/grant/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = owner_client.post("/api/files/999999/permissions/grant/", {"user_email": target.email}, format="json")
     assert response.status_code == 404
 
-    response = stranger_client.post(
-        f"/api/files/{file_obj.id}/permissions/grant/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = stranger_client.post(f"/api/files/{file_obj.id}/permissions/grant/", {"user_email": target.email}, format="json")
     assert response.status_code == 403
 
-    response = owner_client.post(
-        f"/api/files/{file_obj.id}/permissions/grant/",
-        {},
-        format="json",
-    )
+    response = owner_client.post(f"/api/files/{file_obj.id}/permissions/grant/", {}, format="json")
     assert response.status_code == 400
 
-    response = owner_client.post(
-        f"/api/files/{file_obj.id}/permissions/grant/",
-        {"user_email": "missing@example.com"},
-        format="json",
-    )
+    response = owner_client.post(f"/api/files/{file_obj.id}/permissions/grant/", {"user_email": "missing@example.com"}, format="json")
     assert response.status_code == 404
 
-    response = owner_client.post(
-        f"/api/files/{file_obj.id}/permissions/grant/",
-        {"user_email": owner.email},
-        format="json",
-    )
+    response = owner_client.post(f"/api/files/{file_obj.id}/permissions/grant/", {"user_email": owner.email}, format="json")
     assert response.status_code == 400
 
     response = stranger_client.get(f"/api/files/{file_obj.id}/permissions/")
@@ -124,11 +104,7 @@ def test_file_permission_errors(settings, tmp_path):
     response = owner_client.get("/api/files/999999/permissions/")
     assert response.status_code == 404
 
-    response = owner_client.delete(
-        f"/api/files/{file_obj.id}/permissions/revoke/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = owner_client.delete(f"/api/files/{file_obj.id}/permissions/revoke/", {"user_email": target.email}, format="json")
     assert response.status_code == 404
 
 
@@ -180,39 +156,19 @@ def test_folder_permission_errors():
     owner_client = auth_client(owner)
     stranger_client = auth_client(stranger)
 
-    response = owner_client.post(
-        "/api/folders/999999/permissions/grant/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = owner_client.post("/api/folders/999999/permissions/grant/", {"user_email": target.email}, format="json")
     assert response.status_code == 404
 
-    response = stranger_client.post(
-        f"/api/folders/{folder.id}/permissions/grant/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = stranger_client.post(f"/api/folders/{folder.id}/permissions/grant/", {"user_email": target.email}, format="json")
     assert response.status_code == 403
 
-    response = owner_client.post(
-        f"/api/folders/{folder.id}/permissions/grant/",
-        {},
-        format="json",
-    )
+    response = owner_client.post(f"/api/folders/{folder.id}/permissions/grant/", {}, format="json")
     assert response.status_code == 400
 
-    response = owner_client.post(
-        f"/api/folders/{folder.id}/permissions/grant/",
-        {"user_email": "missing@example.com"},
-        format="json",
-    )
+    response = owner_client.post(f"/api/folders/{folder.id}/permissions/grant/", {"user_email": "missing@example.com"}, format="json")
     assert response.status_code == 404
 
-    response = owner_client.post(
-        f"/api/folders/{folder.id}/permissions/grant/",
-        {"user_email": owner.email},
-        format="json",
-    )
+    response = owner_client.post(f"/api/folders/{folder.id}/permissions/grant/", {"user_email": owner.email}, format="json")
     assert response.status_code == 400
 
     response = stranger_client.get(f"/api/folders/{folder.id}/permissions/")
@@ -221,9 +177,5 @@ def test_folder_permission_errors():
     response = owner_client.get("/api/folders/999999/permissions/")
     assert response.status_code == 404
 
-    response = owner_client.delete(
-        f"/api/folders/{folder.id}/permissions/revoke/",
-        {"user_email": target.email},
-        format="json",
-    )
+    response = owner_client.delete(f"/api/folders/{folder.id}/permissions/revoke/", {"user_email": target.email}, format="json")
     assert response.status_code == 404

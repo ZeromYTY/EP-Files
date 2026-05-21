@@ -1,203 +1,44 @@
-import { useState } from 'react';
-import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
-import { StarBorder, Star, MoreVert, Download as DownloadIcon, Edit, Visibility } from '@mui/icons-material';
-import api from '../../api/axios';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { Download as DownloadIcon, Edit, MoreVert, Visibility } from '@mui/icons-material';
 
-const isEditableTextFile = (file) => {
-  if (!file?.name || file.type !== 'file') return false;
-  const extension = file.name.split('.').pop().toLowerCase();
-  return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
-};
+function isEditableTextFile(file) {
+  const extension = file?.name?.split('.')?.pop()?.toLowerCase();
+  return file?.type === 'file' && ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
+}
 
-export default function FileRow({
-  file,
-  getFileIcon,
-  formatFileSize,
-  formatDate,
-  onFolderClick,
-  onDownloadClick,
-  onPreviewClick,
-  onMenuOpen,
-  onEditClick,
-  activeDropFolderId,
-  setActiveDropFolderId,
-  handleFolderDrop
-}) {
-  const [favoriteOverride, setFavoriteOverride] = useState(null);
-  const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
-
-  const isFolder = file.type === 'folder';
-  const isFavorite = favoriteOverride ?? Boolean(file.is_favorite);
-  const rawDate = file.created_at || file.updated_at || file.date || new Date().toISOString();
-
-  const isFolderHovered = isFolder && activeDropFolderId === file.id;
-
-  const handleDownload = (e) => {
-    e.stopPropagation();
-    if (onDownloadClick) {
-      onDownloadClick(file.id, file.name, file.type);
-    }
-  };
-
-  const handleEdit = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onEditClick && isEditableTextFile(file)) {
-      onEditClick(file);
-    }
-  };
-
-  const handlePreview = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isFolder && onPreviewClick) {
-      onPreviewClick(file);
-    }
-  };
-
-  const handleToggleFavorite = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const response = await api.post(`/favorite/${file.id}/`, { type: file.type });
-      const newFavoriteStatus = response.data.is_favorite;
-      setFavoriteOverride(newFavoriteStatus);
-
-      setToast({
-        open: true,
-        message: newFavoriteStatus
-          ? `⭐ Добавлено в избранное: ${file.name}`
-          : `⭐ Удалено из избранного: ${file.name}`,
-        severity: 'info',
-      });
-    } catch (err) {
-      console.error('Ошибка при сохранении избранного:', err);
-      setToast({
-        open: true,
-        message: '⚠ Не удалось обновить статус на сервере',
-        severity: 'error',
-      });
-    }
-  };
-
-  const handleCloseToast = () => {
-    setToast(prev => ({ ...prev, open: false }));
-  };
-
+function RowAction({ title, children, onClick }) {
   return (
-    <>
-      <Box
-        onDragOver={(e) => {
-          if (!isFolder) return;
-          e.preventDefault();
-          e.stopPropagation();
-          if (activeDropFolderId !== file.id) setActiveDropFolderId(file.id);
-        }}
-        onDragLeave={(e) => {
-          if (!isFolder) return;
-          e.preventDefault();
-          e.stopPropagation();
-          setActiveDropFolderId(null);
-        }}
-        onDrop={(e) => {
-          if (!isFolder) return;
-          if (handleFolderDrop) handleFolderDrop(e, file.id);
-        }}
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '56px 1fr 150px 120px 120px',
-          p: 2,
-          alignItems: 'center',
-          cursor: isFolder ? 'pointer' : 'default',
-          transition: 'all 0.15s ease',
-          backgroundColor: isFolderHovered ? '#e0f2fe' : '#fff',
-          boxShadow: isFolderHovered ? 'inset 0 0 0 2px #2196F3' : 'none',
-          '&:hover': { backgroundColor: isFolderHovered ? '#e0f2fe' : '#f5f8ff' },
-          borderBottom: '1px solid #f0f0f0',
-          position: 'relative',
-          zIndex: isFolderHovered ? 10 : 1,
-        }}
-        onClick={() => {
-          if (isFolder) {
-            onFolderClick(file.id);
-          } else if (onPreviewClick) {
-            onPreviewClick(file);
-          }
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          {getFileIcon(file)}
-        </Box>
+    <Tooltip title={title}>
+      <IconButton size="small" onClick={(event) => { event.stopPropagation(); onClick?.(event); }}>
+        {children}
+      </IconButton>
+    </Tooltip>
+  );
+}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, pointerEvents: 'none' }}>
-          <Typography variant="body2" noWrap sx={{ fontWeight: 500, color: '#202124' }}>
-            {file.name}
-          </Typography>
-        </Box>
+function RowActions({ file, onDownloadClick, onEditClick, onPreviewClick, onMenuOpen }) {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+      {file.type !== 'folder' && <RowAction title="Предпросмотр" onClick={() => onPreviewClick?.(file)}><Visibility fontSize="small" /></RowAction>}
+      {isEditableTextFile(file) && onEditClick && <RowAction title="Редактировать" onClick={() => onEditClick(file)}><Edit fontSize="small" /></RowAction>}
+      <RowAction title={file.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'} onClick={() => onDownloadClick?.(file.id, file.name, file.type)}><DownloadIcon fontSize="small" /></RowAction>
+      <RowAction title="Действия" onClick={(event) => onMenuOpen?.(event, file, file.type)}><MoreVert fontSize="small" /></RowAction>
+    </Box>
+  );
+}
 
-        <Typography variant="caption" color="text.secondary" sx={{ pointerEvents: 'none' }}>
-          {formatDate(rawDate)}
-        </Typography>
-
-        <Typography variant="caption" color="text.secondary" sx={{ pointerEvents: 'none' }}>
-          {isFolder ? '—' : (file.size ? formatFileSize(file.size) : '0 Б')}
-        </Typography>
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, zIndex: 20 }}>
-          {!isFolder && (
-            <Tooltip title="Предпросмотр">
-              <IconButton size="small" onClick={handlePreview} sx={{ color: '#2196F3' }}>
-                <Visibility sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title={isFolder ? "Скачать ZIP-архив" : "Скачать файл"}>
-            <IconButton size="small" onClick={handleDownload} sx={{ color: '#2196F3' }}>
-              <DownloadIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
-
-          {onEditClick && !isFolder && isEditableTextFile(file) && (
-            <Tooltip title="Редактировать файл">
-              <IconButton
-                size="small"
-                onClick={handleEdit}
-                sx={{ color: '#1976D2' }}
-              >
-                <Edit sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
-            <IconButton
-              size="small"
-              onClick={handleToggleFavorite}
-              sx={{
-                color: isFavorite ? '#FFC107' : '#9e9e9e',
-                '&:hover': { color: isFavorite ? '#FFB300' : '#757575' }
-              }}
-            >
-              {isFavorite
-                ? <Star sx={{ fontSize: 18, color: '#FFC107', pointerEvents: 'none' }} />
-                : <StarBorder sx={{ fontSize: 18, pointerEvents: 'none' }} />
-              }
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip title="Ещё">
-            <IconButton size="small" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onMenuOpen) onMenuOpen(e, { ...file, isFavorite }, file.type); }}>
-              <MoreVert sx={{ fontSize: 18, color: '#9e9e9e' }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
-
-      <Snackbar open={toast.open} autoHideDuration={3000} onClose={handleCloseToast} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
-          {toast.message}
-        </Alert>
-      </Snackbar>
-    </>
+export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, ...actions }) {
+  const openItem = () => {
+    if (file.type === 'folder') onFolderClick?.(file.id);
+    else actions.onPreviewClick?.(file);
+  };
+  return (
+    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px 1fr 150px 120px 120px', alignItems: 'center', p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
+      <Box>{getFileIcon(file, 32)}</Box>
+      <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Typography>
+      <Typography variant="body2" color="text.secondary">{formatDate(file.updated_at || file.created_at || file.date || new Date().toISOString())}</Typography>
+      <Typography variant="body2" color="text.secondary">{file.type === 'folder' ? formatFileSize(file.size) : formatFileSize(file.size)}</Typography>
+      <RowActions file={file} {...actions} />
+    </Box>
   );
 }
