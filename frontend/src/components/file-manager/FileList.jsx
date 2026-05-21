@@ -1,7 +1,77 @@
 import { useState, useEffect } from 'react';
 import { Grid, Paper, Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { Folder, Description, TableChart, PictureAsPdf, MoreVert, Download as DownloadIcon, Edit, Visibility } from '@mui/icons-material';
+import { Folder, Description, TableChart, PictureAsPdf, MoreVert, Download as DownloadIcon, Edit, Visibility, MusicNote, Image, Movie } from '@mui/icons-material';
 import FileRow from './FileRow';
+
+const getExtension = (file) => file?.name?.split('.')?.pop()?.toLowerCase() || '';
+const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
+const videoExtensions = ['mp4', 'webm', 'ogv', 'mov', 'm4v', 'mpeg', 'mpg', 'avi'];
+const audioExtensions = ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'];
+
+function FileVisual({ file, size = 32 }) {
+  const extension = getExtension(file);
+  const isImage = imageExtensions.includes(extension);
+  const isVideo = videoExtensions.includes(extension);
+  const isAudio = audioExtensions.includes(extension);
+
+  const badgeSx = {
+    width: size,
+    height: size,
+    borderRadius: size > 36 ? '8px' : '7px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  };
+
+  if (file.type === 'folder') return <Folder sx={{ fontSize: size, color: '#FF9800' }} />;
+
+  if (isImage) {
+    return (
+      <Box sx={{ ...badgeSx, backgroundColor: '#ECFDF5' }}>
+        <Image sx={{ fontSize: Math.round(size * 0.68), color: '#059669' }} />
+      </Box>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <Box sx={{ ...badgeSx, backgroundColor: '#FFF7ED' }}>
+        <Movie sx={{ fontSize: Math.round(size * 0.68), color: '#EA580C' }} />
+      </Box>
+    );
+  }
+
+  if (isAudio) {
+    return (
+      <Box sx={{ ...badgeSx, backgroundColor: '#eef2ff' }}>
+        <MusicNote sx={{ fontSize: Math.round(size * 0.7), color: '#4F46E5' }} />
+      </Box>
+    );
+  }
+
+  if (extension === 'pdf') {
+    return (
+      <Box sx={{ ...badgeSx, backgroundColor: '#FEF2F2' }}>
+        <PictureAsPdf sx={{ fontSize: Math.round(size * 0.7), color: '#DC2626' }} />
+      </Box>
+    );
+  }
+
+  if (['xlsx', 'xls', 'csv'].includes(extension)) {
+    return (
+      <Box sx={{ ...badgeSx, backgroundColor: '#F0FDF4' }}>
+        <TableChart sx={{ fontSize: Math.round(size * 0.7), color: '#16A34A' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ ...badgeSx, backgroundColor: '#EFF6FF' }}>
+      <Description sx={{ fontSize: Math.round(size * 0.7), color: '#2563EB' }} />
+    </Box>
+  );
+}
 
 function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
   const isFolderHovered = activeDropFolderId === folder.id;
@@ -191,14 +261,8 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
     };
   }, []);
 
-  const getFileIcon = (file) => {
-    if (file.type === 'folder') return <Folder sx={{ fontSize: 40, color: '#FF9800' }} />;
-    const iconProps = { sx: { fontSize: 36 } };
-    const extension = file.name ? file.name.split('.').pop().toLowerCase() : '';
-
-    if (extension === 'pdf') return <PictureAsPdf {...iconProps} sx={{ ...iconProps.sx, color: '#F44336' }} />;
-    if (['xlsx', 'xls', 'csv'].includes(extension)) return <TableChart {...iconProps} sx={{ ...iconProps.sx, color: '#4CAF50' }} />;
-    return <Description {...iconProps} sx={{ ...iconProps.sx, color: '#2196F3' }} />;
+  const getFileIcon = (file, size = 32) => {
+    return <FileVisual file={file} size={size} />;
   };
 
   const isEditableTextFile = (file) => {
@@ -327,7 +391,7 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
                 </IconButton>
 
                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                  {getFileIcon(file)}
+                  {getFileIcon(file, 44)}
                 </Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6 }}>
                   {file.name}
@@ -349,7 +413,7 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 150px 120px 120px',
+          gridTemplateColumns: '56px 1fr 150px 120px 120px',
           p: 2,
           backgroundColor: '#f5f5f5',
           borderBottom: '1px solid #e0e0e0',

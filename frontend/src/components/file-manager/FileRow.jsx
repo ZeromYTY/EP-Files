@@ -105,7 +105,7 @@ export default function FileRow({
         }}
         sx={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 150px 120px 120px',
+          gridTemplateColumns: '56px 1fr 150px 120px 120px',
           p: 2,
           alignItems: 'center',
           cursor: isFolder ? 'pointer' : 'default',
@@ -125,7 +125,7 @@ export default function FileRow({
           }
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
           {getFileIcon(file)}
         </Box>
 
