@@ -57,7 +57,7 @@ import FileList from '../components/file-manager/FileList';
 import MoveFolderDialog from '../components/file-manager/MoveFolderDialog';
 import TextFileEditorDialog from '../components/file-manager/TextFileEditorDialog';
 
-export default function FileManager() {
+export default function FileManager({ onPreviewFile }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [favoriteIds, setFavoriteIds] = useState({ files: [], folders: [] });
@@ -596,6 +596,7 @@ export default function FileManager() {
             viewMode={viewMode}
             onFolderClick={handleFolderClick}
             onDownloadClick={handleDownload}
+            onPreviewClick={onPreviewFile}
             onDeleteClick={handleDelete}
             onEditClick={openTextFileEditor}
             onMenuOpen={handleMenuOpen}

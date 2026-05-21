@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Grid, Paper, Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { Folder, Description, TableChart, PictureAsPdf, CloudUpload, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
+import { Folder, Description, TableChart, PictureAsPdf, MoreVert, Download as DownloadIcon, Edit, Visibility } from '@mui/icons-material';
 import FileRow from './FileRow';
 
 function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, formatDate, formatFileSize, activeDropFolderId, setActiveDropFolderId, handleFolderDrop }) {
@@ -86,7 +86,7 @@ function GridFolderCard({ folder, onFolderClick, onMenuOpen, onDownloadClick, fo
   );
 }
 
-export default function FileList({ files, viewMode, onFolderClick, onDownloadClick, onDeleteClick, onFileDropped, onMenuOpen, onEditClick }) {
+export default function FileList({ files, viewMode, onFolderClick, onDownloadClick, onPreviewClick, onDeleteClick, onFileDropped, onMenuOpen, onEditClick }) {
   const [activeDropFolderId, setActiveDropFolderId] = useState(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const extractFilesFromEntry = (item) => {
@@ -248,21 +248,39 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
             ) : (
               <Paper
                 elevation={0}
+                onClick={() => onPreviewClick && onPreviewClick(file)}
                 sx={{
                   p: 2,
                   borderRadius: '12px',
                   border: '1px solid #e0e0e0',
                   position: 'relative',
                   transition: 'all 0.2s ease',
+                  cursor: 'pointer',
                   '&:hover': {
                     boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
                     transform: 'translateY(-2px)',
                     borderColor: '#2196F3',
                     '& .grid-menu-btn': { opacity: 1 },
-                    '& .download-btn': { opacity: 1 }
+                    '& .download-btn': { opacity: 1 },
+                    '& .preview-btn': { opacity: 1 },
+                    '& .edit-btn': { opacity: 1 }
                   }
                 }}
               >
+                <Tooltip title="Предпросмотр">
+                  <IconButton
+                    className="preview-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (onPreviewClick) onPreviewClick(file);
+                    }}
+                    sx={{ position: 'absolute', top: 8, right: 104, opacity: 0, transition: 'opacity 0.2s', color: '#2196F3', zIndex: 30 }}
+                    size="small"
+                  >
+                    <Visibility fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title="Скачать файл">
                   <IconButton
                     className="download-btn"
@@ -281,12 +299,13 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
                 {isEditableTextFile(file) && onEditClick && (
                   <Tooltip title="Редактировать файл">
                     <IconButton
+                      className="edit-btn"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         onEditClick(file);
                       }}
-                      sx={{ position: 'absolute', top: 8, right: 72, opacity: 0.8, transition: 'opacity 0.2s', color: '#1976D2', zIndex: 30 }}
+                      sx={{ position: 'absolute', top: 8, right: 72, opacity: 0, transition: 'opacity 0.2s', color: '#1976D2', zIndex: 30 }}
                       size="small"
                     >
                       <Edit fontSize="small" />
@@ -356,6 +375,7 @@ export default function FileList({ files, viewMode, onFolderClick, onDownloadCli
           onFolderClick={onFolderClick}
           onDownloadClick={onDownloadClick}
           onEditClick={onEditClick}
+          onPreviewClick={onPreviewClick}
           onDeleteClick={onDeleteClick}
           onMenuOpen={onMenuOpen}
           onFileDropped={onFileDropped}
