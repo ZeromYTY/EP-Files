@@ -597,18 +597,19 @@ export default function FileManager() {
           </Box>
         ) : (
           <FileList
-          files={sortedItems}
-          viewMode={viewMode}
-          onFolderClick={handleFolderClick}
-          onDownloadClick={handleDownload}
-          onDeleteClick={handleDelete}
-          onMenuOpen={handleMenuOpen}
-          onFileDropped={(filesArray, targetFolderId) => {
-            if (filesArray && filesArray.length > 0) {
-              processUpload(filesArray[0], targetFolderId);
-            }
-          }}
-        />
+            files={sortedItems}
+            viewMode={viewMode}
+            onFolderClick={handleFolderClick}
+            onDownloadClick={handleDownload}
+            onDeleteClick={handleDelete}
+            onEditClick={openTextFileEditor}
+            onMenuOpen={handleMenuOpen}
+            onFileDropped={(filesArray, targetFolderId) => {
+              if (filesArray && filesArray.length > 0) {
+                processUpload(filesArray[0], targetFolderId);
+              }
+            }}
+          />
         )}
       </Container>
 

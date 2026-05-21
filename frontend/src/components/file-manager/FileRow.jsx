@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
-import { StarBorder, Star, MoreVert, Download as DownloadIcon } from '@mui/icons-material';
+import { StarBorder, Star, MoreVert, Download as DownloadIcon, Edit } from '@mui/icons-material';
 import api from '../../api/axios'; // Убедись, что путь к axios правильный
 
-export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, onDownloadClick, onMenuOpen }) {
+const isEditableTextFile = (file) => {
+  if (!file?.name || file.type !== 'file') return false;
+  const extension = file.name.split('.').pop().toLowerCase();
+  return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
+};
+
+export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, onDownloadClick, onMenuOpen, onEditClick }) {
   // Инициализируем звезду из базы данных коллеги
   const [isFavorite, setIsFavorite] = useState(file.is_favorite || false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'info' });
@@ -15,6 +21,14 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
     e.stopPropagation();
     if (onDownloadClick) {
       onDownloadClick(file.id, file.name, file.type);
+    }
+  };
+
+  const handleEdit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onEditClick && isEditableTextFile(file)) {
+      onEditClick(file);
     }
   };
 
@@ -92,6 +106,18 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
               <DownloadIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
+
+          {onEditClick && !isFolder && isEditableTextFile(file) && (
+            <Tooltip title="Редактировать файл">
+              <IconButton
+                size="small"
+                onClick={handleEdit}
+                sx={{ color: '#1976D2' }}
+              >
+                <Edit sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* ЖЕЛЕЗОБЕТОННАЯ КНОПКА ЗВЕЗДЫ */}
           <Tooltip title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}>
