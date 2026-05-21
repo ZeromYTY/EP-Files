@@ -9,7 +9,7 @@ import {
   Box,
   IconButton
 } from '@mui/material';
-import { Folder, Logout } from '@mui/icons-material';
+import { Folder, Logout, AdminPanelSettings } from '@mui/icons-material';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -105,6 +105,22 @@ export default function Layout() {
               }}>
                 {user?.name || user?.email}
               </Typography>
+
+              {/* ВРЕМЕННО ДЛЯ ТЕСТА UI: Показываем кнопку админки всегда */}
+              <Button 
+                color="inherit" 
+                component={Link} 
+                to="/admin"
+                startIcon={<AdminPanelSettings />}
+                sx={{ 
+                  fontWeight: 600,
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.3)' }
+                }}
+              >
+                Админка
+              </Button>
+
               <Button 
                 color="inherit" 
                 component={Link} 
