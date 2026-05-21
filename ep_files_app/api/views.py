@@ -743,7 +743,7 @@ def save_text_file(request, file_id):
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
     ext = os.path.splitext(file_obj.name)[1].lower()
-    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".py"]
     if ext not in allowed_text_extensions:
         return Response(
             {"error": f"Cannot edit binary file with extension '{ext}'"},
@@ -754,7 +754,11 @@ def save_text_file(request, file_id):
     if content is None:
         return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    sanitized_content = _sanitize_text_content(content)
+    # Only sanitize HTML/CSS/JS content to avoid corrupting code files like .py, .json, .csv
+    if ext in {".html", ".js", ".css"}:
+        sanitized_content = _sanitize_text_content(content)
+    else:
+        sanitized_content = content
 
     file_obj.file.open("wb")
     file_obj.file.write(sanitized_content.encode("utf-8"))
@@ -796,7 +800,7 @@ def read_text_file(request, file_id):
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
     ext = os.path.splitext(file_obj.name)[1].lower()
-    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js"]
+    allowed_text_extensions = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".py"]
     if ext not in allowed_text_extensions:
         return Response(
             {"error": f"Cannot read binary file with extension '{ext}'"},
