@@ -46,19 +46,21 @@ function UserRow({ targetUser, currentUser, actionLoading, limitValue, maxStorag
       <TableCell>{targetUser.file_count}</TableCell>
       <TableCell>{formatFileSize(targetUser.total_size)}</TableCell>
       <TableCell>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 150 }}>
+        <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', minWidth: 270 }}>
           <TextField size="small" type="number" value={displayedLimit} onChange={(event) => onLimitChange(targetUser.id, event.target.value)} inputProps={{ min: 1, max: maxStorageLimitMb }} InputProps={{ endAdornment: <InputAdornment position="end">МБ</InputAdornment> }} sx={{ width: 132 }} />
+          <Tooltip title={hasLimitChanges ? 'Сохранить новый лимит' : 'Лимит не изменён'}>
+            <span>
+              <Button size="small" variant="outlined" color="primary" startIcon={<Save />} disabled={!hasLimitChanges || actionLoading === `limit-${targetUser.id}`} onClick={() => onSaveLimit(targetUser)} sx={{ height: 40, minWidth: 126 }}>Сохранить</Button>
+            </span>
+          </Tooltip>
         </Box>
       </TableCell>
       <TableCell>{targetUser.date_joined ? new Date(targetUser.date_joined).toLocaleDateString('ru-RU') : '-'}</TableCell>
       <TableCell align="right">
-        <Tooltip title={hasLimitChanges ? 'Сохранить новый лимит' : 'Лимит не изменён'}>
-          <span>
-            <Button size="small" variant="outlined" color="primary" startIcon={<Save />} disabled={!hasLimitChanges || actionLoading === `limit-${targetUser.id}`} onClick={() => onSaveLimit(targetUser)} sx={{ mr: 1 }}>Сохранить</Button>
-          </span>
-        </Tooltip>
-        <Button size="small" variant="outlined" color={targetUser.is_active ? 'warning' : 'success'} startIcon={targetUser.is_active ? <Block /> : <CheckCircleOutline />} disabled={isCurrentUser || actionLoading === `block-${targetUser.id}` || actionLoading === `unblock-${targetUser.id}`} onClick={() => onToggleBlock(targetUser)} sx={{ mr: 1 }}>{targetUser.is_active ? 'Блокировать' : 'Разблокировать'}</Button>
-        <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutline />} disabled={targetUser.file_count === 0 || actionLoading === `delete-files-${targetUser.id}`} onClick={() => onDeleteFiles(targetUser)}>Удалить файлы</Button>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.75, minWidth: 160 }}>
+          <Button size="small" variant="outlined" color={targetUser.is_active ? 'warning' : 'success'} startIcon={targetUser.is_active ? <Block /> : <CheckCircleOutline />} disabled={isCurrentUser || actionLoading === `block-${targetUser.id}` || actionLoading === `unblock-${targetUser.id}`} onClick={() => onToggleBlock(targetUser)}>{targetUser.is_active ? 'Блокировать' : 'Разблокировать'}</Button>
+          <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutline />} disabled={targetUser.file_count === 0 || actionLoading === `delete-files-${targetUser.id}`} onClick={() => onDeleteFiles(targetUser)}>Удалить файлы</Button>
+        </Box>
       </TableCell>
     </TableRow>
   );
@@ -130,7 +132,7 @@ export default function Admin() {
 
   const handleSaveLimit = (targetUser) => {
     const storageLimitMb = Number(limitInputs[targetUser.id]);
-    const maxStorageLimitMb = stats?.max_storage_limit_mb ?? 1024;
+    const maxStorageLimitMb = stats?.max_storage_limit_mb ?? 2048;
     if (!Number.isInteger(storageLimitMb) || storageLimitMb < 1) {
       setError('Лимит должен быть целым числом больше 0');
       return;
@@ -159,7 +161,7 @@ export default function Admin() {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
       <StatsGrid stats={stats} />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><Button variant="outlined" startIcon={<Refresh />} onClick={fetchAdminData}>Обновить данные</Button></Box>
-      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} maxStorageLimitMb={stats?.max_storage_limit_mb ?? 1024} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
+      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} maxStorageLimitMb={stats?.max_storage_limit_mb ?? 2048} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
     </Container>
   );
 }
