@@ -1,210 +1,174 @@
-# Развёртывание EP Files
+# Развертывание EP Files
 
-## Схема развёртывания
+## Текущая схема
 
 ```
-Пользователь → :80 (Nginx) → Frontend (Vite :5173)
-                            → Backend (Django :8000)
-                            → PostgreSQL (:5432)
+Пользователь -> https://ep-files.ru
+             -> Nginx :80/:443
+             -> frontend Docker container :5173
+             -> backend Docker container :8000
+             -> PostgreSQL Docker container :5432
 ```
 
-Все сервисы запускаются в Docker-контейнерах на VPS Beget.
+Проект развернут на VPS Beget.
 
-| Сервис | Образ | Порт |
+| Сервис | Контейнер | Назначение |
 |---|---|---|
-| frontend | ep-files-frontend | 5173 |
-| backend | ep-files-backend | 8000 |
-| db | postgres:16-alpine | 5432 |
+| frontend | ep-files-frontend-1 | React/Vite интерфейс |
+| backend | ep-files-backend-1 | Django API |
+| db | ep-files-db-1 | PostgreSQL |
 
-**Сервер:** VPS Beget, 1 ядро / 2 ГБ RAM / 15 ГБ NVMe  
-**IP:** 185.225.34.127
-
----
-
-## Первое развёртывание с нуля
-
-### 1. Подключись к серверу
+## Первое развертывание
 
 ```bash
 ssh root@185.225.34.127
-```
-
-### 2. Установи Git
-
-```bash
-apt update && apt install -y git
-```
-
-### 3. Склонируй репозиторий
-
-```bash
+apt update
+apt install -y git docker.io docker-compose-plugin nginx certbot python3-certbot-nginx
 git clone <url-репозитория> ep-files
 cd ep-files
-```
-
-### 4. Создай и заполни .env
-
-```bash
 cp .env.example .env
 nano .env
-```
-
-Обязательно заполни:
-
-```
-SECRET_KEY=замени-на-случайную-строку
-JWT_SECRET_KEY=замени-на-случайную-строку
-POSTGRES_PASSWORD=замени-на-надёжный-пароль
-DATABASE_URL=postgresql://epfiles:твой-пароль@db:5432/epfiles
-DEBUG=False
-ALLOWED_HOSTS=185.225.34.127
-CORS_ALLOWED_ORIGINS=http://185.225.34.127
-```
-
-### 5. Запусти проект
-
-```bash
 docker compose up -d --build
 ```
 
-### 6. Проверь что всё запущено
+Минимальные значения `.env` для продакшена:
 
-```bash
-docker ps
+```env
+DEBUG=False
+ALLOWED_HOSTS=ep-files.ru,www.ep-files.ru,185.225.34.127,localhost,127.0.0.1,backend
+CORS_ALLOWED_ORIGINS=https://ep-files.ru,https://www.ep-files.ru
+SECRET_KEY=<secret>
+JWT_SECRET_KEY=<secret>
+POSTGRES_DB=epfiles
+POSTGRES_USER=epfiles
+POSTGRES_PASSWORD=<password>
+DATABASE_URL=postgresql://epfiles:<password>@db:5432/epfiles
 ```
 
-Должны быть запущены три контейнера: `ep-files-frontend-1`, `ep-files-backend-1`, `ep-files-db-1`.
+## Обновление версии
 
----
-
-## Обновление после изменений в репозитории
+На сервере:
 
 ```bash
-cd ep-files
+cd /root/ep-files
 git pull origin master
 docker compose up -d --build
 ```
 
----
-
-## Открыть порт 80 (для доступа по IP без порта)
-
-Сейчас фронтенд доступен на порту 5173, бэкенд на 8000. Чтобы открыть стандартный порт 80, установи Nginx как прокси:
+То же самое вынесено в скрипт:
 
 ```bash
-apt install -y nginx
+./deploy.sh
 ```
 
-Создай конфиг:
+## Nginx и HTTPS
 
-```bash
-nano /etc/nginx/sites-available/ep-files
-```
-
-Вставь:
+Nginx проксирует фронтенд и API:
 
 ```nginx
 server {
     listen 80;
-    server_name 185.225.34.127;
+    server_name ep-files.ru www.ep-files.ru;
 
-    location / {
-        proxy_pass http://localhost:5173;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
+    client_max_body_size 100M;
 
     location /api/ {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://127.0.0.1:8000/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /media/ {
-        proxy_pass http://localhost:8000;
-    }
-
-    location /admin/ {
-        proxy_pass http://localhost:8000;
+    location / {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-Активируй:
+Проверка и перезагрузка:
 
 ```bash
-ln -s /etc/nginx/sites-available/ep-files /etc/nginx/sites-enabled/
 nginx -t
-systemctl restart nginx
+systemctl reload nginx
 ```
 
-После этого проект доступен по `http://185.225.34.127`.
-
----
-
-## Мониторинг и Healthcheck
-
-### Просмотр логов
+Сертификат Let's Encrypt:
 
 ```bash
-# Все контейнеры
-docker compose logs -f
-
-# Только бэкенд
-docker compose logs -f backend
-
-# Только фронтенд
-docker compose logs -f frontend
+certbot --nginx -d ep-files.ru -d www.ep-files.ru
+certbot certificates
 ```
 
-### Статус контейнеров
+## Мониторинг и healthcheck
+
+Проверить контейнеры:
 
 ```bash
 docker ps
+docker compose ps
 ```
 
-### Healthcheck — пинг API
-
-Проверить что бэкенд отвечает:
+Проверить API:
 
 ```bash
-curl http://localhost:8000/api/
+curl http://127.0.0.1:8000/api/
+curl https://ep-files.ru/api/
 ```
 
-Проверить что фронтенд отвечает:
+Проверить фронтенд:
 
 ```bash
-curl -I http://localhost:5173
+curl -I http://127.0.0.1:5173
+curl -I https://ep-files.ru
 ```
 
-### Автоматический перезапуск
-
-Контейнеры настроены на автозапуск при перезагрузке сервера через `restart: unless-stopped` в `docker-compose.yml`. Чтобы убедиться:
+Логи:
 
 ```bash
-docker inspect ep-files-backend-1 | grep RestartPolicy
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f db
 ```
 
----
-
-## Полезные команды
+Ресурсы сервера:
 
 ```bash
-# Остановить всё
-docker compose down
-
-# Перезапустить один сервис
-docker compose restart backend
-
-# Войти внутрь контейнера
-docker compose exec backend bash
-
-# Создать суперпользователя
-docker compose exec backend python manage.py createsuperuser
-
-# Свободное место на диске
 df -h
-
-# Потребление ресурсов контейнерами
 docker stats
+```
+
+Контейнеры имеют `restart: unless-stopped`, поэтому автоматически поднимаются после перезапуска Docker/сервера.
+
+## Подтверждение 48 часов работы
+
+Для защиты нужно сохранить доказательства непрерывной работы:
+
+- скрин `https://ep-files.ru`;
+- скрин `docker ps` с uptime контейнеров;
+- скрин `certbot certificates`;
+- скрин логов `docker compose logs --since 48h`;
+- при возможности скрин внешнего ping/uptime-мониторинга.
+
+## Администратор
+
+Создать или обновить администратора:
+
+```bash
+docker compose exec backend python manage.py shell
+```
+
+```python
+from ep_files_app.models import User
+
+u, _ = User.objects.get_or_create(email="admin@example.com", defaults={"name": "Admin"})
+u.is_staff = True
+u.is_superuser = True
+u.is_active = True
+u.set_password("change-me")
+u.save()
 ```
