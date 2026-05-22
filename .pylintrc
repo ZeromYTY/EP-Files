@@ -1,0 +1,25 @@
+[MASTER]
+load-plugins=pylint_django
+django-settings-module=main.settings
+
+[MESSAGES CONTROL]
+disable=
+    C0111,  # missing-docstring (уже добавлены)
+    R0903,  # too-few-public-methods (Django models)
+    R0801,  # duplicate-code (migrations)
+    E1101,  # no-member (Django ORM)
+    E0401,  # import-error (виртуальное окружение)
+
+[FORMAT]
+max-line-length=100
+indent-string='    '
+
+[BASIC]
+good-names=i,j,k,ex,_,id,pk,f
+
+[DESIGN]
+max-args=7
+max-locals=15
+max-returns=6
+max-branches=12
+max-statements=50

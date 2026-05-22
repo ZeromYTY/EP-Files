@@ -77,3 +77,7 @@ previews_temp/
 
 # История git (если используется django-simple-history, она в БД, но проверим нет ли экспортов)
 history_export/
+
+# Uploaded user files
+storage/files/
+docs/build
