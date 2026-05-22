@@ -29,6 +29,26 @@ function AdminAccessPage({ title, message, severity = 'info', children }) {
 
 function AdminRoute() {
   const { user, loading } = useAuth();
+  const hasStoredToken = Boolean(localStorage.getItem('token'));
+
+  if (!hasStoredToken && !user) {
+    return (
+      <AdminAccessPage
+        title="Войдите в аккаунт"
+        message="Для доступа к админ-панели нужно сначала авторизоваться."
+        severity="warning"
+      >
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <Button variant="contained" component={RouterLink} to="/login" fullWidth>
+            Войти
+          </Button>
+          <Button variant="outlined" component={RouterLink} to="/register" fullWidth>
+            Зарегистрироваться
+          </Button>
+        </Stack>
+      </AdminAccessPage>
+    );
+  }
 
   if (loading) {
     return (
@@ -55,8 +75,8 @@ function AdminRoute() {
           <Button variant="contained" component={RouterLink} to="/login" fullWidth>
             Войти
           </Button>
-          <Button variant="outlined" component={RouterLink} to="/" fullWidth>
-            На главную
+          <Button variant="outlined" component={RouterLink} to="/register" fullWidth>
+            Зарегистрироваться
           </Button>
         </Stack>
       </AdminAccessPage>
