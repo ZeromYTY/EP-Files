@@ -71,6 +71,9 @@ function buildItemDialogs({ state, data, commands, selection, textEditor, closeI
     moveDialogOpen: selection.moveDialogOpen,
     closeMove: () => selection.setMoveDialogOpen(false),
     onMoved: (movedItem) => { data.setSuccess(movedItem?.type === 'folder' ? 'Папка перемещена' : 'Файл перемещён'); selection.setSelectedItem(null); data.loadData(); },
+    accessDialogOpen: selection.accessDialogOpen,
+    closeAccess: () => selection.setAccessDialogOpen(false),
+    onAccessChanged: () => data.loadData(),
     fileToDelete: selection.fileToDelete,
     deleteDialogOpen: selection.deleteDialogOpen,
     closeDelete: () => selection.setDeleteDialogOpen(false),
@@ -86,6 +89,7 @@ function buildItemMenuActions({ commands, selection, textEditor, closeItemMenu }
     move: () => { selection.setMoveDialogOpen(true); closeItemMenu(); },
     favorite: () => { alert(`⭐ Состояние избранного изменено для: ${selection.selectedItem?.name}`); closeItemMenu(); },
     download: () => { commands.download(selection.selectedItem.id, selection.selectedItem.name, selection.selectedItem.type); closeItemMenu(); },
+    access: () => { selection.setAccessDialogOpen(true); closeItemMenu(); },
     delete: () => { selection.setFileToDelete(selection.selectedItem); selection.setDeleteDialogOpen(true); closeItemMenu(); },
   };
 }

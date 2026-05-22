@@ -40,10 +40,12 @@ import {
   NavigateNext,
   Person,
   Search,
+  Share,
   Star,
   Upload,
   ViewList,
 } from '@mui/icons-material';
+import AccessControlDialog from '../../components/file-manager/AccessControlDialog';
 import FileList from '../../components/file-manager/FileList';
 import MoveFolderDialog from '../../components/file-manager/MoveFolderDialog';
 import TextFileEditorDialog from '../../components/file-manager/TextFileEditorDialog';
@@ -180,6 +182,7 @@ function ItemMenu({ anchorEl, selectedItem, canEdit, onClose, actions }) {
       <MenuItem onClick={actions.move}><FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Переместить</MenuItem>
       <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />{selectedItem?.isFavorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
       <MenuItem onClick={actions.download}><DownloadIcon fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />{selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}</MenuItem>
+      <MenuItem onClick={actions.access}><Share fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Доступ и ссылки</MenuItem>
       <Divider sx={{ my: 0.5 }} />
       <MenuItem onClick={actions.delete} sx={{ color: 'error.main' }}><Delete fontSize="small" sx={{ mr: 1.5, color: '#D32F2F' }} /> Удалить</MenuItem>
     </Menu>
@@ -245,6 +248,7 @@ export default function FileManagerView(props) {
         onSave={textEditor.handleTextEditorSave}
       />
       <DeleteDialog open={dialogs.deleteDialogOpen} fileToDelete={dialogs.fileToDelete} onClose={dialogs.closeDelete} onConfirm={dialogs.confirmDelete} />
+      <AccessControlDialog open={dialogs.accessDialogOpen} item={dialogs.selectedItem} onClose={dialogs.closeAccess} onChanged={dialogs.onAccessChanged} />
       <ItemMenu anchorEl={dialogs.menuAnchor} selectedItem={dialogs.selectedItem} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
       <TaskWidget tasks={tasks.tasks} isMinimized={tasks.isWidgetMinimized} setIsMinimized={tasks.setIsWidgetMinimized} clearTasks={() => tasks.setTasks([])} />
     </Box>

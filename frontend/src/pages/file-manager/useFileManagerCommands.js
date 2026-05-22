@@ -73,6 +73,7 @@ export function useSelectionDialogs({ loadData, taskQueue }) {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
 
   const confirmDelete = async () => {
     if (!fileToDelete) return;
@@ -92,7 +93,7 @@ export function useSelectionDialogs({ loadData, taskQueue }) {
     taskQueue.removeTaskWithTimer(taskId);
   };
 
-  return { selectedItem, setSelectedItem, fileToDelete, setFileToDelete, deleteDialogOpen, setDeleteDialogOpen, renameDialogOpen, setRenameDialogOpen, newName, setNewName, moveDialogOpen, setMoveDialogOpen, confirmDelete };
+  return { selectedItem, setSelectedItem, fileToDelete, setFileToDelete, deleteDialogOpen, setDeleteDialogOpen, renameDialogOpen, setRenameDialogOpen, newName, setNewName, moveDialogOpen, setMoveDialogOpen, accessDialogOpen, setAccessDialogOpen, confirmDelete };
 }
 
 export async function renameSelectedItem({ selectedItem, newName, setRenameDialogOpen, setNewName, setError, loadData }) {
