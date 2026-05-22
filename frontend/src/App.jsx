@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import Files from './pages/Files';
 import FileManager from './pages/FileManager';
 import Admin from './pages/Admin';
+import PublicAccess from './pages/PublicAccess';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import FilePreviewModal from './FilePreviewModal';
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/public/:resourceType/:token" element={<PublicAccess />} />
 
         {/* Защищенные роуты */}
         <Route element={<ProtectedRoute />}>

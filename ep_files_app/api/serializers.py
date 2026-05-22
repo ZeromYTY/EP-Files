@@ -149,7 +149,7 @@ class FileSerializer(serializers.ModelSerializer):
     Attributes:
         Meta.model (File): Связанная модель файла Django.
         Meta.fields (list[str]): Набор выводимых полей:
-            ``['id', 'name', 'size', 'date', 'owner_email', 'download_url', 'folder', 'is_public', 'public_token']``.
+            ``['id', 'name', 'size', 'date', 'owner_email', 'download_url', 'folder', 'is_public', 'public_token', 'public_expires_at']``.
     """
 
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
@@ -167,6 +167,7 @@ class FileSerializer(serializers.ModelSerializer):
             "folder",
             "is_public",
             "public_token",
+            "public_expires_at",
         ]
 
     def get_download_url(self, obj):

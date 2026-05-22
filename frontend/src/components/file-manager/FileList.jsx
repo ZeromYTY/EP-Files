@@ -28,6 +28,7 @@ function getExtension(file) {
 }
 
 function isEditableTextFile(file) {
+  if (file?.can_write === false) return false;
   return file?.type === 'file' && ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(getExtension(file));
 }
 

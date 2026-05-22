@@ -11,12 +11,21 @@ async function fetchFileManagerData(currentFolderId) {
   ]);
   const allFolders = foldersRes.data.folders || [];
   const allFiles = filesRes.data || [];
-  const calculateFolderSize = buildFolderSizes(allFolders, allFiles);
+  const accessibleFolderIds = new Set(allFolders.map((folder) => folder.id));
+  const visibleFolders = allFolders.map((folder) => ({
+    ...folder,
+    parent_id: folder.parent_id && accessibleFolderIds.has(folder.parent_id) ? folder.parent_id : null,
+  }));
+  const visibleFiles = allFiles.map((file) => ({
+    ...file,
+    folder: file.folder && accessibleFolderIds.has(file.folder) ? file.folder : null,
+  }));
+  const calculateFolderSize = buildFolderSizes(visibleFolders, visibleFiles);
   return {
     favoriteIds: { files: favsRes.data.file_ids || [], folders: favsRes.data.folder_ids || [] },
-    folders: allFolders.filter((folder) => folder.parent_id === currentFolderId).map((folder) => ({ ...folder, size: calculateFolderSize(folder.id) })),
-    files: allFiles.filter((file) => (currentFolderId ? file.folder === currentFolderId : !file.folder)),
-    breadcrumbs: buildBreadcrumbs(allFolders, currentFolderId),
+    folders: visibleFolders.filter((folder) => folder.parent_id === currentFolderId).map((folder) => ({ ...folder, size: calculateFolderSize(folder.id) })),
+    files: visibleFiles.filter((file) => (currentFolderId ? file.folder === currentFolderId : !file.folder)),
+    breadcrumbs: buildBreadcrumbs(visibleFolders, currentFolderId),
   };
 }
 

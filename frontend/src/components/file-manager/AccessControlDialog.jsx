@@ -33,6 +33,14 @@ const permissionLabels = {
   read_write: 'Чтение и запись',
 };
 
+const publicDurationOptions = [
+  { value: '60', label: '1 час' },
+  { value: '1440', label: '24 часа' },
+  { value: '10080', label: '7 дней' },
+  { value: '43200', label: '30 дней' },
+  { value: 'never', label: 'Бессрочно' },
+];
+
 function getResourcePath(item, suffix = '') {
   if (!item) return '';
   const resourceType = item.type === 'folder' ? 'folders' : 'files';
@@ -42,11 +50,32 @@ function getResourcePath(item, suffix = '') {
 function buildPublicUrl(item, token) {
   if (!item || !token) return '';
   const publicType = item.type === 'folder' ? 'folders' : 'files';
-  return `${api.defaults.baseURL}/public/${publicType}/${token}/`;
+  return `${window.location.origin}/public/${publicType}/${token}`;
 }
 
 function getPermissionUser(permission) {
   return permission.user_name || permission.user_email || `Пользователь #${permission.user}`;
+}
+
+function isTextFile(item) {
+  if (item?.type !== 'file') return false;
+  const extension = item.name?.split('.')?.pop()?.toLowerCase();
+  return ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py'].includes(extension);
+}
+
+function getAvailablePermissionOptions(item) {
+  if (item?.type === 'file' && !isTextFile(item)) {
+    return [{ value: 'read', label: 'Чтение' }];
+  }
+  return [
+    { value: 'read', label: 'Чтение' },
+    { value: 'read_write', label: 'Чтение и запись' },
+  ];
+}
+
+function formatPublicExpiration(expiresAt) {
+  if (!expiresAt) return 'без срока';
+  return `до ${new Date(expiresAt).toLocaleString('ru-RU')}`;
 }
 
 function PermissionsList({ permissions, busy, onRevoke }) {
@@ -91,7 +120,9 @@ function PermissionsList({ permissions, busy, onRevoke }) {
   );
 }
 
-function GrantPermissionForm({ email, setEmail, permissionType, setPermissionType, inherit, setInherit, busy, onSubmit }) {
+function GrantPermissionForm({ item, email, setEmail, permissionType, setPermissionType, inherit, setInherit, busy, onSubmit }) {
+  const permissionOptions = getAvailablePermissionOptions(item);
+  const canInherit = item?.type === 'folder';
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 180px auto' }, gap: 1.5, alignItems: 'center' }}>
       <TextField
@@ -104,23 +135,29 @@ function GrantPermissionForm({ email, setEmail, permissionType, setPermissionTyp
       <FormControl size="small">
         <InputLabel>Права</InputLabel>
         <Select label="Права" value={permissionType} onChange={(event) => setPermissionType(event.target.value)}>
-          <MenuItem value="read">Чтение</MenuItem>
-          <MenuItem value="read_write">Чтение и запись</MenuItem>
+          {permissionOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </Select>
       </FormControl>
       <Button variant="contained" startIcon={<PersonAdd />} disabled={busy || !email.trim()} onClick={onSubmit}>
         Выдать
       </Button>
-      <FormControlLabel
-        sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, mt: -0.5 }}
-        control={<Switch checked={inherit} onChange={(event) => setInherit(event.target.checked)} />}
-        label="Наследовать для вложенных объектов"
-      />
+      {canInherit && (
+        <FormControlLabel
+          sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, mt: -0.5 }}
+          control={<Switch checked={inherit} onChange={(event) => setInherit(event.target.checked)} />}
+          label="Наследовать для вложенных объектов"
+        />
+      )}
+      {item?.type === 'file' && !isTextFile(item) && (
+        <Typography variant="caption" color="text.secondary" sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, mt: -1 }}>
+          Для нетекстовых файлов доступно только чтение.
+        </Typography>
+      )}
     </Box>
   );
 }
 
-function PublicLinkPanel({ item, publicToken, setPublicToken, busy, setBusy, setLocalError, setLocalSuccess, onChanged }) {
+function PublicLinkPanel({ item, publicToken, setPublicToken, publicExpiresAt, setPublicExpiresAt, duration, setDuration, busy, setBusy, setLocalError, setLocalSuccess, onChanged }) {
   const publicUrl = useMemo(() => buildPublicUrl(item, publicToken), [item, publicToken]);
   const isEnabled = Boolean(publicToken);
 
@@ -128,9 +165,11 @@ function PublicLinkPanel({ item, publicToken, setPublicToken, busy, setBusy, set
     setBusy(true);
     setLocalError('');
     try {
-      const response = await api.post(getResourcePath(item, '/public-link/'));
+      const payload = duration === 'never' ? {} : { public_expires_in_minutes: Number(duration) };
+      const response = await api.post(getResourcePath(item, '/public-link/'), payload);
       setPublicToken(response.data.public_token);
-      setLocalSuccess('Публичная ссылка включена');
+      setPublicExpiresAt(response.data.public_expires_at || '');
+      setLocalSuccess(isEnabled ? 'Срок публичной ссылки обновлён' : 'Публичная ссылка включена');
       onChanged?.();
     } catch (err) {
       setLocalError(getApiErrorMessage(err, 'Не удалось включить публичную ссылку'));
@@ -145,6 +184,7 @@ function PublicLinkPanel({ item, publicToken, setPublicToken, busy, setBusy, set
     try {
       await api.delete(getResourcePath(item, '/public-link/disable/'));
       setPublicToken('');
+      setPublicExpiresAt('');
       setLocalSuccess('Публичная ссылка отключена');
       onChanged?.();
     } catch (err) {
@@ -171,9 +211,19 @@ function PublicLinkPanel({ item, publicToken, setPublicToken, busy, setBusy, set
           <Typography sx={{ fontWeight: 800 }}>Публичная ссылка</Typography>
           <Chip size="small" label={isEnabled ? 'Включена' : 'Отключена'} color={isEnabled ? 'success' : 'default'} />
         </Box>
-        <Button variant={isEnabled ? 'outlined' : 'contained'} color={isEnabled ? 'error' : 'primary'} disabled={busy} onClick={isEnabled ? disableLink : enableLink}>
-          {isEnabled ? 'Отключить' : 'Создать'}
+        {isEnabled && <Typography variant="caption" color="text.secondary">Активна {formatPublicExpiration(publicExpiresAt)}</Typography>}
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '220px auto auto' }, gap: 1, alignItems: 'center', mb: isEnabled ? 1.5 : 0 }}>
+        <FormControl size="small">
+          <InputLabel>Срок действия</InputLabel>
+          <Select label="Срок действия" value={duration} onChange={(event) => setDuration(event.target.value)}>
+            {publicDurationOptions.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Button variant="contained" disabled={busy} onClick={enableLink}>
+          {isEnabled ? 'Обновить срок' : 'Создать'}
         </Button>
+        {isEnabled && <Button variant="outlined" color="error" disabled={busy} onClick={disableLink}>Отключить</Button>}
       </Box>
       {isEnabled && (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -197,6 +247,8 @@ export default function AccessControlDialog({ open, item, onClose, onChanged }) 
   const [permissionType, setPermissionType] = useState('read');
   const [inherit, setInherit] = useState(true);
   const [publicToken, setPublicToken] = useState('');
+  const [publicExpiresAt, setPublicExpiresAt] = useState('');
+  const [publicDuration, setPublicDuration] = useState('1440');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -220,9 +272,11 @@ export default function AccessControlDialog({ open, item, onClose, onChanged }) 
   useEffect(() => {
     if (!open || !item) return;
     setEmail('');
-    setPermissionType('read');
-    setInherit(true);
+    setPermissionType(getAvailablePermissionOptions(item)[0].value);
+    setInherit(item.type === 'folder');
     setPublicToken(item.is_public && item.public_token ? item.public_token : '');
+    setPublicExpiresAt(item.is_public && item.public_expires_at ? item.public_expires_at : '');
+    setPublicDuration('1440');
     setLocalSuccess('');
     loadPermissions();
   }, [open, item, loadPermissions]);
@@ -234,7 +288,7 @@ export default function AccessControlDialog({ open, item, onClose, onChanged }) 
       await api.post(getResourcePath(item, '/permissions/grant/'), {
         user_email: email.trim(),
         permission_type: permissionType,
-        inherit,
+        inherit: item.type === 'folder' ? inherit : false,
       });
       setEmail('');
       setLocalSuccess('Права доступа выданы');
@@ -271,11 +325,11 @@ export default function AccessControlDialog({ open, item, onClose, onChanged }) 
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         {localError && <Alert severity="error" onClose={() => setLocalError('')}>{localError}</Alert>}
         {localSuccess && <Alert severity="success" onClose={() => setLocalSuccess('')}>{localSuccess}</Alert>}
-        <PublicLinkPanel item={item} publicToken={publicToken} setPublicToken={setPublicToken} busy={busy} setBusy={setBusy} setLocalError={setLocalError} setLocalSuccess={setLocalSuccess} onChanged={onChanged} />
+        <PublicLinkPanel item={item} publicToken={publicToken} setPublicToken={setPublicToken} publicExpiresAt={publicExpiresAt} setPublicExpiresAt={setPublicExpiresAt} duration={publicDuration} setDuration={setPublicDuration} busy={busy} setBusy={setBusy} setLocalError={setLocalError} setLocalSuccess={setLocalSuccess} onChanged={onChanged} />
         <Divider />
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>Выдать права</Typography>
-          <GrantPermissionForm email={email} setEmail={setEmail} permissionType={permissionType} setPermissionType={setPermissionType} inherit={inherit} setInherit={setInherit} busy={busy} onSubmit={grantPermission} />
+          <GrantPermissionForm item={item} email={email} setEmail={setEmail} permissionType={permissionType} setPermissionType={setPermissionType} inherit={inherit} setInherit={setInherit} busy={busy} onSubmit={grantPermission} />
         </Box>
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>Текущие права</Typography>

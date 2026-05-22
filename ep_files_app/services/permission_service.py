@@ -24,6 +24,8 @@ class PermissionService:
             return True
 
         if file.folder:
+            if file.folder.owner == user:
+                return True
             return PermissionService._check_inherited_permissions(
                 user=user,
                 folder=file.folder,
@@ -46,6 +48,8 @@ class PermissionService:
             return True
 
         if file.folder:
+            if file.folder.owner == user:
+                return True
             return PermissionService._check_inherited_permissions(
                 user=user,
                 folder=file.folder,
@@ -204,34 +208,20 @@ class PermissionService:
     @staticmethod
     def get_accessible_files(user: User) -> List[File]:
         """Возвращает список файлов, доступных пользователю."""
-        owned_files = File.objects.filter(owner=user)
-
-        permitted_file_ids = Permission.objects.filter(
-            user=user,
-            file__isnull=False
-        ).values_list('file_id', flat=True)
-        
-        permitted_files = File.objects.filter(id__in=permitted_file_ids)
-
-        all_files = (owned_files | permitted_files).distinct()
-        
-        return list(all_files)
+        return [
+            file_obj
+            for file_obj in File.objects.select_related("owner", "folder").all()
+            if PermissionService.can_read_file(user, file_obj)
+        ]
     
     @staticmethod
     def get_accessible_folders(user: User) -> List[Folder]:
         """Возвращает список папок, доступных пользователю."""
-        owned_folders = Folder.objects.filter(owner=user)
-
-        permitted_folder_ids = Permission.objects.filter(
-            user=user,
-            folder__isnull=False
-        ).values_list('folder_id', flat=True)
-        
-        permitted_folders = Folder.objects.filter(id__in=permitted_folder_ids)
-
-        all_folders = (owned_folders | permitted_folders).distinct()
-        
-        return list(all_folders)
+        return [
+            folder
+            for folder in Folder.objects.select_related("owner", "parent").all()
+            if PermissionService.can_read_folder(user, folder)
+        ]
 
 
 # Глобальный экземпляр сервиса

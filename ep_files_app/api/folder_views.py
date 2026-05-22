@@ -32,7 +32,9 @@ def add_folder_to_zip(zip_file, folder, current_path=""):
 @permission_classes([IsAuthenticated])
 def download_folder(request, folder_id):
     try:
-        folder_rec = Folder.objects.get(id=folder_id, owner=request.user)
+        folder_rec = Folder.objects.get(id=folder_id)
+        if not permission_service.can_read_folder(request.user, folder_rec):
+            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
         memory_file = io.BytesIO()
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -52,7 +54,7 @@ def download_folder(request, folder_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def folder_tree(request):
-    folders = Folder.objects.filter(owner=request.user).select_related("parent")
+    folders = permission_service.get_accessible_folders(request.user)
     data = [
         {
             "id": f.id,
@@ -62,6 +64,7 @@ def folder_tree(request):
             "size": f.get_total_size(),
             "is_public": f.is_public,
             "public_token": f.public_token,
+            "public_expires_at": f.public_expires_at.isoformat() if f.public_expires_at else None,
             "created_at": f.created_at.isoformat(),
             "updated_at": f.updated_at.isoformat(),
         }
@@ -72,7 +75,7 @@ def folder_tree(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_files(request):
-    files = File.objects.filter(owner=request.user)
+    files = permission_service.get_accessible_files(request.user)
 
     user_fav_ids = set(
         FavoriteFile.objects.filter(user=request.user).values_list('file_id', flat=True)
@@ -81,8 +84,9 @@ def get_files(request):
     serializer = FileSerializer(files, many=True)
     data = serializer.data
 
-    for file_data in data:
+    for file_data, file_obj in zip(data, files):
         file_data['is_favorite'] = file_data['id'] in user_fav_ids
+        file_data['can_write'] = permission_service.can_write_file(request.user, file_obj)
 
     return Response(data)
 

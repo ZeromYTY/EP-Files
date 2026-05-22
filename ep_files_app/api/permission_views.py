@@ -13,9 +13,19 @@ from .serializers import PermissionSerializer
 
 logger = logging.getLogger(__name__)
 
+WRITABLE_FILE_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".py"}
+
 
 def error_response(message, http_status):
     return Response({"error": message}, status=http_status)
+
+
+def is_text_resource(resource):
+    if not isinstance(resource, File):
+        return True
+    import os
+
+    return os.path.splitext(resource.name)[1].lower() in WRITABLE_FILE_EXTENSIONS
 
 
 def get_owned_resource(model, resource_id, request_user, names, action):
@@ -71,10 +81,17 @@ def grant_resource_permission(request, model, resource_id, names, resource_arg):
         if error:
             return error
 
+        permission_type = request.data.get("permission_type", Permission.READ)
+        if permission_type == Permission.READ_WRITE and not is_text_resource(resource):
+            return error_response(
+                "Права на запись можно выдать только для текстовых файлов.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
         permission = permission_service.grant_permission(
             granted_by=request.user,
             user=target_user,
-            permission_type=request.data.get("permission_type", Permission.READ),
+            permission_type=permission_type,
             inherit=request.data.get("inherit", True),
             **{resource_arg: resource},
         )

@@ -2,6 +2,7 @@ import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Download as DownloadIcon, Edit, MoreVert, Visibility } from '@mui/icons-material';
 
 function isEditableTextFile(file) {
+  if (file?.can_write === false) return false;
   const extension = file?.name?.split('.')?.pop()?.toLowerCase();
   return file?.type === 'file' && ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
 }

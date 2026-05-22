@@ -54,6 +54,7 @@ export function extractIncomingFiles(incomingData) {
 
 export function isEditableTextFile(file) {
   if (!file?.name || file.type !== 'file') return false;
+  if (file.can_write === false) return false;
   const extension = file.name.split('.').pop().toLowerCase();
   return ['txt', 'md', 'json', 'csv', 'log', 'xml', 'html', 'js', 'py'].includes(extension);
 }

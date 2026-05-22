@@ -291,6 +291,11 @@ def test_text_editor_api(settings, tmp_path):
     assert response.status_code == 200
     assert response.data["content"] == "old text"
 
+    cp1251_file = make_file(owner, "cp1251.txt", "Привет, мир".encode("cp1251"))
+    response = client.get(f"/api/files/{cp1251_file.id}/content/")
+    assert response.status_code == 200
+    assert response.data["content"] == "Привет, мир"
+
     response = client.post(
         f"/api/files/{text_file.id}/save/",
         {"content": '<script>alert(1)</script><b onclick="x()">hello</b>'},

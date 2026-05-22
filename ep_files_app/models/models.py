@@ -96,6 +96,7 @@ class Folder(models.Model):
         db_index=True,
     )
     is_public = models.BooleanField(default=False)
+    public_expires_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -164,6 +165,7 @@ class File(models.Model):
         db_index=True,
     )
     is_public = models.BooleanField(default=False)
+    public_expires_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name if self.name else "Unnamed File"

@@ -43,9 +43,14 @@ def get_upload_folder(request):
     if not folder_id:
         return None, None
     try:
-        return Folder.objects.get(id=folder_id, owner=request.user), None
+        folder = Folder.objects.get(id=folder_id)
     except Folder.DoesNotExist:
         return None, Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not permission_service.can_write_folder(request.user, folder):
+        return None, Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+    return folder, None
 
 
 def create_uploaded_file(uploaded_file, request, folder):
@@ -119,15 +124,19 @@ def upload_file(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_files(request):
-    files = File.objects.filter(owner=request.user).order_by("-date")
-    return Response(FileSerializer(files, many=True).data)
+    files = permission_service.get_accessible_files(request.user)
+    files = sorted(files, key=lambda file_obj: file_obj.date, reverse=True)
+    data = FileSerializer(files, many=True).data
+    for file_data, file_obj in zip(data, files):
+        file_data["can_write"] = permission_service.can_write_file(request.user, file_obj)
+    return Response(data)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def download_file(request, file_id):
     try:
         file_rec = File.objects.get(id=file_id)
-        if file_rec.owner != request.user:
+        if not permission_service.can_read_file(request.user, file_rec):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         if not file_rec.file or not os.path.exists(file_rec.file.path):
             return Response({"error": "File not found on server"}, status=status.HTTP_404_NOT_FOUND)
@@ -156,10 +165,10 @@ def download_file(request, file_id):
 def delete_file(request, file_id):
     try:
         file_obj = File.objects.get(id=file_id)
-        if file_obj.owner != request.user:
-            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         
         if request.method == "PATCH":
+            if not permission_service.can_write_file(request.user, file_obj):
+                return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
             new_name = request.data.get("name", "").strip()
             if not new_name:
                 return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -174,6 +183,9 @@ def delete_file(request, file_id):
                 "file": FileSerializer(file_obj).data
             })
         
+        if file_obj.owner != request.user:
+            return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
         filename = file_obj.name
         file_id_for_event = file_obj.id
         if file_obj.file:
@@ -250,9 +262,11 @@ def file_move(request, file_id):
 def file_detail(request, file_id):
     try:
         file_obj = File.objects.get(id=file_id)
-        if file_obj.owner != request.user:
+        if not permission_service.can_read_file(request.user, file_obj):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
-        return Response(FileSerializer(file_obj).data)
+        data = FileSerializer(file_obj).data
+        data["can_write"] = permission_service.can_write_file(request.user, file_obj)
+        return Response(data)
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 

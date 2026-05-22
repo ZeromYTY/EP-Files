@@ -15,6 +15,7 @@ from ep_files_app.services.file_event_service import file_event_service
 logger = logging.getLogger(__name__)
 
 ALLOWED_TEXT_EXTENSIONS = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".py"]
+TEXT_ENCODINGS = ["utf-8-sig", "utf-8", "cp1251", "latin-1"]
 
 
 def _sanitize_text_content(text: str) -> str:
@@ -33,7 +34,7 @@ def get_editable_text_file(request, file_id):
     except File.DoesNotExist:
         return None, None, Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if file_obj.owner != request.user:
+    if not permission_service.can_write_file(request.user, file_obj):
         return None, None, Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
     ext = os.path.splitext(file_obj.name)[1].lower()
@@ -50,6 +51,15 @@ def content_for_storage(content, ext):
     if ext in {".txt", ".md", ".xml", ".html", ".css", ".js"}:
         return _sanitize_text_content(content)
     return content
+
+
+def decode_text_content(content):
+    for encoding in TEXT_ENCODINGS:
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="replace")
 
 
 def write_text_file(file_obj, content):
@@ -92,7 +102,7 @@ def save_text_file(request, file_id):
 
     sanitized_content = content_for_storage(content, ext)
     encoded_size = len(sanitized_content.encode("utf-8"))
-    storage_error = validate_text_storage_limit(request.user, encoded_size, file_obj.size or 0)
+    storage_error = validate_text_storage_limit(file_obj.owner, encoded_size, file_obj.size or 0)
     if storage_error:
         return storage_error
 
@@ -124,7 +134,7 @@ def read_text_file(request, file_id):
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if file_obj.owner != request.user:
+    if not permission_service.can_read_file(request.user, file_obj):
         return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
     ext = os.path.splitext(file_obj.name)[1].lower()
@@ -136,7 +146,7 @@ def read_text_file(request, file_id):
         )
 
     with file_obj.file.open("rb") as f:
-        content = f.read().decode("utf-8", errors="replace")
+        content = decode_text_content(f.read())
 
     return Response({
         "file_id": file_obj.id,
