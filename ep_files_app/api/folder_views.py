@@ -80,6 +80,8 @@ def folder_tree(request):
             "parent_id": f.parent_id,
             "path": f.get_full_path(),
             "size": f.get_total_size(),
+            "is_public": f.is_public,
+            "public_token": f.public_token,
             "created_at": f.created_at.isoformat(),
             "updated_at": f.updated_at.isoformat(),
         }
