@@ -1,4 +1,4 @@
-Observers
+﻿Observers
 =========
 
 Модули ``observers`` реализуют паттерн Observer для событий, связанных с файлами.
@@ -19,6 +19,7 @@ Base observer
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 History observer
 ----------------
@@ -33,3 +34,4 @@ History observer
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:

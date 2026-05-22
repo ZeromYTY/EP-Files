@@ -22,7 +22,7 @@ pylint:
     - pip install pylint pylint-django anybadge
   script:
     - export DJANGO_SETTINGS_MODULE=main.settings
-    - pylint ep_files_app/ main/ --load-plugins=pylint_django --django-settings-module=main.settings --fail-under=8.0 --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110 > pylint.log || true
+    - pylint ep_files_app/ main/ --load-plugins=pylint_django --django-settings-module=main.settings --fail-under=8.0 --disable=C0114,C0115,C0116,C0103,R0903,C0303,C0411,C0412,C0304,C0305,W0611,E5110 > pylint.log
     - cat pylint.log
     - SCORE=$(grep -oE "rated at [0-9.]+" pylint.log | awk '{print $3}')
     - anybadge --label=pylint --value=$SCORE --file=pylint.svg 2=red 5=orange 8=yellow 10=green
@@ -42,9 +42,8 @@ pytest:
   before_script:
     - pip install --upgrade pip
     - pip install -r requirements.txt
-    - pip install pytest pytest-django
   script:
-    - pytest || echo "No tests yet"
+    - pytest tests --cov=ep_files_app --cov-report=term-missing --cov-fail-under=70
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "dev"'
 

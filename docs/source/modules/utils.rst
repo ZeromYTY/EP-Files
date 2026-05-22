@@ -1,4 +1,4 @@
-Utilities
+﻿Utilities
 =========
 
 Вспомогательные модули содержат настройки, логирование и проверки файлов.
@@ -20,6 +20,7 @@ Validators
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Logger
 ------
@@ -30,6 +31,7 @@ Logger
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Application config
 ------------------
@@ -38,6 +40,7 @@ Application config
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Core config
 -----------
@@ -46,3 +49,4 @@ Core config
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:

@@ -1,4 +1,4 @@
-Permissions
+﻿Permissions
 ===========
 
 Модуль ``ep_files_app.permissions`` содержит классы прав доступа для Django REST Framework.
@@ -20,6 +20,7 @@ Permissions
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Permission middleware
 ---------------------
@@ -28,3 +29,4 @@ Permission middleware
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:

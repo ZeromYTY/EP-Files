@@ -1,4 +1,4 @@
-API modules
+﻿API modules
 ===========
 
 Модули ``ep_files_app.api`` содержат HTTP API проекта. Они принимают запросы
@@ -22,6 +22,7 @@ Auth views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 File views
 ----------
@@ -43,6 +44,7 @@ File views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Folder views
 ------------
@@ -63,6 +65,7 @@ Folder views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Permission views
 ----------------
@@ -86,6 +89,7 @@ Permission views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Public link views
 -----------------
@@ -106,6 +110,7 @@ Public link views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Text file views
 ---------------
@@ -123,6 +128,7 @@ Text file views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Admin views
 -----------
@@ -143,6 +149,7 @@ Admin views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 History views
 -------------
@@ -159,6 +166,7 @@ History views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Favorite views
 --------------
@@ -174,6 +182,7 @@ Favorite views
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Serializers
 -----------
@@ -184,6 +193,7 @@ Serializers
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Authentication
 --------------
@@ -194,3 +204,4 @@ Authentication
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:

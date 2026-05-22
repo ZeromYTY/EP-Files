@@ -7,10 +7,12 @@ sys.path.insert(0, os.path.abspath("../.."))
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "main.settings")
 
-try:
-    django.setup()
-except Exception:
-    pass
+from django.conf import settings
+
+# Sphinx imports Django modules only to read docstrings. Disabling Django logging
+# here prevents documentation builds from depending on local log-file access.
+settings.LOGGING_CONFIG = None
+django.setup()
 
 # -- Project info -------------------------------------------------------------
 
@@ -35,6 +37,7 @@ autodoc_default_options = {
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
+suppress_warnings = ["autodoc.duplicate_object"]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

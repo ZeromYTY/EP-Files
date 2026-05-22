@@ -1,4 +1,4 @@
-Models
+﻿Models
 ======
 
 Модели описывают основные сущности проекта: пользователей, файлы, папки,
@@ -23,6 +23,7 @@ Main models
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 File history
 ------------
@@ -37,6 +38,7 @@ File history
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Permission model
 ----------------
@@ -51,3 +53,4 @@ Permission model
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:

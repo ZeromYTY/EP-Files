@@ -1,4 +1,4 @@
-Services
+﻿Services
 ========
 
 Сервисы содержат бизнес-логику проекта, которая вынесена из API-представлений.
@@ -20,6 +20,7 @@ File service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Permission service
 ------------------
@@ -44,6 +45,7 @@ Permission service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 File event service
 ------------------
@@ -63,6 +65,7 @@ File event service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
 
 Base service
 ------------
@@ -71,3 +74,4 @@ Base service
    :members:
    :undoc-members:
    :show-inheritance:
+   :no-index:
