@@ -57,14 +57,16 @@ function getPermissionUser(permission) {
   return permission.user_name || permission.user_email || `Пользователь #${permission.user}`;
 }
 
-function isTextFile(item) {
+const editableTextExtensions = ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py'];
+
+function isEditableFile(item) {
   if (item?.type !== 'file') return false;
   const extension = item.name?.split('.')?.pop()?.toLowerCase();
-  return ['txt', 'md', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py'].includes(extension);
+  return editableTextExtensions.includes(extension);
 }
 
 function getAvailablePermissionOptions(item) {
-  if (item?.type === 'file' && !isTextFile(item)) {
+  if (item?.type === 'file' && !isEditableFile(item)) {
     return [{ value: 'read', label: 'Чтение' }];
   }
   return [
@@ -148,9 +150,9 @@ function GrantPermissionForm({ item, email, setEmail, permissionType, setPermiss
           label="Наследовать для вложенных объектов"
         />
       )}
-      {item?.type === 'file' && !isTextFile(item) && (
+      {item?.type === 'file' && !isEditableFile(item) && (
         <Typography variant="caption" color="text.secondary" sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' }, mt: -1 }}>
-          Для нетекстовых файлов доступно только чтение.
+          Для файлов без встроенного редактирования доступно только чтение.
         </Typography>
       )}
     </Box>

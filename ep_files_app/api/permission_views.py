@@ -88,11 +88,12 @@ def grant_resource_permission(request, model, resource_id, names, resource_arg):
                 status.HTTP_400_BAD_REQUEST,
             )
 
+        should_inherit = request.data.get("inherit", True) if model is Folder else False
         permission = permission_service.grant_permission(
             granted_by=request.user,
             user=target_user,
             permission_type=permission_type,
-            inherit=request.data.get("inherit", True),
+            inherit=should_inherit,
             **{resource_arg: resource},
         )
         return serialize_permission_response(permission)
