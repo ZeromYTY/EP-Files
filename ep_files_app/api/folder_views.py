@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from django.http import FileResponse
 
 from ep_files_app.models.models import File, Folder, FavoriteFile
+from ep_files_app.services.permission_service import permission_service
 from .serializers import FileSerializer
 
 logger = logging.getLogger(__name__)

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+from django.db.models import Sum
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +12,7 @@ from rest_framework.response import Response
 
 from ep_files_app.models.models import File
 from ep_files_app.services.file_event_service import file_event_service
+from ep_files_app.services.permission_service import permission_service
 
 logger = logging.getLogger(__name__)
 
