@@ -12,8 +12,8 @@ def api_client():
 
 @pytest.fixture
 def user_factory():
-    def create_user(email="user@example.com", password="StrongPass123"):
-        user = User(email=email)
+    def create_user(email="user@example.com", password="StrongPass123", **extra_fields):
+        user = User(email=email, **extra_fields)
         user.set_password(password)
         user.save()
         return user

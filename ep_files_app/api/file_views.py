@@ -74,6 +74,23 @@ def create_uploaded_file(uploaded_file, request, folder):
     return file_obj
 
 
+def validate_storage_limit(user, incoming_size, replaced_size=0):
+    current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+    projected_size = current_size - replaced_size + incoming_size
+    if projected_size > user.storage_limit:
+        return Response(
+            {
+                "error": "Недостаточно места в хранилище.",
+                "code": "storage_limit_exceeded",
+                "storage_limit": user.storage_limit,
+                "total_size": current_size,
+                "available_space": max(user.storage_limit - current_size, 0),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return None
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated, CanUploadFiles])
 def upload_file(request):
@@ -87,6 +104,10 @@ def upload_file(request):
         validation_error = validate_uploaded_file(uploaded_file)
         if validation_error:
             return validation_error
+
+        storage_error = validate_storage_limit(request.user, uploaded_file.size)
+        if storage_error:
+            return storage_error
 
         folder, folder_error = get_upload_folder(request)
         if folder_error:
@@ -281,7 +302,7 @@ def user_storage_stats(request):
         user = request.user
         total_files = File.objects.filter(owner=user).count()
         total_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
-        storage_limit = 100 * 1024 * 1024
+        storage_limit = user.storage_limit
         usage_percent = (total_size / storage_limit * 100) if storage_limit > 0 else 0
         week_ago = timezone.now() - timedelta(days=7)
         recent_files = File.objects.filter(owner=user, date__gte=week_ago).count()
@@ -294,7 +315,7 @@ def user_storage_stats(request):
             "total_size": total_size,
             "storage_limit": storage_limit,
             "usage_percent": round(usage_percent, 2),
-            "available_space": storage_limit - total_size,
+            "available_space": max(storage_limit - total_size, 0),
             "recent_files_count": recent_files,
             "file_types": file_types,
         })

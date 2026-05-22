@@ -37,7 +37,14 @@ function LoginForm({ register, errors, isSubmitting, onSubmit, handleSubmit, err
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const authError = sessionStorage.getItem('auth_error');
+    if (authError) {
+      sessionStorage.removeItem('auth_error');
+      return authError;
+    }
+    return '';
+  });
 
   const {
     register,

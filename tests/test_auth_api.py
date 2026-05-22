@@ -66,6 +66,23 @@ def test_login_wrong_password_returns_401(api_client, user_factory):
     assert response.data["error"] == "Invalid credentials"
 
 
+def test_login_blocked_user_returns_403(api_client, user_factory):
+    user_factory(
+        email="blocked_login@example.com",
+        password="StrongPass123",
+        is_active=False,
+    )
+
+    response = api_client.post(
+        reverse("login"),
+        {"email": "blocked_login@example.com", "password": "StrongPass123"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert response.data["code"] == "user_blocked"
+
+
 def test_protected_endpoint_without_token_returns_401(api_client):
     response = api_client.get(reverse("test_auth"))
 
@@ -96,3 +113,24 @@ def test_protected_endpoint_with_valid_token_returns_200(
 
     assert response.status_code == 200
     assert response.data["message"] == "Access granted. JWT is working."
+
+
+def test_blocked_user_token_returns_401(
+    api_client,
+    user_factory,
+    token_factory,
+):
+    user = user_factory(
+        email="blocked_token@example.com",
+        password="StrongPass123",
+        is_active=False,
+    )
+    access_token = token_factory(user)
+
+    response = api_client.get(
+        reverse("test_auth"),
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 401
+    assert response.data["code"] == "user_blocked"

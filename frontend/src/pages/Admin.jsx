@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
-import { Block, CheckCircleOutline, DeleteOutline, Refresh } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Block, CheckCircleOutline, DeleteOutline, ExitToApp, Refresh, Save } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -28,7 +29,11 @@ function StatsGrid({ stats }) {
   );
 }
 
-function UserRow({ targetUser, currentUser, actionLoading, onToggleBlock, onDeleteFiles }) {
+function limitBytesToMb(bytes) {
+  return Math.round((bytes || 0) / (1024 * 1024));
+}
+
+function UserRow({ targetUser, currentUser, actionLoading, limitValue, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
   const isCurrentUser = currentUser?.id === targetUser.id;
   return (
     <TableRow hover>
@@ -37,6 +42,12 @@ function UserRow({ targetUser, currentUser, actionLoading, onToggleBlock, onDele
       <TableCell><Chip size="small" label={targetUser.is_active ? 'Активен' : 'Заблокирован'} color={targetUser.is_active ? 'success' : 'error'} /></TableCell>
       <TableCell>{targetUser.file_count}</TableCell>
       <TableCell>{formatFileSize(targetUser.total_size)}</TableCell>
+      <TableCell>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 150 }}>
+          <TextField size="small" type="number" value={limitValue ?? limitBytesToMb(targetUser.storage_limit)} onChange={(event) => onLimitChange(targetUser.id, event.target.value)} inputProps={{ min: 1 }} sx={{ width: 96 }} />
+          <Button size="small" variant="outlined" startIcon={<Save />} disabled={actionLoading === `limit-${targetUser.id}`} onClick={() => onSaveLimit(targetUser)}>МБ</Button>
+        </Box>
+      </TableCell>
       <TableCell>{targetUser.date_joined ? new Date(targetUser.date_joined).toLocaleDateString('ru-RU') : '-'}</TableCell>
       <TableCell align="right">
         <Button size="small" variant="outlined" color={targetUser.is_active ? 'warning' : 'success'} startIcon={targetUser.is_active ? <Block /> : <CheckCircleOutline />} disabled={isCurrentUser || actionLoading === `block-${targetUser.id}` || actionLoading === `unblock-${targetUser.id}`} onClick={() => onToggleBlock(targetUser)} sx={{ mr: 1 }}>{targetUser.is_active ? 'Блокировать' : 'Разблокировать'}</Button>
@@ -46,14 +57,14 @@ function UserRow({ targetUser, currentUser, actionLoading, onToggleBlock, onDele
   );
 }
 
-function UsersTable({ users, currentUser, actionLoading, onToggleBlock, onDeleteFiles }) {
+function UsersTable({ users, currentUser, actionLoading, limitInputs, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
   return (
     <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
       <Table>
-        <TableHead><TableRow><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Статус</TableCell><TableCell>Файлы</TableCell><TableCell>Объём</TableCell><TableCell>Дата</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
+        <TableHead><TableRow><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Статус</TableCell><TableCell>Файлы</TableCell><TableCell>Объём</TableCell><TableCell>Лимит</TableCell><TableCell>Дата</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
         <TableBody>
-          {users.map((targetUser) => <UserRow key={targetUser.id} targetUser={targetUser} currentUser={currentUser} actionLoading={actionLoading} onToggleBlock={onToggleBlock} onDeleteFiles={onDeleteFiles} />)}
-          {users.length === 0 && <TableRow><TableCell colSpan={7} align="center">Пользователи не найдены</TableCell></TableRow>}
+          {users.map((targetUser) => <UserRow key={targetUser.id} targetUser={targetUser} currentUser={currentUser} actionLoading={actionLoading} limitValue={limitInputs[targetUser.id]} onLimitChange={onLimitChange} onSaveLimit={onSaveLimit} onToggleBlock={onToggleBlock} onDeleteFiles={onDeleteFiles} />)}
+          {users.length === 0 && <TableRow><TableCell colSpan={8} align="center">Пользователи не найдены</TableCell></TableRow>}
         </TableBody>
       </Table>
     </TableContainer>
@@ -62,8 +73,10 @@ function UsersTable({ users, currentUser, actionLoading, onToggleBlock, onDelete
 
 export default function Admin() {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [limitInputs, setLimitInputs] = useState({});
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [error, setError] = useState('');
@@ -73,7 +86,9 @@ export default function Admin() {
     try {
       setLoading(true); setError('');
       const [statsResponse, usersResponse] = await Promise.all([api.get('/admin/stats/'), api.get('/admin/users/')]);
-      setStats(statsResponse.data); setUsers(usersResponse.data.users || []);
+      const nextUsers = usersResponse.data.users || [];
+      setStats(statsResponse.data); setUsers(nextUsers);
+      setLimitInputs(Object.fromEntries(nextUsers.map((targetUser) => [targetUser.id, String(limitBytesToMb(targetUser.storage_limit))])));
     } catch (err) {
       console.error('Ошибка загрузки админ-панели:', err); setError('Не удалось загрузить реальные данные админ-панели');
     } finally {
@@ -95,17 +110,37 @@ export default function Admin() {
     }
   };
 
+  const handleLimitChange = (userId, value) => {
+    setLimitInputs((current) => ({ ...current, [userId]: value }));
+  };
+
+  const handleSaveLimit = (targetUser) => {
+    const storageLimitMb = Number(limitInputs[targetUser.id]);
+    if (!Number.isInteger(storageLimitMb) || storageLimitMb < 1) {
+      setError('Лимит должен быть целым числом больше 0');
+      return;
+    }
+    runUserAction(
+      targetUser,
+      'limit',
+      () => api.patch(`/admin/users/${targetUser.id}/storage-limit/`, { storage_limit_mb: storageLimitMb }),
+    );
+  };
+
   if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f172a' }}><CircularProgress /></Box>;
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Alert severity="warning" sx={{ mb: 3 }}>РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ - будьте аккуратны с деструктивными действиями.</Alert>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Админ-панель EP Files</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800 }}>Админ-панель EP Files</Typography>
+        <Button variant="outlined" startIcon={<ExitToApp />} onClick={() => navigate('/files')}>Выйти из админки</Button>
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>Реальные пользователи, статистика и административные действия</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
       <StatsGrid stats={stats} />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><Button variant="outlined" startIcon={<Refresh />} onClick={fetchAdminData}>Обновить данные</Button></Box>
-      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
+      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
     </Container>
   );
 }

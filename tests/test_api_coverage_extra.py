@@ -209,6 +209,8 @@ def test_admin_api(settings, tmp_path):
     response = client.get("/api/admin/users/")
     assert response.status_code == 200
     assert response.data["total"] >= 2
+    target_data = next(user for user in response.data["users"] if user["id"] == target.id)
+    assert target_data["storage_limit"] == target.storage_limit
 
     response = client.get("/api/admin/stats/")
     assert response.status_code == 200
@@ -224,6 +226,22 @@ def test_admin_api(settings, tmp_path):
     target.refresh_from_db()
     assert target.is_active is True
 
+    response = client.patch(
+        f"/api/admin/users/{target.id}/storage-limit/",
+        {"storage_limit_mb": 256},
+        format="json",
+    )
+    assert response.status_code == 200
+    target.refresh_from_db()
+    assert target.storage_limit == 256 * 1024 * 1024
+
+    response = client.patch(
+        f"/api/admin/users/{target.id}/storage-limit/",
+        {"storage_limit_mb": 0},
+        format="json",
+    )
+    assert response.status_code == 400
+
     response = client.patch(f"/api/admin/users/{admin.id}/block/")
     assert response.status_code == 400
 
@@ -236,6 +254,25 @@ def test_admin_api(settings, tmp_path):
     response = client.delete(f"/api/admin/users/{target.id}/delete/")
     assert response.status_code == 200
     assert not User.objects.filter(id=target.id).exists()
+
+
+@pytest.mark.django_db
+def test_upload_rejects_when_user_storage_limit_exceeded(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    user = make_user("quota@example.com")
+    user.storage_limit = 4
+    user.save(update_fields=["storage_limit"])
+    client = auth_client(user)
+
+    response = client.post(
+        "/api/upload/",
+        {"file": make_uploaded_file("normal.txt", b"hello")},
+        format="multipart",
+    )
+
+    assert response.status_code == 400
+    assert response.data["code"] == "storage_limit_exceeded"
 
 
 @pytest.mark.django_db

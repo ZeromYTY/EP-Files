@@ -51,9 +51,17 @@ class EpFilesJWTAuthentication(JWTAuthentication):
             )
 
         try:
-            return User.objects.get(pk=user_id)
+            user = User.objects.get(pk=user_id)
         except User.DoesNotExist as exc:
             raise AuthenticationFailed(
                 "Пользователь по токену не найден.",
                 code="user_not_found",
             ) from exc
+
+        if not user.is_active:
+            raise AuthenticationFailed(
+                "Ваш аккаунт заблокирован администратором.",
+                code="user_blocked",
+            )
+
+        return user

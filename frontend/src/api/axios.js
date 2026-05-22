@@ -21,13 +21,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const isUnauthorized = error.response?.status === 401;
+    const isBlocked =
+      error.response?.data?.code === 'user_blocked' ||
+      error.response?.data?.detail === 'Ваш аккаунт заблокирован администратором.';
     const requestUrl = error.config?.url || '';
     const isAuthRequest =
       requestUrl.includes('/auth/login/') ||
       requestUrl.includes('/auth/register/');
 
-    if (isUnauthorized && !isAuthRequest) {
+    if ((isUnauthorized || isBlocked) && !isAuthRequest) {
       localStorage.removeItem('token');
+      if (isBlocked) {
+        sessionStorage.setItem('auth_error', 'Ваш аккаунт заблокирован администратором.');
+      }
 
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

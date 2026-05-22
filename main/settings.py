@@ -114,7 +114,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 # --- JWT & REST FRAMEWORK ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'ep_files_app.api.authentication.EpFilesJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',

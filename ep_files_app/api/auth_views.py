@@ -72,6 +72,19 @@ class LoginView(APIView):
         password = request.data.get("password")
         user = User.objects.filter(email=email).first()
         if user and check_password(password, user.password_hash):
+            if not user.is_active:
+                logger.warning(
+                    "Blocked user login attempt: %s",
+                    user.email,
+                    extra={"user": user.email},
+                )
+                return Response(
+                    {
+                        "error": "Ваш аккаунт заблокирован администратором.",
+                        "code": "user_blocked",
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             logger.info(
                 "User logged in: %s",
                 user.email,

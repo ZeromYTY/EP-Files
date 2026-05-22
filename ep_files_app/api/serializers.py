@@ -22,12 +22,21 @@ class UserSerializer(serializers.ModelSerializer):
     Attributes:
         Meta.model (User): Связанная модель пользователя Django.
         Meta.fields (list[str]): Набор полей, сериализуемых для передачи клиенту:
-            ``['id', 'name', 'email', 'is_staff', 'is_superuser', 'is_active', 'date_joined']``.
+            ``['id', 'name', 'email', 'is_staff', 'is_superuser', 'is_active', 'storage_limit', 'date_joined']``.
     """
 
     class Meta:
         model = User
-        fields = ["id", "name", "email", "is_staff", "is_superuser", "is_active", "date_joined"]
+        fields = [
+            "id",
+            "name",
+            "email",
+            "is_staff",
+            "is_superuser",
+            "is_active",
+            "storage_limit",
+            "date_joined",
+        ]
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

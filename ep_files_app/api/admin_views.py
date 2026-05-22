@@ -54,6 +54,7 @@ def admin_list_users(request):
             "date_joined": user.date_joined.isoformat(),
             "file_count": file_stats["count"] or 0,
             "total_size": file_stats["total_size"] or 0,
+            "storage_limit": user.storage_limit,
         })
     return Response({"users": data, "total": len(data)})
 
@@ -98,6 +99,46 @@ def admin_unblock_user(request, user_id):
     user.save(update_fields=["is_active"])
     logger.info("Admin %s unblocked user %s (id=%d)", request.user.email, user.email, user.id)
     return Response({"status": "unblocked", "user_id": user_id, "email": user.email})
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_update_user_storage_limit(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    limit_mb = request.data.get("storage_limit_mb")
+    try:
+        limit_mb = int(limit_mb)
+    except (TypeError, ValueError):
+        return Response(
+            {"error": "storage_limit_mb must be an integer"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if limit_mb < 1:
+        return Response(
+            {"error": "storage_limit_mb must be at least 1"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.storage_limit = limit_mb * 1024 * 1024
+    user.save(update_fields=["storage_limit"])
+    logger.info(
+        "Admin %s changed storage limit for user %s (id=%d) to %d MB",
+        request.user.email,
+        user.email,
+        user.id,
+        limit_mb,
+    )
+    return Response({
+        "status": "storage_limit_updated",
+        "user_id": user.id,
+        "email": user.email,
+        "storage_limit": user.storage_limit,
+        "storage_limit_mb": limit_mb,
+    })
 
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated, IsAdminUser])

@@ -82,6 +82,23 @@ def write_text_file(file_obj, content):
     file_obj.save(update_fields=["size"])
 
 
+def validate_text_storage_limit(user, incoming_size, replaced_size):
+    current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+    projected_size = current_size - replaced_size + incoming_size
+    if projected_size > user.storage_limit:
+        return Response(
+            {
+                "error": "Недостаточно места в хранилище.",
+                "code": "storage_limit_exceeded",
+                "storage_limit": user.storage_limit,
+                "total_size": current_size,
+                "available_space": max(user.storage_limit - current_size, 0),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return None
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def save_text_file(request, file_id):
@@ -94,6 +111,11 @@ def save_text_file(request, file_id):
         return Response({"error": "Field 'content' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     sanitized_content = content_for_storage(content, ext)
+    encoded_size = len(sanitized_content.encode("utf-8"))
+    storage_error = validate_text_storage_limit(request.user, encoded_size, file_obj.size or 0)
+    if storage_error:
+        return storage_error
+
     write_text_file(file_obj, sanitized_content)
     file_event_service.emit_upload_event(
         file=file_obj,
