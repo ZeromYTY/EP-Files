@@ -27,13 +27,25 @@ from .serializers import FileSerializer
 logger = logging.getLogger(__name__)
 
 
+def format_size(bytes_count):
+    size = float(bytes_count or 0)
+    units = ("Б", "КБ", "МБ", "ГБ")
+    index = 0
+    while size >= 1024 and index < len(units) - 1:
+        size /= 1024
+        index += 1
+    value = f"{size:.1f}" if size < 10 and index else f"{size:.0f}"
+    return f"{value} {units[index]}"
+
+
 def validate_uploaded_file(uploaded_file):
     """Валидирует загружаемый файл по имени, расширению и размеру."""
     for validator in (validate_filename, validate_file_extension, validate_file_size):
         try:
             validator(uploaded_file if validator is validate_file_size else uploaded_file.name)
         except ValidationError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            message = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
     return None
 
 
@@ -76,13 +88,17 @@ def validate_storage_limit(user, incoming_size, replaced_size=0):
     current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
     projected_size = current_size - replaced_size + incoming_size
     if projected_size > user.storage_limit:
+        available_space = max(user.storage_limit - current_size, 0)
         return Response(
             {
-                "error": "Недостаточно места в хранилище.",
+                "error": (
+                    f"Недостаточно места в хранилище. Доступно {format_size(available_space)}, "
+                    f"а файл занимает {format_size(incoming_size)}."
+                ),
                 "code": "storage_limit_exceeded",
                 "storage_limit": user.storage_limit,
                 "total_size": current_size,
-                "available_space": max(user.storage_limit - current_size, 0),
+                "available_space": available_space,
             },
             status=status.HTTP_400_BAD_REQUEST,
         )

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, InputAdornment, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { Block, CheckCircleOutline, DeleteOutline, ExitToApp, Refresh, Save } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
@@ -33,8 +33,11 @@ function limitBytesToMb(bytes) {
   return Math.round((bytes || 0) / (1024 * 1024));
 }
 
-function UserRow({ targetUser, currentUser, actionLoading, limitValue, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
+function UserRow({ targetUser, currentUser, actionLoading, limitValue, maxStorageLimitMb, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
   const isCurrentUser = currentUser?.id === targetUser.id;
+  const currentLimitMb = limitBytesToMb(targetUser.storage_limit);
+  const displayedLimit = limitValue ?? String(currentLimitMb);
+  const hasLimitChanges = String(displayedLimit) !== String(currentLimitMb);
   return (
     <TableRow hover>
       <TableCell sx={{ fontWeight: 600 }}>{targetUser.email}</TableCell>
@@ -44,12 +47,16 @@ function UserRow({ targetUser, currentUser, actionLoading, limitValue, onLimitCh
       <TableCell>{formatFileSize(targetUser.total_size)}</TableCell>
       <TableCell>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 150 }}>
-          <TextField size="small" type="number" value={limitValue ?? limitBytesToMb(targetUser.storage_limit)} onChange={(event) => onLimitChange(targetUser.id, event.target.value)} inputProps={{ min: 1 }} sx={{ width: 96 }} />
-          <Button size="small" variant="outlined" startIcon={<Save />} disabled={actionLoading === `limit-${targetUser.id}`} onClick={() => onSaveLimit(targetUser)}>МБ</Button>
+          <TextField size="small" type="number" value={displayedLimit} onChange={(event) => onLimitChange(targetUser.id, event.target.value)} inputProps={{ min: 1, max: maxStorageLimitMb }} InputProps={{ endAdornment: <InputAdornment position="end">МБ</InputAdornment> }} sx={{ width: 132 }} />
         </Box>
       </TableCell>
       <TableCell>{targetUser.date_joined ? new Date(targetUser.date_joined).toLocaleDateString('ru-RU') : '-'}</TableCell>
       <TableCell align="right">
+        <Tooltip title={hasLimitChanges ? 'Сохранить новый лимит' : 'Лимит не изменён'}>
+          <span>
+            <Button size="small" variant="outlined" color="primary" startIcon={<Save />} disabled={!hasLimitChanges || actionLoading === `limit-${targetUser.id}`} onClick={() => onSaveLimit(targetUser)} sx={{ mr: 1 }}>Сохранить</Button>
+          </span>
+        </Tooltip>
         <Button size="small" variant="outlined" color={targetUser.is_active ? 'warning' : 'success'} startIcon={targetUser.is_active ? <Block /> : <CheckCircleOutline />} disabled={isCurrentUser || actionLoading === `block-${targetUser.id}` || actionLoading === `unblock-${targetUser.id}`} onClick={() => onToggleBlock(targetUser)} sx={{ mr: 1 }}>{targetUser.is_active ? 'Блокировать' : 'Разблокировать'}</Button>
         <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutline />} disabled={targetUser.file_count === 0 || actionLoading === `delete-files-${targetUser.id}`} onClick={() => onDeleteFiles(targetUser)}>Удалить файлы</Button>
       </TableCell>
@@ -57,13 +64,13 @@ function UserRow({ targetUser, currentUser, actionLoading, limitValue, onLimitCh
   );
 }
 
-function UsersTable({ users, currentUser, actionLoading, limitInputs, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
+function UsersTable({ users, currentUser, actionLoading, limitInputs, maxStorageLimitMb, onLimitChange, onSaveLimit, onToggleBlock, onDeleteFiles }) {
   return (
     <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
       <Table>
         <TableHead><TableRow><TableCell>Email</TableCell><TableCell>Роль</TableCell><TableCell>Статус</TableCell><TableCell>Файлы</TableCell><TableCell>Объём</TableCell><TableCell>Лимит</TableCell><TableCell>Дата</TableCell><TableCell align="right">Действия</TableCell></TableRow></TableHead>
         <TableBody>
-          {users.map((targetUser) => <UserRow key={targetUser.id} targetUser={targetUser} currentUser={currentUser} actionLoading={actionLoading} limitValue={limitInputs[targetUser.id]} onLimitChange={onLimitChange} onSaveLimit={onSaveLimit} onToggleBlock={onToggleBlock} onDeleteFiles={onDeleteFiles} />)}
+          {users.map((targetUser) => <UserRow key={targetUser.id} targetUser={targetUser} currentUser={currentUser} actionLoading={actionLoading} limitValue={limitInputs[targetUser.id]} maxStorageLimitMb={maxStorageLimitMb} onLimitChange={onLimitChange} onSaveLimit={onSaveLimit} onToggleBlock={onToggleBlock} onDeleteFiles={onDeleteFiles} />)}
           {users.length === 0 && <TableRow><TableCell colSpan={8} align="center">Пользователи не найдены</TableCell></TableRow>}
         </TableBody>
       </Table>
@@ -101,10 +108,17 @@ export default function Admin() {
     try {
       setActionLoading(`${action}-${targetUser.id}`); setError(''); setSuccess('');
       const response = await request();
-      setSuccess(action === 'delete-files' ? `Удалено файлов: ${response.data.files_deleted} у пользователя ${targetUser.email}` : `Статус пользователя ${targetUser.email} изменён`);
+      if (action === 'delete-files') {
+        setSuccess(`Удалено файлов: ${response.data.files_deleted} у пользователя ${targetUser.email}`);
+      } else if (action === 'limit') {
+        setSuccess(`Лимит пользователя ${targetUser.email} сохранён`);
+      } else {
+        setSuccess(`Статус пользователя ${targetUser.email} изменён`);
+      }
       await fetchAdminData();
     } catch (err) {
-      console.error('Ошибка действия администратора:', err); setError('Не удалось выполнить действие');
+      const serverMessage = err.response?.data?.error || err.response?.data?.detail;
+      console.error('Ошибка действия администратора:', err); setError(serverMessage || 'Не удалось выполнить действие');
     } finally {
       setActionLoading('');
     }
@@ -116,8 +130,13 @@ export default function Admin() {
 
   const handleSaveLimit = (targetUser) => {
     const storageLimitMb = Number(limitInputs[targetUser.id]);
+    const maxStorageLimitMb = stats?.max_storage_limit_mb ?? 1024;
     if (!Number.isInteger(storageLimitMb) || storageLimitMb < 1) {
       setError('Лимит должен быть целым числом больше 0');
+      return;
+    }
+    if (storageLimitMb > maxStorageLimitMb) {
+      setError(`Лимит не может быть больше ${maxStorageLimitMb} МБ`);
       return;
     }
     runUserAction(
@@ -140,7 +159,7 @@ export default function Admin() {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
       <StatsGrid stats={stats} />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><Button variant="outlined" startIcon={<Refresh />} onClick={fetchAdminData}>Обновить данные</Button></Box>
-      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
+      <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} maxStorageLimitMb={stats?.max_storage_limit_mb ?? 1024} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
     </Container>
   );
 }

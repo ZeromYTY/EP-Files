@@ -173,7 +173,7 @@ def validate_file_size(file, max_size=100 * 1024 * 1024):
     if file.size > max_size:
         max_size_mb = max_size / (1024 * 1024)
         raise ValidationError(
-            f'Размер файла превышает максимально допустимый ({max_size_mb} MB).'
+            f'Файл слишком большой. Максимальный размер: {max_size_mb:.0f} МБ.'
         )
 
     return True

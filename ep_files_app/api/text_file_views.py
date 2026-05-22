@@ -20,6 +20,17 @@ ALLOWED_TEXT_EXTENSIONS = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".cs
 TEXT_ENCODINGS = ["utf-8-sig", "utf-8", "cp1251", "latin-1"]
 
 
+def format_size(bytes_count):
+    size = float(bytes_count or 0)
+    units = ("Б", "КБ", "МБ", "ГБ")
+    index = 0
+    while size >= 1024 and index < len(units) - 1:
+        size /= 1024
+        index += 1
+    value = f"{size:.1f}" if size < 10 and index else f"{size:.0f}"
+    return f"{value} {units[index]}"
+
+
 def _sanitize_text_content(text: str) -> str:
     """Очищает текстовое содержимое от опасных скриптов и тегов."""
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
@@ -78,13 +89,17 @@ def validate_text_storage_limit(user, incoming_size, replaced_size):
     current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
     projected_size = current_size - replaced_size + incoming_size
     if projected_size > user.storage_limit:
+        available_space = max(user.storage_limit - current_size, 0)
         return Response(
             {
-                "error": "Недостаточно места в хранилище.",
+                "error": (
+                    f"Недостаточно места в хранилище. Доступно {format_size(available_space)}, "
+                    f"а новый текст занимает {format_size(incoming_size)}."
+                ),
                 "code": "storage_limit_exceeded",
                 "storage_limit": user.storage_limit,
                 "total_size": current_size,
-                "available_space": max(user.storage_limit - current_size, 0),
+                "available_space": available_space,
             },
             status=status.HTTP_400_BAD_REQUEST,
         )

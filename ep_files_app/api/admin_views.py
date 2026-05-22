@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from ep_files_app.core import config as app_config
 from ep_files_app.models.models import File, User
 from ep_files_app.permissions import IsAdminUser
 
@@ -48,6 +49,7 @@ def admin_stats(request):
         "total_files": total_files,
         "total_size_bytes": total_size,
         "total_size_mb": round(total_size / (1024 * 1024), 2),
+        "max_storage_limit_mb": app_config.ADMIN_MAX_STORAGE_LIMIT_MB,
     })
 
 @api_view(["PATCH"])
@@ -89,13 +91,25 @@ def admin_update_user_storage_limit(request, user_id):
         limit_mb = int(limit_mb)
     except (TypeError, ValueError):
         return Response(
-            {"error": "storage_limit_mb must be an integer"},
+            {"error": "Лимит должен быть целым числом в мегабайтах."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
     if limit_mb < 1:
         return Response(
-            {"error": "storage_limit_mb must be at least 1"},
+            {"error": "Лимит должен быть не меньше 1 МБ."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if limit_mb > app_config.ADMIN_MAX_STORAGE_LIMIT_MB:
+        return Response(
+            {
+                "error": (
+                    "Нельзя выдать больше "
+                    f"{app_config.ADMIN_MAX_STORAGE_LIMIT_MB} МБ на пользователя."
+                ),
+                "max_storage_limit_mb": app_config.ADMIN_MAX_STORAGE_LIMIT_MB,
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
 

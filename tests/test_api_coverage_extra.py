@@ -2,6 +2,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
+from ep_files_app.core import config as app_config
 from ep_files_app.models import File, FileHistory, Folder, Permission, User
 
 
@@ -215,6 +216,7 @@ def test_admin_api(settings, tmp_path):
     response = client.get("/api/admin/stats/")
     assert response.status_code == 200
     assert response.data["total_users"] >= 2
+    assert response.data["max_storage_limit_mb"] >= 1
 
     response = client.patch(f"/api/admin/users/{target.id}/block/")
     assert response.status_code == 200
@@ -238,6 +240,13 @@ def test_admin_api(settings, tmp_path):
     response = client.patch(
         f"/api/admin/users/{target.id}/storage-limit/",
         {"storage_limit_mb": 0},
+        format="json",
+    )
+    assert response.status_code == 400
+
+    response = client.patch(
+        f"/api/admin/users/{target.id}/storage-limit/",
+        {"storage_limit_mb": app_config.ADMIN_MAX_STORAGE_LIMIT_MB + 1},
         format="json",
     )
     assert response.status_code == 400

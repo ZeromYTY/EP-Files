@@ -35,6 +35,14 @@ function ErrorList({ errors, removeError }) {
   );
 }
 
+function getRejectedFileMessage(item) {
+  const tooLarge = item.errors.some((error) => error.code === 'file-too-large');
+  if (tooLarge) {
+    return `Файл "${item.file.name}" слишком большой. Максимальный размер: ${formatFileSize(MAX_FILE_SIZE)}.`;
+  }
+  return `Файл "${item.file.name}" не может быть загружен`;
+}
+
 export default function FileUpload({ onUploadComplete, onUploadError, folderId = null }) {
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -54,7 +62,7 @@ export default function FileUpload({ onUploadComplete, onUploadError, folderId =
     }
   }, [folderId, onUploadComplete, onUploadError]);
   const onDrop = useCallback((acceptedFiles, rejectedFiles) => {
-    setErrors((prev) => [...prev, ...rejectedFiles.map((item) => `Файл "${item.file.name}" не может быть загружен`)]);
+    setErrors((prev) => [...prev, ...rejectedFiles.map(getRejectedFileMessage)]);
     const filesToUpload = acceptedFiles.map((file) => ({ file, id: Math.random().toString(36).slice(2, 11), progress: 0, status: 'uploading' }));
     setUploadingFiles((prev) => [...prev, ...filesToUpload]);
     filesToUpload.forEach(uploadFileToDjango);
