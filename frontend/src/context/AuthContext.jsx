@@ -19,11 +19,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAuth = async () => {
-      await loadStoredUser(setUser);
-      setLoading(false);
+      await loadStoredUser((nextUser) => {
+        if (isMounted) {
+          setUser(nextUser);
+        }
+      });
+      if (isMounted) {
+        setLoading(false);
+      }
     };
+
     checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (email, password) => {
