@@ -1,3 +1,4 @@
+"""API-представления для работы с избранными файлами и папками."""
 import io
 import logging
 import mimetypes

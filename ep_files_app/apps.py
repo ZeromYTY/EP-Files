@@ -1,3 +1,4 @@
+"""Конфигурация Django-приложения EP-Files."""
 from django.apps import AppConfig
 
 

@@ -1,3 +1,4 @@
+"""Основные модели проекта: пользователи, файлы, папки, предпросмотр и избранное."""
 import html
 import io
 import os
@@ -13,8 +14,10 @@ from PIL import Image
 from main import settings
 
 class UserManager(BaseUserManager):
+    """Менеджер для создания пользователей и суперпользователей."""
 
     def create_user(self, email, password=None, **extra_fields):
+        """Создаёт и сохраняет обычного пользователя."""
         if not email:
             raise ValueError("Email is required")
 
@@ -28,6 +31,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
+        """Создаёт и сохраняет суперпользователя с правами администратора."""
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
@@ -40,6 +44,7 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(models.Model):
+    """Модель пользователя системы."""
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100, blank=True, default="")
@@ -66,6 +71,7 @@ class User(models.Model):
         return True
 
     def set_password(self, raw_password):
+        """Устанавливает пароль пользователя с хешированием."""
         self.password_hash = make_password(raw_password)
 
     def __str__(self):
@@ -73,6 +79,7 @@ class User(models.Model):
 
 
 class Folder(models.Model):
+    """Модель папки для организации файлов."""
 
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="folders")
@@ -102,6 +109,7 @@ class Folder(models.Model):
         return self.get_full_path()
 
     def get_full_path(self):
+        """Возвращает полный путь папки от корня."""
         parts = []
         node = self
         while node is not None:
@@ -110,6 +118,7 @@ class Folder(models.Model):
         return "/" + "/".join(reversed(parts))
 
     def get_all_descendant_ids(self):
+        """Возвращает список ID всех вложенных папок."""
 
         ids = []
         for child in self.children.all():
@@ -118,6 +127,7 @@ class Folder(models.Model):
         return ids
 
     def get_total_size(self):
+        """Вычисляет общий размер всех файлов в папке и подпапках."""
         from django.db.models import Sum
         
         total_size = 0
@@ -131,6 +141,7 @@ class Folder(models.Model):
 
 
 class File(models.Model):
+    """Модель файла, загруженного пользователем."""
 
     file = models.FileField(upload_to="files")
     name = models.CharField(max_length=100, blank=True)
@@ -157,6 +168,7 @@ class File(models.Model):
         return self.name if self.name else "Unnamed File"
 
     def save(self, *args, **kwargs):
+        """Сохраняет файл, автоматически заполняя размер и имя."""
         if self.file:
             if not self.size:
                 self.size = self.file.size
@@ -166,28 +178,36 @@ class File(models.Model):
         super().save(*args, **kwargs)
 
 class BasePreview:
+    """Базовый класс для генерации предпросмотра файлов."""
 
     def generate_preview(self, file_obj):
+        """Генерирует предпросмотр файла."""
         raise NotImplementedError
 
 class PreviewStrategy(ABC):
+    """Абстрактная стратегия для создания предпросмотра файлов."""
 
     @abstractmethod
     def preview(self, file: bytes) -> Union[str, bytes]:
+        """Создаёт предпросмотр файла."""
         pass
 
 
 class TextPreview(PreviewStrategy):
+    """Стратегия предпросмотра текстовых файлов."""
 
     def preview(self, file: bytes) -> str:
+        """Возвращает первые 20 строк текстового файла."""
         text = file.decode("utf-8", errors="ignore")
         lines = text.splitlines()[:20]
         return html.escape("\n".join(lines))
 
 
 class ImagePreview(PreviewStrategy):
+    """Стратегия предпросмотра изображений."""
 
     def preview(self, file: bytes) -> bytes:
+        """Создаёт миниатюру изображения размером 300x300."""
         img = Image.open(io.BytesIO(file))
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
@@ -198,6 +218,7 @@ class ImagePreview(PreviewStrategy):
 
 
 class PreviewFactory:
+    """Фабрика для выбора стратегии предпросмотра файлов."""
 
     _strategies = {
         "text": TextPreview(),
@@ -206,6 +227,7 @@ class PreviewFactory:
 
     @staticmethod
     def get_strategy(name: str) -> PreviewStrategy:
+        """Возвращает подходящую стратегию предпросмотра по имени файла."""
         ext = name.split('.')[-1].lower() if '.' in name else ''
 
         img_extns = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
@@ -220,9 +242,11 @@ class PreviewFactory:
 
 
 class FileOperationFacade:
+    """Фасад для упрощения операций с файлами."""
 
     @staticmethod
     def upload_file(file, user):
+        """Загружает файл для пользователя."""
         if not file:
             raise ValidationError("File not provided")
         if file.size > settings.MAX_FILE_SIZE:
@@ -233,6 +257,7 @@ class FileOperationFacade:
 
     @staticmethod
     def delete_file(file_id, user):
+        """Удаляет файл пользователя по ID."""
         try:
             file_obj = File.objects.get(id=file_id, owner=user)
             file_obj.file.delete()
@@ -242,6 +267,7 @@ class FileOperationFacade:
             return False
 
 class FavoriteFile(models.Model):
+    """Модель избранных файлов и папок пользователя."""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorite_items")
     file = models.ForeignKey('File', on_delete=models.CASCADE, null=True, blank=True)
     folder = models.ForeignKey('Folder', on_delete=models.CASCADE, null=True, blank=True)

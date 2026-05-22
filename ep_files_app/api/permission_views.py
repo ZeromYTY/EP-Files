@@ -1,3 +1,4 @@
+"""API-представления для выдачи, отзыва и просмотра прав доступа."""
 import logging
 
 from django.core.exceptions import ValidationError

@@ -1,3 +1,4 @@
+"""Сервисная логика проверки, выдачи и отзыва прав доступа."""
 import logging
 from typing import Optional, List
 from django.db.models import Q
@@ -7,9 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 class PermissionService:
+    """Сервис проверки, выдачи и отзыва прав доступа."""
     
     @staticmethod
     def can_read_file(user: User, file: File) -> bool:
+        """Проверяет право пользователя на чтение файла."""
         if file.owner == user:
             return True
 
@@ -31,6 +34,7 @@ class PermissionService:
     
     @staticmethod
     def can_write_file(user: User, file: File) -> bool:
+        """Проверяет право пользователя на редактирование файла."""
         if file.owner == user:
             return True
 
@@ -52,6 +56,7 @@ class PermissionService:
     
     @staticmethod
     def can_read_folder(user: User, folder: Folder) -> bool:
+        """Проверяет право пользователя на чтение папки."""
         if folder.owner == user:
             return True
 
@@ -72,6 +77,7 @@ class PermissionService:
 
     @staticmethod
     def can_write_folder(user: User, folder: Folder) -> bool:
+        """Проверяет право пользователя на редактирование папки."""
         if folder.owner == user:
             return True
 
@@ -97,6 +103,7 @@ class PermissionService:
         folder: Folder,
         permission_type: str
     ) -> bool:
+        """Проверяет права, унаследованные от родительских папок."""
         current_folder = folder
         
         while current_folder:
@@ -124,6 +131,7 @@ class PermissionService:
         permission_type: str = Permission.READ,
         inherit: bool = True
     ) -> Permission:
+        """Выдает пользователю право доступа к ресурсу."""
         permission, created = Permission.objects.update_or_create(
             user=user,
             file=file,
@@ -150,6 +158,7 @@ class PermissionService:
         file: Optional[File] = None,
         folder: Optional[Folder] = None
     ) -> bool:
+        """Отзывает право доступа пользователя к ресурсу."""
         query = Q(user=user)
         
         if file:
@@ -170,6 +179,7 @@ class PermissionService:
     
     @staticmethod
     def get_user_permissions(user: User) -> List[Permission]:
+        """Возвращает список всех прав доступа пользователя."""
         return list(Permission.objects.filter(user=user).select_related(
             'file', 'folder', 'granted_by'
         ))
@@ -179,6 +189,7 @@ class PermissionService:
         file: Optional[File] = None,
         folder: Optional[Folder] = None
     ) -> List[Permission]:
+        """Возвращает список прав доступа к ресурсу."""
         query = Q()
         
         if file:
@@ -192,6 +203,7 @@ class PermissionService:
 
     @staticmethod
     def get_accessible_files(user: User) -> List[File]:
+        """Возвращает список файлов, доступных пользователю."""
         owned_files = File.objects.filter(owner=user)
 
         permitted_file_ids = Permission.objects.filter(
@@ -207,6 +219,7 @@ class PermissionService:
     
     @staticmethod
     def get_accessible_folders(user: User) -> List[Folder]:
+        """Возвращает список папок, доступных пользователю."""
         owned_folders = Folder.objects.filter(owner=user)
 
         permitted_folder_ids = Permission.objects.filter(

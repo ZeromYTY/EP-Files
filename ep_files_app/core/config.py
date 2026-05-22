@@ -1,3 +1,4 @@
+"""Настройки приложения, загружаемые из переменных окружения."""
 import os
 from pathlib import Path
 from datetime import timedelta

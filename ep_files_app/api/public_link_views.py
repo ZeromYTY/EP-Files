@@ -1,3 +1,4 @@
+"""API-представления для включения, отключения и использования публичных ссылок."""
 import mimetypes
 import os
 import secrets

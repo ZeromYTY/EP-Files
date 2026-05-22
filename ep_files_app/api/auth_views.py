@@ -1,3 +1,4 @@
+"""API-представления для регистрации, входа и получения данных текущего пользователя."""
 import io
 import logging
 import mimetypes
@@ -36,12 +37,13 @@ from .serializers import FileSerializer, UserRegistrationSerializer, UserSeriali
 logger = logging.getLogger(__name__)
 
 class RegisterView(generics.CreateAPIView):
-
+    """Регистрирует пользователя и возвращает JWT-токены."""
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = UserRegistrationSerializer
 
     def create(self, request, *args, **kwargs):
+        """Создаёт пользователя и формирует ответ с токенами."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -61,10 +63,11 @@ class RegisterView(generics.CreateAPIView):
         return Response(data, status=status.HTTP_201_CREATED, headers=headers)
 
 class LoginView(APIView):
-
+    """Проверяет данные входа пользователя."""
     permission_classes = (AllowAny,)
 
     def post(self, request):
+        """Авторизует пользователя по email и паролю."""
         email = request.data.get("email")
         password = request.data.get("password")
         user = User.objects.filter(email=email).first()
@@ -88,14 +91,15 @@ class LoginView(APIView):
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 class MeView(APIView):
-
+    """Возвращает данные текущего авторизованного пользователя."""
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        """Возвращает email, имя и роль текущего пользователя."""
         return Response({"user": UserSerializer(request.user).data})
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def protected_test_view(request):
-
+    """Проверяет работу защищённого API-endpoint."""
     return Response({"message": "Access granted. JWT is working."})

@@ -1,3 +1,4 @@
+"""Наблюдатель, который записывает события файлов в историю действий."""
 import logging
 from .base import FileObserver, FileEvent
 from ep_files_app.models import FileHistory, File, User
@@ -6,8 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class FileHistoryObserver(FileObserver):
+    """Наблюдатель для записи событий файлов в базу данных истории."""
     
     def update(self, event: FileEvent) -> None:
+        """Обрабатывает событие и создаёт запись в истории файлов."""
         try:
             file_instance = None
             if event.file_id:

@@ -1,3 +1,4 @@
+"""API-представления для создания, просмотра, перемещения и удаления папок."""
 import io
 import logging
 import mimetypes

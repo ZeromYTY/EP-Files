@@ -1,3 +1,4 @@
+"""API-представления для чтения и сохранения текстовых файлов во встроенном редакторе."""
 import io
 import html as html_module
 import logging

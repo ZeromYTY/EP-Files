@@ -1,3 +1,4 @@
+"""API-представления для просмотра истории действий с файлами."""
 import io
 import logging
 import mimetypes
