@@ -59,7 +59,8 @@ build-docs:
     - pip install sphinx sphinx-rtd-theme anybadge
   script:
     - cd docs
-    - sphinx-build -b html source build/html
+    - rm -rf build/html build/doctrees
+    - sphinx-build -b html -d build/doctrees source build/html
     - anybadge --label=docs --value=online --file=../docs.svg --color=teal
   artifacts:
     name: "docs-$CI_COMMIT_REF_SLUG"
@@ -80,7 +81,8 @@ pages:
     - pip install sphinx sphinx-rtd-theme
   script:
     - cd docs
-    - sphinx-build -b html source ../public
+    - rm -rf ../public build/pages-doctrees
+    - sphinx-build -b html -d build/pages-doctrees source ../public
   artifacts:
     paths:
       - public
