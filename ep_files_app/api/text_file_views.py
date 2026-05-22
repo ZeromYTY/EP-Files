@@ -1,40 +1,16 @@
 """API-представления для чтения и сохранения текстовых файлов во встроенном редакторе."""
-import io
 import html as html_module
 import logging
-import mimetypes
 import os
 import re
-import zipfile
-from datetime import timedelta
 
-from django.conf import settings
-from django.contrib.auth.hashers import check_password
-from django.core.exceptions import ValidationError
-from django.db.models import Count, Sum
-from django.http import FileResponse, Http404, HttpResponse
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
 
-from ep_files_app.models.models import (
-    File, FileOperationFacade, Folder,
-    ImagePreview, PreviewFactory, User, FavoriteFile,
-)
-from ep_files_app.models.file_history import FileHistory
+from ep_files_app.models.models import File
 from ep_files_app.services.file_event_service import file_event_service
-from ep_files_app.services.permission_service import permission_service
-from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
-from ep_files_app.validators import (
-    sanitize_filename, validate_file_extension,
-    validate_file_size, validate_filename,
-)
-from .serializers import FileSerializer, UserRegistrationSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +18,7 @@ ALLOWED_TEXT_EXTENSIONS = [".txt", ".md", ".csv", ".json", ".xml", ".html", ".cs
 
 
 def _sanitize_text_content(text: str) -> str:
+    """Очищает текстовое содержимое от опасных скриптов и тегов."""
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', text, flags=re.IGNORECASE)
     text = re.sub(r'javascript\s*:', '', text, flags=re.IGNORECASE)
@@ -50,6 +27,7 @@ def _sanitize_text_content(text: str) -> str:
 
 
 def get_editable_text_file(request, file_id):
+    """Проверяет доступ к текстовому файлу для редактирования."""
     try:
         file_obj = File.objects.get(id=file_id)
     except File.DoesNotExist:
@@ -68,12 +46,14 @@ def get_editable_text_file(request, file_id):
 
 
 def content_for_storage(content, ext):
+    """Подготавливает содержимое для сохранения с учетом типа файла."""
     if ext in {".txt", ".md", ".xml", ".html", ".css", ".js"}:
         return _sanitize_text_content(content)
     return content
 
 
 def write_text_file(file_obj, content):
+    """Записывает текстовое содержимое в файл."""
     encoded_content = content.encode("utf-8")
     file_obj.file.open("wb")
     file_obj.file.write(encoded_content)

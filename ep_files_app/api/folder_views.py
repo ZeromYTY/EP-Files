@@ -1,42 +1,22 @@
 """API-представления для создания, просмотра, перемещения и удаления папок."""
 import io
 import logging
-import mimetypes
 import os
 import zipfile
-from datetime import timedelta
 
-from django.conf import settings
-from django.contrib.auth.hashers import check_password
-from django.core.exceptions import ValidationError
-from django.db.models import Count, Sum
-from django.http import FileResponse, Http404, HttpResponse
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
+from django.http import FileResponse
 
-from ep_files_app.models.models import (
-    File, FileOperationFacade, Folder,
-    ImagePreview, PreviewFactory, User, FavoriteFile,
-)
-from ep_files_app.models.file_history import FileHistory
-from ep_files_app.services.file_event_service import file_event_service
-from ep_files_app.services.permission_service import permission_service
-from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
-from ep_files_app.validators import (
-    sanitize_filename, validate_file_extension,
-    validate_file_size, validate_filename,
-)
-from .serializers import FileSerializer, UserRegistrationSerializer, UserSerializer
+from ep_files_app.models.models import File, Folder, FavoriteFile
+from .serializers import FileSerializer
 
 logger = logging.getLogger(__name__)
 
 def add_folder_to_zip(zip_file, folder, current_path=""):
+    """Рекурсивно добавляет файлы папки и подпапок в ZIP-архив."""
     files = File.objects.filter(folder_id=folder.id)
     for file_rec in files:
         if file_rec.file and os.path.exists(file_rec.file.path):
@@ -94,7 +74,9 @@ def folder_tree(request):
 def get_files(request):
     files = File.objects.filter(owner=request.user)
 
-    user_fav_ids = set(FavoriteFile.objects.filter(user=request.user).values_list('file_id', flat=True))
+    user_fav_ids = set(
+        FavoriteFile.objects.filter(user=request.user).values_list('file_id', flat=True)
+    )
 
     serializer = FileSerializer(files, many=True)
     data = serializer.data
@@ -116,7 +98,10 @@ def folder_create(request):
         try:
             parent = Folder.objects.get(id=parent_id, owner=request.user)
         except Folder.DoesNotExist:
-            return Response({"error": "Parent folder not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Parent folder not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
     folder = Folder.objects.create(name=name, owner=request.user, parent=parent)
     return Response({
         "id": folder.id,

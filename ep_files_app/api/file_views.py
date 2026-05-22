@@ -1,43 +1,34 @@
 """API-представления для загрузки, скачивания, удаления, перемещения и просмотра файлов."""
-import io
 import logging
 import mimetypes
 import os
-import zipfile
 from datetime import timedelta
 
-from django.conf import settings
-from django.contrib.auth.hashers import check_password
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Sum
-from django.http import FileResponse, Http404, HttpResponse
+from django.db.models import Sum
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import generics, status
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
 
-from ep_files_app.models.models import (
-    File, FileOperationFacade, Folder,
-    ImagePreview, PreviewFactory, User, FavoriteFile,
-)
-from ep_files_app.models.file_history import FileHistory
+from ep_files_app.models.models import File, Folder, ImagePreview, PreviewFactory
 from ep_files_app.services.file_event_service import file_event_service
 from ep_files_app.services.permission_service import permission_service
-from ep_files_app.permissions import IsAdminUser, IsFileOwner, CanUploadFiles
+from ep_files_app.permissions import CanUploadFiles
 from ep_files_app.validators import (
     sanitize_filename, validate_file_extension,
     validate_file_size, validate_filename,
 )
-from .serializers import FileSerializer, UserRegistrationSerializer, UserSerializer
+from .serializers import FileSerializer
 
 logger = logging.getLogger(__name__)
 
 
 def validate_uploaded_file(uploaded_file):
+    """Валидирует загружаемый файл по имени, расширению и размеру."""
     for validator in (validate_filename, validate_file_extension, validate_file_size):
         try:
             validator(uploaded_file if validator is validate_file_size else uploaded_file.name)
@@ -47,6 +38,7 @@ def validate_uploaded_file(uploaded_file):
 
 
 def get_upload_folder(request):
+    """Получает папку для загрузки файла из запроса."""
     folder_id = request.data.get("folder_id")
     if not folder_id:
         return None, None
@@ -57,6 +49,7 @@ def get_upload_folder(request):
 
 
 def create_uploaded_file(uploaded_file, request, folder):
+    """Создает объект файла и генерирует событие загрузки."""
     file_obj = File(
         name=sanitize_filename(uploaded_file.name),
         size=uploaded_file.size,
@@ -264,6 +257,7 @@ def file_detail(request, file_id):
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
 def file_preview(request, file_id):
+    """Генерирует предпросмотр файла (изображение или текст)."""
     file = get_object_or_404(File, id=file_id)
     with file.file.open("rb") as f:
         data = f.read()
