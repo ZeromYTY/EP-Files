@@ -28,13 +28,16 @@ api.interceptors.response.use(
     const requestUrl = error.config?.url || '';
     const isAuthRequest =
       requestUrl.includes('/auth/login/') ||
-      requestUrl.includes('/auth/register/') ||
-      requestUrl.includes('/auth/me/');
+      requestUrl.includes('/auth/register/');
 
     if ((isUnauthorized || isBlocked) && !isAuthRequest) {
       localStorage.removeItem('token');
       if (isBlocked) {
         sessionStorage.setItem('auth_error', 'Ваш аккаунт заблокирован администратором.');
+      }
+
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
       }
     }
 
