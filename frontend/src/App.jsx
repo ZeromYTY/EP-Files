@@ -28,11 +28,11 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/files" element={<Files />} />
           <Route path="/file-manager" element={<FileManager onPreviewFile={setSelectedFile} />} />
-        </Route>
 
-        {/* Админка сама показывает состояние входа и проверяет права */}
-        <Route element={<AdminRoute />}>
-          <Route path="/admin" element={<Admin />} />
+          {/* Админка доступна только staff/superuser */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<Admin />} />
+          </Route>
         </Route>
 
         {/* Редирект для любых несуществующих страниц */}
