@@ -22,11 +22,12 @@ function getLoginError(err) {
   return serverError === 'Invalid credentials' ? 'Неверный email или пароль' : serverError || 'Неверный email или пароль';
 }
 
-function LoginForm({ register, errors, isSubmitting, onSubmit, handleSubmit, error }) {
+function LoginForm({ register, errors, isSubmitting, onSubmit, handleSubmit, error, notice }) {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <TextField fullWidth label="Email" type="email" margin="normal" autoComplete="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
       <TextField fullWidth label="Пароль" type="password" margin="normal" autoComplete="current-password" {...register('password')} error={!!errors.password} helperText={errors.password?.message} />
+      {notice && <Alert severity="success" sx={{ mt: 2 }}>{notice}</Alert>}
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       <Button fullWidth type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ mt: 3, mb: 2 }}>{isSubmitting ? 'Вход...' : 'Войти'}</Button>
       <Typography align="center" color="text.secondary">Нет аккаунта? <Link to="/register" style={{ textDecoration: 'none' }}>Зарегистрироваться</Link></Typography>
@@ -45,6 +46,14 @@ export default function Login() {
     }
     return '';
   });
+  const [notice, setNotice] = useState(() => {
+    const authNotice = sessionStorage.getItem('auth_notice');
+    if (authNotice) {
+      sessionStorage.removeItem('auth_notice');
+      return authNotice;
+    }
+    return '';
+  });
 
   const {
     register,
@@ -57,6 +66,7 @@ export default function Login() {
   const onSubmit = async (data) => {
     try {
       setError('');
+      setNotice('');
       await login(data.email, data.password);
       navigate('/files');
     } catch (err) {
@@ -68,7 +78,7 @@ export default function Login() {
     <Container maxWidth="sm">
       <Paper sx={{ p: 4, mt: 8 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">Вход</Typography>
-        <LoginForm register={register} errors={errors} isSubmitting={isSubmitting} onSubmit={onSubmit} handleSubmit={handleSubmit} error={error} />
+        <LoginForm register={register} errors={errors} isSubmitting={isSubmitting} onSubmit={onSubmit} handleSubmit={handleSubmit} error={error} notice={notice} />
       </Paper>
     </Container>
   );

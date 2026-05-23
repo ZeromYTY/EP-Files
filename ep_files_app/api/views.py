@@ -1,5 +1,5 @@
 """Compatibility exports for EP Files API views."""
-from .auth_views import RegisterView, LoginView, MeView, protected_test_view
+from .auth_views import ChangePasswordView, RegisterView, LoginView, MeView, protected_test_view
 from .favorite_views import toggle_favorite, get_user_favorites
 from .folder_views import (add_folder_to_zip, download_folder, folder_tree, get_files, folder_create, folder_rename, folder_move, folder_delete)
 from .file_views import (upload_file, list_files, download_file, delete_file, file_move, file_detail, report_file, file_preview, search_files, user_storage_stats)

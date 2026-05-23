@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Avatar, Box, Button, CircularProgress, Container, Grid, IconButton, Paper, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Image, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { Alert, Avatar, Box, Button, CircularProgress, Collapse, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
+import { CheckCircle, Close, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LockReset, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -77,6 +77,33 @@ function StatsCard({ user, stats }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><Storage sx={{ color: '#64748b' }} /><Typography variant="body2">Занято {formatFileSize(used)} из {formatFileSize(total)}</Typography></Box>
       <Box sx={{ width: '100%', height: 8, bgcolor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: percent > 85 ? '#ef4444' : '#2196F3' }} /></Box>
       <Typography variant="caption" color="text.secondary">{percent}% использовано</Typography>
+    </Paper>
+  );
+}
+
+function ChangePasswordCard({ form, loading, open, error, onChange, onSubmit, onToggle }) {
+  return (
+    <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>Смена пароля</Typography>
+          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>После изменения понадобится войти заново.</Typography>
+        </Box>
+        <Button variant={open ? 'outlined' : 'contained'} onClick={onToggle} endIcon={<ExpandMore sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }} />}>
+          {open ? 'Скрыть' : 'Сменить пароль'}
+        </Button>
+      </Box>
+      <Collapse in={open} unmountOnExit>
+        <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 2, mt: 3 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField fullWidth label="Текущий пароль" type="password" autoComplete="current-password" value={form.current_password} onChange={(event) => onChange('current_password', event.target.value)} disabled={loading} />
+          <TextField fullWidth label="Новый пароль" type="password" autoComplete="new-password" value={form.new_password} onChange={(event) => onChange('new_password', event.target.value)} disabled={loading} />
+          <TextField fullWidth label="Повторите новый пароль" type="password" autoComplete="new-password" value={form.confirm_password} onChange={(event) => onChange('confirm_password', event.target.value)} disabled={loading} />
+          <Button type="submit" variant="contained" startIcon={loading ? <CircularProgress color="inherit" size={18} /> : <LockReset />} disabled={loading} sx={{ justifySelf: 'flex-start' }}>
+            Изменить пароль
+          </Button>
+        </Box>
+      </Collapse>
     </Paper>
   );
 }
@@ -185,6 +212,14 @@ export default function Files({ onPreviewFile }) {
   const [storageStats, setStorageStats] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     Promise.all([api.get('/storage/stats/'), api.get('/favorites/all/')]).then(([statsRes, favsRes]) => {
@@ -209,12 +244,49 @@ export default function Files({ onPreviewFile }) {
 
   const isAdmin = Boolean(user?.is_staff || user?.is_superuser);
   const handleLogout = () => { logout(); navigate('/login'); };
+  const handlePasswordChange = (field, value) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordError('');
+  };
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+    setPasswordLoading(true);
+    setPasswordError('');
+    try {
+      await api.post('/auth/change-password/', passwordForm);
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      sessionStorage.setItem('auth_notice', 'Пароль изменен. Войдите с новым паролем.');
+      logout();
+      navigate('/login');
+    } catch (err) {
+      const data = err.response?.data;
+      const fieldError = data && typeof data === 'object'
+        ? Object.values(data).flat().join(' ')
+        : '';
+      setPasswordError(fieldError || data?.error || data?.detail || 'Не удалось изменить пароль.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
   return (
     <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
       <Grid container spacing={4}>
         <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} onFiles={() => navigate('/file-manager')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
-        <Grid item xs={12} md={7}><StatsCard user={user} stats={storageStats} /></Grid>
+        <Grid item xs={12} md={7}>
+          <Box sx={{ display: 'grid', gap: 3 }}>
+            <StatsCard user={user} stats={storageStats} />
+            <ChangePasswordCard
+              form={passwordForm}
+              loading={passwordLoading}
+              open={passwordOpen}
+              error={passwordError}
+              onChange={handlePasswordChange}
+              onSubmit={handlePasswordSubmit}
+              onToggle={() => setPasswordOpen((prev) => !prev)}
+            />
+          </Box>
+        </Grid>
       </Grid>
       <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} onPreview={onPreviewFile} />
       <TaskWidget tasks={tasks} clearTasks={() => setTasks([])} />
