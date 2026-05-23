@@ -84,9 +84,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 ...
             ValidationError: ['Пользователь с такой почтой уже есть.']
         """
-        if User.objects.filter(email=value).exists():
+        normalized_email = value.strip().lower()
+        if User.objects.filter(email__iexact=normalized_email).exists():
             raise serializers.ValidationError("Пользователь с такой почтой уже есть.")
-        return value
+        return normalized_email
 
     def validate_password(self, value):
         """Проверяет соответствие пароля базовым критериям безопасности по длине.
