@@ -10,8 +10,9 @@ import {
   Movie,
   MusicNote,
   PictureAsPdf,
+  Slideshow,
+  Star,
   TableChart,
-  Visibility,
 } from '@mui/icons-material';
 import FileRow from './FileRow';
 
@@ -21,6 +22,7 @@ const fileGroups = [
   { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#4F46E5', bg: '#eef2ff' },
   { extensions: ['pdf'], icon: PictureAsPdf, color: '#DC2626', bg: '#FEF2F2' },
   { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#16A34A', bg: '#F0FDF4' },
+  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#D97706', bg: '#FFF7ED' },
 ];
 
 function getExtension(file) {
@@ -58,11 +60,15 @@ function FileVisual({ file, size = 32 }) {
   );
 }
 
-function GridActionButtons({ file, onPreviewClick, onDownloadClick, onEditClick, onMenuOpen }) {
+function canReportFile(file, currentUserEmail) {
+  return file.type === 'file' && file.owner_email && file.owner_email !== currentUserEmail;
+}
+
+function GridActionButtons({ file, onFavoriteClick, onDownloadClick, onEditClick, onMenuOpen }) {
   const buttonSx = { opacity: 0, transition: 'opacity 0.2s', zIndex: 30 };
   return (
     <>
-      <Tooltip title="Предпросмотр"><IconButton className="preview-btn" onClick={(event) => { event.stopPropagation(); onPreviewClick?.(file); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 104, color: '#2196F3' }} size="small"><Visibility fontSize="small" /></IconButton></Tooltip>
+      <Tooltip title={file.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'}><IconButton className="favorite-btn" onClick={(event) => { event.stopPropagation(); onFavoriteClick?.(file); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 104, color: file.is_favorite ? '#f59e0b' : '#2196F3' }} size="small"><Star fontSize="small" /></IconButton></Tooltip>
       {isEditableTextFile(file) && onEditClick && <Tooltip title="Редактировать"><IconButton className="edit-btn" onClick={(event) => { event.stopPropagation(); onEditClick(file); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 72, color: '#1976D2' }} size="small"><Edit fontSize="small" /></IconButton></Tooltip>}
       <Tooltip title="Скачать"><IconButton className="download-btn" onClick={(event) => { event.stopPropagation(); onDownloadClick?.(file.id, file.name, file.type); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 40, color: '#2196F3' }} size="small"><DownloadIcon fontSize="small" /></IconButton></Tooltip>
       <IconButton className="grid-menu-btn" onClick={(event) => { event.stopPropagation(); onMenuOpen?.(event, file, file.type); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 8, color: '#757575' }} size="small"><MoreVert fontSize="small" /></IconButton>
@@ -73,11 +79,13 @@ function GridActionButtons({ file, onPreviewClick, onDownloadClick, onEditClick,
 function GridCard({ file, handlers }) {
   const isFolder = file.type === 'folder';
   const open = () => (isFolder ? handlers.onFolderClick?.(file.id) : handlers.onPreviewClick?.(file));
+  const uploaderText = canReportFile(file, handlers.currentUserEmail) ? `Загрузил: ${file.owner_email}` : '';
   return (
-    <Paper elevation={0} onClick={open} sx={{ p: 2, borderRadius: '12px', border: '1px solid #e0e0e0', position: 'relative', cursor: 'pointer', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.1)', transform: 'translateY(-2px)', borderColor: '#2196F3', '& .grid-menu-btn,.download-btn,.preview-btn,.edit-btn': { opacity: 1 } } }}>
+    <Paper elevation={0} onClick={open} sx={{ p: 2, borderRadius: '12px', border: '1px solid #e0e0e0', position: 'relative', cursor: 'pointer', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.1)', transform: 'translateY(-2px)', borderColor: '#2196F3', '& .grid-menu-btn,.download-btn,.favorite-btn,.edit-btn': { opacity: 1 } } }}>
       {isFolder ? <FolderActions folder={file} handlers={handlers} /> : <GridActionButtons file={file} {...handlers} />}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}><FileVisual file={file} size={44} /></Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6 }}>{file.name}</Typography>
+      {uploaderText && <Tooltip title={uploaderText}><Typography variant="caption" sx={{ display: 'block', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mb: 0.5 }}>{uploaderText}</Typography></Tooltip>}
       <Typography variant="caption" color="text.secondary">{formatDate(file.created_at || file.updated_at || file.date || new Date().toISOString())}{file.size && ` • ${formatFileSize(file.size)}`}</Typography>
     </Paper>
   );

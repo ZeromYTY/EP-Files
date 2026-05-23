@@ -46,9 +46,10 @@ class LoginView(APIView):
 
     def post(self, request):
         """Авторизует пользователя по email и паролю."""
-        email = request.data.get("email")
+        raw_email = request.data.get("email") or ""
+        email = raw_email.strip().lower()
         password = request.data.get("password")
-        user = User.objects.filter(email=email).first()
+        user = User.objects.filter(email__iexact=email).first()
         if user and check_password(password, user.password_hash):
             if not user.is_active:
                 logger.warning(

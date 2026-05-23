@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, InputAdornment, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
-import { Block, CheckCircleOutline, DeleteOutline, ExitToApp, Refresh, Save } from '@mui/icons-material';
+import { Block, CheckCircleOutline, DeleteOutline, Download, ExitToApp, LinkOff, Refresh, Save, Verified } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -25,6 +25,7 @@ function StatsGrid({ stats }) {
       <StatCard label="Активные пользователи" value={stats?.active_users ?? 0} />
       <StatCard label="Всего файлов" value={stats?.total_files ?? 0} />
       <StatCard label="Общий объём" value={formatFileSize(stats?.total_size_bytes)} />
+      <StatCard label="Новые жалобы" value={stats?.pending_reports ?? 0} />
     </Grid>
   );
 }
@@ -80,11 +81,76 @@ function UsersTable({ users, currentUser, actionLoading, limitInputs, maxStorage
   );
 }
 
+function triggerBrowserDownload(blobData, filename) {
+  const blobUrl = window.URL.createObjectURL(new Blob([blobData]));
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
+function ReportsTable({ reports, actionLoading, onResolveReport, onDownloadReportFile }) {
+  return (
+    <TableContainer component={Paper} sx={{ borderRadius: 3, mb: 3 }}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Файл</TableCell>
+            <TableCell>Владелец</TableCell>
+            <TableCell>Жалоба</TableCell>
+            <TableCell>Статус</TableCell>
+            <TableCell>Дата</TableCell>
+            <TableCell align="right">Решение</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {reports.map((report) => (
+            <TableRow key={report.id} hover>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{report.file_name}</Typography>
+                <Typography variant="caption" color="text.secondary">{report.file_exists ? formatFileSize(report.file_size) : 'Файл удалён'}</Typography>
+              </TableCell>
+              <TableCell>{report.file_owner_email || '-'}</TableCell>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{report.reason}</Typography>
+                {report.message && <Typography variant="caption" color="text.secondary">{report.message}</Typography>}
+                {report.reporter_email && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>От: {report.reporter_email}</Typography>}
+              </TableCell>
+              <TableCell><Chip size="small" label={report.status === 'pending' ? 'Новая' : 'Решена'} color={report.status === 'pending' ? 'warning' : 'success'} /></TableCell>
+              <TableCell>{new Date(report.created_at).toLocaleString('ru-RU')}</TableCell>
+              <TableCell align="right">
+                {report.status === 'pending' ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, alignItems: 'stretch', minWidth: 190 }}>
+                    <Button size="small" variant="outlined" startIcon={<Download />} disabled={!report.file_exists || actionLoading === `download-report-${report.id}`} onClick={() => onDownloadReportFile(report)}>Скачать файл</Button>
+                    <Button size="small" variant="outlined" startIcon={<Verified />} disabled={actionLoading === `report-${report.id}`} onClick={() => onResolveReport(report, 'keep')}>Оставить</Button>
+                    <Button size="small" variant="outlined" color="warning" startIcon={<LinkOff />} disabled={!report.file_exists || actionLoading === `report-${report.id}`} onClick={() => onResolveReport(report, 'disable_public')}>Отключить ссылку</Button>
+                    <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutline />} disabled={!report.file_exists || actionLoading === `report-${report.id}`} onClick={() => onResolveReport(report, 'delete_file')}>Удалить файл</Button>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, alignItems: 'stretch', minWidth: 190 }}>
+                    <Button size="small" variant="outlined" startIcon={<Download />} disabled={!report.file_exists || actionLoading === `download-report-${report.id}`} onClick={() => onDownloadReportFile(report)}>Скачать файл</Button>
+                    <Typography variant="caption" color="text.secondary">{report.admin_action || '-'}</Typography>
+                  </Box>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+          {reports.length === 0 && <TableRow><TableCell colSpan={6} align="center">Жалоб пока нет</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
+
 export default function Admin() {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [reports, setReports] = useState([]);
   const [limitInputs, setLimitInputs] = useState({});
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
@@ -94,9 +160,10 @@ export default function Admin() {
   const fetchAdminData = useCallback(async () => {
     try {
       setLoading(true); setError('');
-      const [statsResponse, usersResponse] = await Promise.all([api.get('/admin/stats/'), api.get('/admin/users/')]);
+      const [statsResponse, usersResponse, reportsResponse] = await Promise.all([api.get('/admin/stats/'), api.get('/admin/users/'), api.get('/admin/reports/')]);
       const nextUsers = usersResponse.data.users || [];
       setStats(statsResponse.data); setUsers(nextUsers);
+      setReports(reportsResponse.data.reports || []);
       setLimitInputs(Object.fromEntries(nextUsers.map((targetUser) => [targetUser.id, String(limitBytesToMb(targetUser.storage_limit))])));
     } catch (err) {
       console.error('Ошибка загрузки админ-панели:', err); setError('Не удалось загрузить реальные данные админ-панели');
@@ -148,6 +215,33 @@ export default function Admin() {
     );
   };
 
+  const handleResolveReport = async (report, action) => {
+    const labels = { keep: 'оставить файл', disable_public: 'отключить публичную ссылку', delete_file: 'удалить файл' };
+    if (action === 'delete_file' && !window.confirm(`Удалить файл "${report.file_name}"?`)) return;
+    try {
+      setActionLoading(`report-${report.id}`); setError(''); setSuccess('');
+      await api.post(`/admin/reports/${report.id}/resolve/`, { action });
+      setSuccess(`Жалоба обработана: ${labels[action]}`);
+      await fetchAdminData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось обработать жалобу');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const handleDownloadReportFile = async (report) => {
+    try {
+      setActionLoading(`download-report-${report.id}`); setError('');
+      const response = await api.get(`/admin/reports/${report.id}/download/`, { responseType: 'blob' });
+      triggerBrowserDownload(response.data, report.file_name || 'reported-file');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось скачать файл из жалобы');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
   if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f172a' }}><CircularProgress /></Box>;
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -161,6 +255,9 @@ export default function Admin() {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
       <StatsGrid stats={stats} />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><Button variant="outlined" startIcon={<Refresh />} onClick={fetchAdminData}>Обновить данные</Button></Box>
+      <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>Жалобы на файлы</Typography>
+      <ReportsTable reports={reports} actionLoading={actionLoading} onResolveReport={handleResolveReport} onDownloadReportFile={handleDownloadReportFile} />
+      <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>Пользователи</Typography>
       <UsersTable users={users} currentUser={currentUser} actionLoading={actionLoading} limitInputs={limitInputs} maxStorageLimitMb={stats?.max_storage_limit_mb ?? 2048} onLimitChange={handleLimitChange} onSaveLimit={handleSaveLimit} onToggleBlock={(targetUser) => runUserAction(targetUser, targetUser.is_active ? 'block' : 'unblock', () => api.patch(`/admin/users/${targetUser.id}/${targetUser.is_active ? 'block' : 'unblock'}/`))} onDeleteFiles={(targetUser) => targetUser.file_count > 0 && window.confirm(`Удалить все файлы пользователя ${targetUser.email}?`) && runUserAction(targetUser, 'delete-files', () => api.delete(`/admin/users/${targetUser.id}/files/delete/`))} />
     </Container>
   );

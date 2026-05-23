@@ -1,5 +1,5 @@
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
-import { Download as DownloadIcon, Edit, MoreVert, Visibility } from '@mui/icons-material';
+import { Download as DownloadIcon, Edit, MoreVert, Star } from '@mui/icons-material';
 
 function isEditableTextFile(file) {
   if (file?.can_write === false) return false;
@@ -17,14 +17,31 @@ function RowAction({ title, children, onClick }) {
   );
 }
 
-function RowActions({ file, onDownloadClick, onEditClick, onPreviewClick, onMenuOpen }) {
+function canReportFile(file, currentUserEmail) {
+  return file.type === 'file' && file.owner_email && file.owner_email !== currentUserEmail;
+}
+
+function RowActions({ file, onDownloadClick, onEditClick, onFavoriteClick, onMenuOpen }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-      {file.type !== 'folder' && <RowAction title="Предпросмотр" onClick={() => onPreviewClick?.(file)}><Visibility fontSize="small" /></RowAction>}
+      {file.type !== 'folder' && <RowAction title={file.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'} onClick={() => onFavoriteClick?.(file)}><Star fontSize="small" sx={{ color: file.is_favorite ? '#f59e0b' : 'inherit' }} /></RowAction>}
       {isEditableTextFile(file) && onEditClick && <RowAction title="Редактировать" onClick={() => onEditClick(file)}><Edit fontSize="small" /></RowAction>}
       <RowAction title={file.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'} onClick={() => onDownloadClick?.(file.id, file.name, file.type)}><DownloadIcon fontSize="small" /></RowAction>
       <RowAction title="Действия" onClick={(event) => onMenuOpen?.(event, file, file.type)}><MoreVert fontSize="small" /></RowAction>
     </Box>
+  );
+}
+
+function UploaderEmail({ file, currentUserEmail }) {
+  if (file.type === 'folder') return <Typography variant="body2" color="text.secondary">-</Typography>;
+  if (!canReportFile(file, currentUserEmail)) return <span />;
+  const label = file.owner_email ? `Загрузил: ${file.owner_email}` : 'Загрузил: -';
+  return (
+    <Tooltip title={label}>
+      <Typography variant="body2" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </Typography>
+    </Tooltip>
   );
 }
 
@@ -34,9 +51,10 @@ export default function FileRow({ file, getFileIcon, formatFileSize, formatDate,
     else actions.onPreviewClick?.(file);
   };
   return (
-    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px 1fr 150px 120px 120px', alignItems: 'center', p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
+    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
       <Box>{getFileIcon(file, 32)}</Box>
       <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Typography>
+      <UploaderEmail file={file} currentUserEmail={actions.currentUserEmail} />
       <Typography variant="body2" color="text.secondary">{formatDate(file.updated_at || file.created_at || file.date || new Date().toISOString())}</Typography>
       <Typography variant="body2" color="text.secondary">{file.type === 'folder' ? formatFileSize(file.size) : formatFileSize(file.size)}</Typography>
       <RowActions file={file} {...actions} />

@@ -68,7 +68,7 @@ export default function useFileManagerData(currentFolderId, searchQuery) {
     return () => clearTimeout(timer);
   }, [loadData, searchQuery]);
 
-  return { favoriteIds, folders, files, breadcrumbs, loading, error, setError, success, setSuccess, loadData };
+  return { favoriteIds, setFavoriteIds, folders, files, breadcrumbs, loading, error, setError, success, setSuccess, loadData };
 }
 
 async function searchFiles(searchQuery, setFiles, setFolders, setError, setLoading) {

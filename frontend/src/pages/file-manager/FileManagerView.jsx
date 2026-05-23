@@ -39,6 +39,7 @@ import {
   Logout,
   NavigateNext,
   Person,
+  ReportProblem,
   Search,
   Share,
   Star,
@@ -174,14 +175,36 @@ function DeleteDialog({ open, fileToDelete, onClose, onConfirm }) {
   );
 }
 
-function ItemMenu({ anchorEl, selectedItem, canEdit, onClose, actions }) {
+function canReportItem(item, currentUserEmail) {
+  return item?.type === 'file' && item.owner_email && item.owner_email !== currentUserEmail;
+}
+
+function ReportDialog({ open, file, reason, setReason, message, setMessage, onClose, onSubmit }) {
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Жалоба на файл</DialogTitle>
+      <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <DialogContentText>{file?.name}</DialogContentText>
+        <TextField autoFocus label="Причина" value={reason} onChange={(event) => setReason(event.target.value)} required fullWidth />
+        <TextField label="Описание" value={message} onChange={(event) => setMessage(event.target.value)} multiline minRows={4} fullWidth />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Отмена</Button>
+        <Button variant="contained" color="warning" disabled={!reason.trim()} onClick={onSubmit}>Отправить</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function ItemMenu({ anchorEl, selectedItem, currentUserEmail, canEdit, onClose, actions }) {
   return (
     <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
       {selectedItem && canEdit(selectedItem) && <MenuItem onClick={actions.edit}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Редактировать</MenuItem>}
       <MenuItem onClick={actions.rename}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать</MenuItem>
       <MenuItem onClick={actions.move}><FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Переместить</MenuItem>
-      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />{selectedItem?.isFavorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
+      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: selectedItem?.is_favorite ? '#f59e0b' : '#616161' }} />{selectedItem?.is_favorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
       <MenuItem onClick={actions.download}><DownloadIcon fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />{selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}</MenuItem>
+      {canReportItem(selectedItem, currentUserEmail) && <MenuItem onClick={actions.report}><ReportProblem fontSize="small" sx={{ mr: 1.5, color: '#ED6C02' }} />Пожаловаться</MenuItem>}
       <MenuItem onClick={actions.access}><Share fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Доступ и ссылки</MenuItem>
       <Divider sx={{ my: 0.5 }} />
       <MenuItem onClick={actions.delete} sx={{ color: 'error.main' }}><Delete fontSize="small" sx={{ mr: 1.5, color: '#D32F2F' }} /> Удалить</MenuItem>
@@ -248,8 +271,9 @@ export default function FileManagerView(props) {
         onSave={textEditor.handleTextEditorSave}
       />
       <DeleteDialog open={dialogs.deleteDialogOpen} fileToDelete={dialogs.fileToDelete} onClose={dialogs.closeDelete} onConfirm={dialogs.confirmDelete} />
+      <ReportDialog open={dialogs.reportDialogOpen} file={dialogs.reportFile} reason={dialogs.reportReason} setReason={dialogs.setReportReason} message={dialogs.reportMessage} setMessage={dialogs.setReportMessage} onClose={dialogs.closeReport} onSubmit={dialogs.submitReport} />
       <AccessControlDialog open={dialogs.accessDialogOpen} item={dialogs.selectedItem} onClose={dialogs.closeAccess} onChanged={dialogs.onAccessChanged} />
-      <ItemMenu anchorEl={dialogs.menuAnchor} selectedItem={dialogs.selectedItem} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
+      <ItemMenu anchorEl={dialogs.menuAnchor} selectedItem={dialogs.selectedItem} currentUserEmail={user?.email} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
       <TaskWidget tasks={tasks.tasks} isMinimized={tasks.isWidgetMinimized} setIsMinimized={tasks.setIsWidgetMinimized} clearTasks={() => tasks.setTasks([])} />
     </Box>
   );
