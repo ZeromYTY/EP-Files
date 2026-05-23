@@ -69,9 +69,9 @@ build-docs:
       - docs.svg
     expire_in: 30 days
   rules:
-    - if: '$CI_COMMIT_BRANCH == "feature/ci-cd-docs" || $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "feature/ci-cd-docs" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "dev"'
 
-# GitLab Pages — деплой только с main
+# GitLab Pages — деплой только с master
 pages:
   stage: docs
   image: python:3.12-slim
@@ -87,4 +87,4 @@ pages:
     paths:
       - public
   rules:
-      - if: '$CI_COMMIT_BRANCH == "main"'
+      - if: '$CI_COMMIT_BRANCH == "master"'
