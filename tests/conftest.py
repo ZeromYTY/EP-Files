@@ -2,7 +2,15 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from ep_files_app.middleware.security import RateLimitMiddleware
 from ep_files_app.models.models import User
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limit_state():
+    RateLimitMiddleware.request_counts.clear()
+    yield
+    RateLimitMiddleware.request_counts.clear()
 
 
 @pytest.fixture
