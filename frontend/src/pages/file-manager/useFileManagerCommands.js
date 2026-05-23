@@ -110,6 +110,24 @@ export async function renameSelectedItem({ selectedItem, newName, setRenameDialo
   }
 }
 
+export async function toggleFavoriteItem({ selectedItem, setFavoriteIds, setError, setSuccess }) {
+  if (!selectedItem) return;
+  try {
+    const response = await api.post(`/favorites/${selectedItem.id}/toggle/`, { type: selectedItem.type });
+    const key = selectedItem.type === 'folder' ? 'folders' : 'files';
+    setFavoriteIds((current) => {
+      const ids = current[key] || [];
+      const nextIds = response.data?.is_favorite
+        ? [...new Set([...ids, selectedItem.id])]
+        : ids.filter((id) => id !== selectedItem.id);
+      return { ...current, [key]: nextIds };
+    });
+    setSuccess(response.data?.message || 'Избранное обновлено');
+  } catch (err) {
+    setError(getApiErrorMessage(err, 'Не удалось обновить избранное'));
+  }
+}
+
 export async function createFolder({ name, currentFolderId, setName, setOpen, setError, loadData }) {
   if (!name.trim()) return;
   try {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContextValue';
-import { createFolder, renameSelectedItem, useDownloadCommand, useSelectionDialogs, useUploadCommand } from './file-manager/useFileManagerCommands';
+import { createFolder, renameSelectedItem, toggleFavoriteItem, useDownloadCommand, useSelectionDialogs, useUploadCommand } from './file-manager/useFileManagerCommands';
 import { currentLocationName, isEditableTextFile, sortedFileManagerItems } from './file-manager/fileManagerHelpers';
 import FileManagerView from './file-manager/FileManagerView';
 import useFileManagerData from './file-manager/useFileManagerData';
@@ -14,6 +14,7 @@ function buildListProps({ viewMode, setCurrentFolderId, download, onPreviewFile,
     onFolderClick: setCurrentFolderId,
     onDownloadClick: download,
     onPreviewClick: onPreviewFile,
+    onFavoriteClick: dialogs.itemMenuActions.favoriteItem,
     onDeleteClick: dialogs.startDelete,
     onEditClick: textEditor.openTextFileEditor,
     onMenuOpen: dialogs.openItemMenu,
@@ -87,7 +88,8 @@ function buildItemMenuActions({ commands, selection, textEditor, closeItemMenu }
     edit: () => { closeItemMenu(); textEditor.openTextFileEditor(selection.selectedItem); },
     rename: () => { selection.setNewName(selection.selectedItem.name || ''); selection.setRenameDialogOpen(true); closeItemMenu(); },
     move: () => { selection.setMoveDialogOpen(true); closeItemMenu(); },
-    favorite: () => { alert(`⭐ Состояние избранного изменено для: ${selection.selectedItem?.name}`); closeItemMenu(); },
+    favorite: () => { commands.favorite(selection.selectedItem); closeItemMenu(); },
+    favoriteItem: (item) => commands.favorite(item),
     download: () => { commands.download(selection.selectedItem.id, selection.selectedItem.name, selection.selectedItem.type); closeItemMenu(); },
     access: () => { selection.setAccessDialogOpen(true); closeItemMenu(); },
     delete: () => { selection.setFileToDelete(selection.selectedItem); selection.setDeleteDialogOpen(true); closeItemMenu(); },
@@ -117,6 +119,7 @@ export default function FileManager({ onPreviewFile }) {
     manualUpload: (event) => { processUpload(event.target.files?.[0], currentFolderId); event.target.value = ''; },
     createFolder: () => createFolder({ name: newFolderName, currentFolderId, setName: setNewFolderName, setOpen: setCreateFolderOpen, setError: data.setError, loadData: data.loadData }),
     rename: () => renameSelectedItem({ selectedItem: selection.selectedItem, newName: selection.newName, setRenameDialogOpen: selection.setRenameDialogOpen, setNewName: selection.setNewName, setError: data.setError, loadData: data.loadData }),
+    favorite: (selectedItem) => toggleFavoriteItem({ selectedItem, setFavoriteIds: data.setFavoriteIds, setError: data.setError, setSuccess: data.setSuccess }),
   };
   const dialogs = buildDialogs({ state, data, commands, selection, textEditor });
   const handlers = buildHandlers({ user, navigate, logout, state, data, commands, dialogs, textEditor, onPreviewFile });

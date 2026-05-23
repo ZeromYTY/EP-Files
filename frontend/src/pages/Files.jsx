@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Avatar, Box, Button, Card, CardContent, CircularProgress, Container, Grid, IconButton, Paper, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Logout, Shield, Star, Storage } from '@mui/icons-material';
+import { Alert, Avatar, Box, Button, CircularProgress, Container, Grid, IconButton, Paper, Tooltip, Typography } from '@mui/material';
+import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Image, Logout, Movie, MusicNote, PictureAsPdf, Shield, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -10,6 +10,43 @@ function formatFileSize(bytes) {
   const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
   return `${parseFloat((bytes / (1024 ** index)).toFixed(1))} ${sizes[index]}`;
+}
+
+const fileGroups = [
+  { extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'], icon: Image, color: '#059669', bg: '#ECFDF5' },
+  { extensions: ['mp4', 'webm', 'ogv', 'mov', 'm4v', 'mpeg', 'mpg', 'avi'], icon: Movie, color: '#EA580C', bg: '#FFF7ED' },
+  { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#4F46E5', bg: '#eef2ff' },
+  { extensions: ['pdf'], icon: PictureAsPdf, color: '#DC2626', bg: '#FEF2F2' },
+  { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#16A34A', bg: '#F0FDF4' },
+];
+
+function getExtension(item) {
+  return item?.name?.split('.')?.pop()?.toLowerCase() || '';
+}
+
+function canPreview(item) {
+  return item?.type === 'file';
+}
+
+function FavoriteFileIcon({ item, size = 48 }) {
+  const group = item.type === 'folder'
+    ? { icon: Folder, color: '#F59E0B', bg: '#FFFBEB' }
+    : fileGroups.find((fileGroup) => fileGroup.extensions.includes(getExtension(item)));
+  const Icon = group?.icon || Description;
+  const bg = group?.bg || '#EFF6FF';
+  const color = group?.color || '#2563EB';
+  return (
+    <Box sx={{ width: size, height: size, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: bg }}>
+      <Icon sx={{ fontSize: Math.round(size * 0.7), color }} />
+    </Box>
+  );
+}
+
+function FavoriteMeta({ item }) {
+  if (item.type === 'folder') return 'Папка';
+  const extension = getExtension(item);
+  const label = extension ? extension.toUpperCase() : 'Файл';
+  return `${label} · ${formatFileSize(item.size)}`;
 }
 
 function ProfileCard({ user, isAdmin, displayName, onFiles, onAdmin, onLogout }) {
@@ -43,26 +80,79 @@ function StatsCard({ user, stats }) {
   );
 }
 
-function FavoriteCard({ item, onDownload }) {
+function FavoriteCard({ item, onDownload, onPreview }) {
+  const openPreview = () => {
+    if (canPreview(item)) onPreview(item);
+  };
   return (
-    <Grid item xs={12} sm={6}>
-      <Card elevation={0} sx={{ borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
-        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, '&:last-child': { pb: 2 } }}>
-          {item.type === 'folder' ? <Folder sx={{ fontSize: 32, color: '#FF9800' }} /> : <Description sx={{ fontSize: 32, color: '#2196F3' }} />}
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}><Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>{item.name}</Typography><Typography variant="caption" color="text.secondary">{item.type === 'folder' ? 'Папка' : formatFileSize(item.size)}</Typography></Box>
-          <Tooltip title={item.type === 'folder' ? 'Скачать как ZIP-архив' : 'Скачать файл'}><IconButton size="small" onClick={() => onDownload(item.id, item.name, item.type)} sx={{ color: '#2196F3' }}><DownloadIcon fontSize="small" /></IconButton></Tooltip>
-        </CardContent>
-      </Card>
+    <Grid item xs={12} sm={6} lg={4}>
+      <Paper
+        elevation={0}
+        onClick={openPreview}
+        sx={{
+          p: 2,
+          minHeight: 104,
+          height: '100%',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          backgroundColor: '#fff',
+          display: 'grid',
+          gridTemplateColumns: '48px minmax(0, 1fr) auto',
+          alignItems: 'center',
+          gap: 1.5,
+          cursor: canPreview(item) ? 'pointer' : 'default',
+          transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+          '&:hover': {
+            borderColor: '#93c5fd',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+            transform: 'translateY(-1px)',
+          },
+        }}
+      >
+        <FavoriteFileIcon item={item} />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.name}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.5 }}>
+            {FavoriteMeta({ item })}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {canPreview(item) && (
+            <Tooltip title="Предпросмотр">
+              <IconButton size="small" onClick={(event) => { event.stopPropagation(); onPreview(item); }} sx={{ color: '#2563eb' }}>
+                <Visibility fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title={item.type === 'folder' ? 'Скачать как ZIP-архив' : 'Скачать файл'}>
+            <IconButton size="small" onClick={(event) => { event.stopPropagation(); onDownload(item.id, item.name, item.type); }} sx={{ color: '#2563eb' }}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Paper>
     </Grid>
   );
 }
 
-function FavoritesSection({ favorites, onDownload }) {
+function FavoritesSection({ favorites, onDownload, onPreview }) {
   return (
     <Box sx={{ mt: 5 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}><Star sx={{ color: '#FFC107', fontSize: '1.8rem' }} /><Typography variant="h5" sx={{ fontWeight: 700 }}>Избранные объекты</Typography></Box>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 38, height: 38, borderRadius: '8px', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Star sx={{ color: '#f59e0b', fontSize: 24 }} />
+          </Box>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>Избранные объекты</Typography>
+            <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>{favorites.length} {favorites.length === 1 ? 'объект' : 'объектов'}</Typography>
+          </Box>
+        </Box>
+      </Box>
       {favorites.length === 0 ? <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '12px', border: '1px solid #e2e8f0' }}><Typography color="text.secondary">У вас пока нет избранных файлов.</Typography></Paper> : (
-        <Grid container spacing={2}>{favorites.map((item) => <FavoriteCard key={`${item.type}-${item.id}`} item={item} onDownload={onDownload} />)}</Grid>
+        <Grid container spacing={2}>{favorites.map((item) => <FavoriteCard key={`${item.type}-${item.id}`} item={item} onDownload={onDownload} onPreview={onPreview} />)}</Grid>
       )}
     </Box>
   );
@@ -87,7 +177,7 @@ function TaskItem({ task }) {
   );
 }
 
-export default function Files() {
+export default function Files({ onPreviewFile }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
@@ -119,13 +209,13 @@ export default function Files() {
   const isAdmin = Boolean(user?.is_staff || user?.is_superuser);
   const handleLogout = () => { logout(); navigate('/login'); };
   return (
-    <Container maxWidth="md" sx={{ py: 6, position: 'relative' }}>
+    <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
       <Grid container spacing={4}>
         <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} onFiles={() => navigate('/file-manager')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
         <Grid item xs={12} md={7}><StatsCard user={user} stats={storageStats} /></Grid>
       </Grid>
-      <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} />
+      <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} onPreview={onPreviewFile} />
       <TaskWidget tasks={tasks} clearTasks={() => setTasks([])} />
     </Container>
   );

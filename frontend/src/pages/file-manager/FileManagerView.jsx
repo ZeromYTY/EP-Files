@@ -180,7 +180,7 @@ function ItemMenu({ anchorEl, selectedItem, canEdit, onClose, actions }) {
       {selectedItem && canEdit(selectedItem) && <MenuItem onClick={actions.edit}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Редактировать</MenuItem>}
       <MenuItem onClick={actions.rename}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать</MenuItem>
       <MenuItem onClick={actions.move}><FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Переместить</MenuItem>
-      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: '#616161' }} />{selectedItem?.isFavorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
+      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: selectedItem?.is_favorite ? '#f59e0b' : '#616161' }} />{selectedItem?.is_favorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
       <MenuItem onClick={actions.download}><DownloadIcon fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />{selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}</MenuItem>
       <MenuItem onClick={actions.access}><Share fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Доступ и ссылки</MenuItem>
       <Divider sx={{ my: 0.5 }} />

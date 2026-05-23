@@ -26,7 +26,7 @@ function App() {
 
         {/* Защищенные роуты */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/files" element={<Files />} />
+          <Route path="/files" element={<Files onPreviewFile={setSelectedFile} />} />
           <Route path="/file-manager" element={<FileManager onPreviewFile={setSelectedFile} />} />
         </Route>
 

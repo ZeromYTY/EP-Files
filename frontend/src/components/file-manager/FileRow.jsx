@@ -1,5 +1,5 @@
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
-import { Download as DownloadIcon, Edit, MoreVert, Visibility } from '@mui/icons-material';
+import { Download as DownloadIcon, Edit, MoreVert, Star } from '@mui/icons-material';
 
 function isEditableTextFile(file) {
   if (file?.can_write === false) return false;
@@ -17,10 +17,10 @@ function RowAction({ title, children, onClick }) {
   );
 }
 
-function RowActions({ file, onDownloadClick, onEditClick, onPreviewClick, onMenuOpen }) {
+function RowActions({ file, onDownloadClick, onEditClick, onFavoriteClick, onMenuOpen }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-      {file.type !== 'folder' && <RowAction title="Предпросмотр" onClick={() => onPreviewClick?.(file)}><Visibility fontSize="small" /></RowAction>}
+      {file.type !== 'folder' && <RowAction title={file.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'} onClick={() => onFavoriteClick?.(file)}><Star fontSize="small" sx={{ color: file.is_favorite ? '#f59e0b' : 'inherit' }} /></RowAction>}
       {isEditableTextFile(file) && onEditClick && <RowAction title="Редактировать" onClick={() => onEditClick(file)}><Edit fontSize="small" /></RowAction>}
       <RowAction title={file.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'} onClick={() => onDownloadClick?.(file.id, file.name, file.type)}><DownloadIcon fontSize="small" /></RowAction>
       <RowAction title="Действия" onClick={(event) => onMenuOpen?.(event, file, file.type)}><MoreVert fontSize="small" /></RowAction>
