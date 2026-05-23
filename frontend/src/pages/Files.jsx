@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Avatar, Box, Button, CircularProgress, Container, Grid, IconButton, Paper, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Image, Logout, Movie, MusicNote, PictureAsPdf, Shield, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Image, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -18,6 +18,7 @@ const fileGroups = [
   { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#4F46E5', bg: '#eef2ff' },
   { extensions: ['pdf'], icon: PictureAsPdf, color: '#DC2626', bg: '#FEF2F2' },
   { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#16A34A', bg: '#F0FDF4' },
+  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#D97706', bg: '#FFF7ED' },
 ];
 
 function getExtension(item) {

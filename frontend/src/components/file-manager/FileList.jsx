@@ -10,6 +10,7 @@ import {
   Movie,
   MusicNote,
   PictureAsPdf,
+  Slideshow,
   Star,
   TableChart,
 } from '@mui/icons-material';
@@ -21,6 +22,7 @@ const fileGroups = [
   { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#4F46E5', bg: '#eef2ff' },
   { extensions: ['pdf'], icon: PictureAsPdf, color: '#DC2626', bg: '#FEF2F2' },
   { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#16A34A', bg: '#F0FDF4' },
+  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#D97706', bg: '#FFF7ED' },
 ];
 
 function getExtension(file) {
