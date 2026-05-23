@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from ep_files_app.models.models import File, Folder
+from ep_files_app.models.models import File, FileReport, Folder
 
 MAX_PUBLIC_LINK_MINUTES = 60 * 24 * 365
 
@@ -127,6 +127,7 @@ def public_download_file(request, token):
             "id": file_obj.id,
             "name": file_obj.name,
             "size": file_obj.size,
+            "owner_email": file_obj.owner.email,
             "public_token": file_obj.public_token,
             "public_expires_at": file_obj.public_expires_at.isoformat() if file_obj.public_expires_at else None,
             "download_url": request.build_absolute_uri(f"/api/public/files/{token}/"),
@@ -149,6 +150,41 @@ def public_download_file(request, token):
     response["Content-Length"] = file_obj.size
 
     return response
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def report_public_file(request, token):
+    file_obj = _get_active_public_resource(File, token)
+    if file_obj is None:
+        return Response({"error": "Public link expired"}, status=status.HTTP_404_NOT_FOUND)
+
+    reason = (request.data.get("reason") or "").strip()
+    message = (request.data.get("message") or "").strip()
+    reporter_email = (request.data.get("reporter_email") or "").strip()
+
+    if not reason:
+        return Response({"error": "reason is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(reason) > 120:
+        return Response({"error": "reason is too long"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(message) > 2000:
+        return Response({"error": "message is too long"}, status=status.HTTP_400_BAD_REQUEST)
+
+    report = FileReport.objects.create(
+        file=file_obj,
+        file_name=file_obj.name,
+        file_owner_email=file_obj.owner.email if file_obj.owner else "",
+        public_token=token,
+        reporter_email=reporter_email,
+        reason=reason,
+        message=message,
+    )
+
+    return Response({
+        "status": "created",
+        "report_id": report.id,
+        "message": "Жалоба отправлена администратору.",
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["POST"])
@@ -210,6 +246,7 @@ def public_folder_detail(request, token):
             "id": folder.id,
             "name": folder.name,
             "path": folder.get_full_path(),
+            "owner_email": folder.owner.email,
             "public_expires_at": folder.public_expires_at.isoformat() if folder.public_expires_at else None,
         },
         "folders": [

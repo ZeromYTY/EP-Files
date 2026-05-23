@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models.models import File
+from .models.models import File, FileReport
 from .models.file_history import FileHistory
 from .models.permissions import Permission
 
@@ -48,6 +48,14 @@ class FileAdmin(admin.ModelAdmin):
         if not obj.pk:
             obj.owner = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(FileReport)
+class FileReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'file_name', 'file_owner_email', 'reason', 'status', 'admin_action', 'created_at')
+    list_filter = ('status', 'admin_action', 'created_at')
+    search_fields = ('file_name', 'file_owner_email', 'reporter_email', 'reason', 'message')
+    readonly_fields = ('file', 'file_name', 'file_owner_email', 'public_token', 'reporter_email', 'reason', 'message', 'created_at', 'resolved_at')
 
 
 @admin.register(FileHistory)

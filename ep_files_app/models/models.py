@@ -278,3 +278,55 @@ class FavoriteFile(models.Model):
 
     class Meta:
         db_table = 'ep_files_app_favorite_file'
+
+
+class FileReport(models.Model):
+    """Жалоба на файл, доступный по публичной ссылке."""
+
+    STATUS_PENDING = "pending"
+    STATUS_RESOLVED = "resolved"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, "На рассмотрении"),
+        (STATUS_RESOLVED, "Решена"),
+    )
+
+    ACTION_KEEP = "keep"
+    ACTION_DISABLE_PUBLIC = "disable_public"
+    ACTION_DELETE_FILE = "delete_file"
+    ACTION_CHOICES = (
+        (ACTION_KEEP, "Оставить файл"),
+        (ACTION_DISABLE_PUBLIC, "Отключить публичную ссылку"),
+        (ACTION_DELETE_FILE, "Удалить файл"),
+    )
+
+    file = models.ForeignKey(
+        'File',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports",
+    )
+    file_name = models.CharField(max_length=255)
+    file_owner_email = models.EmailField(blank=True, default="")
+    public_token = models.CharField(max_length=100, blank=True, default="", db_index=True)
+    reporter_email = models.EmailField(blank=True, default="")
+    reason = models.CharField(max_length=120)
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    admin_action = models.CharField(max_length=30, choices=ACTION_CHOICES, blank=True, default="")
+    admin_note = models.TextField(blank=True, default="")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_file_reports",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Жалоба на {self.file_name}"

@@ -17,6 +17,10 @@ function RowAction({ title, children, onClick }) {
   );
 }
 
+function canReportFile(file, currentUserEmail) {
+  return file.type === 'file' && file.owner_email && file.owner_email !== currentUserEmail;
+}
+
 function RowActions({ file, onDownloadClick, onEditClick, onFavoriteClick, onMenuOpen }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
@@ -28,15 +32,29 @@ function RowActions({ file, onDownloadClick, onEditClick, onFavoriteClick, onMen
   );
 }
 
+function UploaderEmail({ file, currentUserEmail }) {
+  if (file.type === 'folder') return <Typography variant="body2" color="text.secondary">-</Typography>;
+  if (!canReportFile(file, currentUserEmail)) return <span />;
+  const label = file.owner_email ? `Загрузил: ${file.owner_email}` : 'Загрузил: -';
+  return (
+    <Tooltip title={label}>
+      <Typography variant="body2" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </Typography>
+    </Tooltip>
+  );
+}
+
 export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, ...actions }) {
   const openItem = () => {
     if (file.type === 'folder') onFolderClick?.(file.id);
     else actions.onPreviewClick?.(file);
   };
   return (
-    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px 1fr 150px 120px 120px', alignItems: 'center', p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
+    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
       <Box>{getFileIcon(file, 32)}</Box>
       <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Typography>
+      <UploaderEmail file={file} currentUserEmail={actions.currentUserEmail} />
       <Typography variant="body2" color="text.secondary">{formatDate(file.updated_at || file.created_at || file.date || new Date().toISOString())}</Typography>
       <Typography variant="body2" color="text.secondary">{file.type === 'folder' ? formatFileSize(file.size) : formatFileSize(file.size)}</Typography>
       <RowActions file={file} {...actions} />

@@ -5,12 +5,14 @@ from .api import views
 from .api.views import (
     RegisterView, LoginView, MeView, protected_test_view,
     upload_file, list_files, download_file, delete_file,
-    file_move, file_detail, user_storage_stats, search_files,
+    file_move, file_detail, report_file, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,
     admin_list_users, admin_stats, admin_block_user,
     admin_unblock_user, admin_update_user_storage_limit,
     admin_delete_user_files, admin_delete_user,
+    admin_list_file_reports, admin_resolve_file_report,
+    admin_download_reported_file,
     save_text_file, read_text_file, toggle_favorite,
     download_folder, get_user_favorites, get_files,
 )
@@ -24,6 +26,7 @@ from .api.public_link_views import (
     enable_file_public_link,
     disable_file_public_link,
     public_download_file,
+    report_public_file,
     enable_folder_public_link,
     disable_folder_public_link,
     public_folder_detail,
@@ -44,6 +47,7 @@ urlpatterns = [
     path("files/<int:file_id>/", delete_file, name="delete_file"),
     path("files/<int:file_id>/move/", file_move, name="file_move"),
     path("files/<int:file_id>/detail/", file_detail, name="file_detail"),
+    path("files/<int:file_id>/report/", report_file, name="report_file"),
     path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
     path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),
 
@@ -90,6 +94,9 @@ urlpatterns = [
         name="admin_delete_user_files",
     ),
     path("admin/users/<int:user_id>/delete/", admin_delete_user, name="admin_delete_user"),
+    path("admin/reports/", admin_list_file_reports, name="admin_list_file_reports"),
+    path("admin/reports/<int:report_id>/resolve/", admin_resolve_file_report, name="admin_resolve_file_report"),
+    path("admin/reports/<int:report_id>/download/", admin_download_reported_file, name="admin_download_reported_file"),
     path("files/<int:file_id>/public-link/", enable_file_public_link, name="enable_file_public_link"),
     path("files/<int:file_id>/public-link/disable/", disable_file_public_link, name="disable_file_public_link"),
 
@@ -97,6 +104,7 @@ urlpatterns = [
     path("folders/<int:folder_id>/public-link/disable/", disable_folder_public_link, name="disable_folder_public_link"),
 
     path("public/files/<str:token>/", public_download_file, name="public_download_file"),
+    path("public/files/<str:token>/report/", report_public_file, name="report_public_file"),
     path("public/folders/<str:token>/", public_folder_detail, name="public_folder_detail"),
     path(
         "public/folders/<str:token>/files/<int:file_id>/",

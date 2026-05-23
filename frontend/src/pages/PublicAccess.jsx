@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Alert, Box, Button, CircularProgress, Container, List, ListItem, ListItemText, Paper, Typography } from '@mui/material';
-import { Download, Folder, InsertDriveFile } from '@mui/icons-material';
+import { Link, useParams } from 'react-router-dom';
+import { Alert, Box, Button, CircularProgress, Container, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItem, ListItemText, Paper, TextField, Typography } from '@mui/material';
+import { AccountCircle, Download, Folder, InsertDriveFile, ReportProblem } from '@mui/icons-material';
 import api from '../api/axios';
 
 const previewGroups = {
@@ -53,6 +53,11 @@ function PublicFilePage({ token }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState({ loading: true, error: '', url: '', content: '' });
   const [error, setError] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
+  const [reporterEmail, setReporterEmail] = useState('');
+  const [reportStatus, setReportStatus] = useState('');
 
   useEffect(() => {
     let objectUrl = '';
@@ -99,17 +104,51 @@ function PublicFilePage({ token }) {
     triggerDownload(response.data, file?.name || 'file');
   };
 
+  const submitReport = async () => {
+    try {
+      setReportStatus('');
+      await api.post(`/public/files/${token}/report/`, {
+        reason: reportReason,
+        message: reportMessage,
+        reporter_email: reporterEmail,
+      });
+      setReportOpen(false);
+      setReportReason('');
+      setReportMessage('');
+      setReporterEmail('');
+      setReportStatus('Жалоба отправлена администратору.');
+    } catch (err) {
+      setReportStatus(err.response?.data?.error || 'Не удалось отправить жалобу');
+    }
+  };
+
   return (
-    <PublicShell title={file?.name || 'Публичный файл'} error={error}>
+    <PublicShell title={file?.name || 'Публичный файл'} ownerEmail={file?.owner_email} error={error}>
       {file && (
         <>
+          {reportStatus && <Alert severity={reportStatus.includes('Не удалось') ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setReportStatus('')}>{reportStatus}</Alert>}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, alignItems: 'center', mb: 2 }}>
             <Typography color="text.secondary">{formatFileSize(file.size)}</Typography>
-            <Button variant="contained" startIcon={<Download />} onClick={download}>Скачать</Button>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" color="warning" startIcon={<ReportProblem />} onClick={() => setReportOpen(true)}>Пожаловаться</Button>
+              <Button variant="contained" startIcon={<Download />} onClick={download}>Скачать</Button>
+            </Box>
           </Box>
           <Box sx={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', borderRadius: 2, p: 2 }}>
             <PublicPreview file={file} preview={preview} />
           </Box>
+          <Dialog open={reportOpen} onClose={() => setReportOpen(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Жалоба на файл</DialogTitle>
+            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <TextField label="Причина" value={reportReason} onChange={(event) => setReportReason(event.target.value)} required fullWidth />
+              <TextField label="Описание" value={reportMessage} onChange={(event) => setReportMessage(event.target.value)} multiline minRows={4} fullWidth />
+              <TextField label="Ваш email (необязательно)" value={reporterEmail} onChange={(event) => setReporterEmail(event.target.value)} type="email" fullWidth />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setReportOpen(false)}>Отмена</Button>
+              <Button variant="contained" color="warning" disabled={!reportReason.trim()} onClick={submitReport}>Отправить</Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
     </PublicShell>
@@ -136,7 +175,7 @@ function PublicFolderPage({ token }) {
   const folders = folderData?.folders || [];
 
   return (
-    <PublicShell title={folderData?.folder?.name || 'Публичная папка'} error={error}>
+    <PublicShell title={folderData?.folder?.name || 'Публичная папка'} ownerEmail={folderData?.folder?.owner_email} error={error}>
       {folderData && (
         <List disablePadding sx={{ border: '1px solid #e5eaf1', borderRadius: 2, overflow: 'hidden' }}>
           {folders.map((folder) => (
@@ -162,13 +201,22 @@ function PublicFolderPage({ token }) {
   );
 }
 
-function PublicShell({ title, error, children }) {
+function PublicShell({ title, ownerEmail, error, children }) {
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#f1f5f9', py: 5 }}>
       <Container maxWidth="md">
         <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid #e2e8f0' }}>
-          <Typography variant="overline" color="text.secondary">EP Files</Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, mb: 3, overflowWrap: 'anywhere' }}>{title}</Typography>
+          <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'flex-start' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" color="text.secondary">EP Files</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>{title}</Typography>
+              {ownerEmail && <Typography variant="body2" sx={{ color: '#475569', mt: 0.75, overflowWrap: 'anywhere' }}>Поделился: {ownerEmail}</Typography>}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, flexShrink: 0 }}>
+              <Button component={Link} to="/file-manager" variant="contained" startIcon={<Folder />}>Файловый менеджер</Button>
+              <Button component={Link} to="/files" variant="outlined" startIcon={<AccountCircle />}>Профиль</Button>
+            </Box>
+          </Box>
           {error ? <Alert severity="error">{error}</Alert> : children || <Box sx={{ py: 6, textAlign: 'center' }}><CircularProgress /></Box>}
         </Paper>
       </Container>

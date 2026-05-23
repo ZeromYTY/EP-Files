@@ -14,7 +14,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from ep_files_app.models.models import File, Folder, ImagePreview, PreviewFactory
+from ep_files_app.models.models import File, FileReport, Folder, ImagePreview, PreviewFactory
 from ep_files_app.services.file_event_service import file_event_service
 from ep_files_app.services.permission_service import permission_service
 from ep_files_app.permissions import CanUploadFiles
@@ -285,6 +285,45 @@ def file_detail(request, file_id):
         return Response(data)
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def report_file(request, file_id):
+    try:
+        file_obj = File.objects.get(id=file_id)
+    except File.DoesNotExist:
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if file_obj.owner_id == request.user.id:
+        return Response({"error": "Cannot report your own file"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not permission_service.can_read_file(request.user, file_obj):
+        return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+    reason = (request.data.get("reason") or "").strip()
+    message = (request.data.get("message") or "").strip()
+    if not reason:
+        return Response({"error": "reason is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(reason) > 120:
+        return Response({"error": "reason is too long"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(message) > 2000:
+        return Response({"error": "message is too long"}, status=status.HTTP_400_BAD_REQUEST)
+
+    report = FileReport.objects.create(
+        file=file_obj,
+        file_name=file_obj.name,
+        file_owner_email=file_obj.owner.email if file_obj.owner else "",
+        public_token=file_obj.public_token or "",
+        reporter_email=request.user.email,
+        reason=reason,
+        message=message,
+    )
+    return Response({
+        "status": "created",
+        "report_id": report.id,
+        "message": "Жалоба отправлена администратору.",
+    }, status=status.HTTP_201_CREATED)
 
 def file_preview(request, file_id):
     """Генерирует предпросмотр файла (изображение или текст)."""
