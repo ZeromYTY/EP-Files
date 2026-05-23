@@ -102,8 +102,6 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'frontend' / 'dist']
 
 # --- ФАЙЛЫ ---
 DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
