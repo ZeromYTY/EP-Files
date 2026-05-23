@@ -1,79 +1,49 @@
 import { Navigate, Outlet, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/authContextValue';
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
-
-function AdminAccessPage({ title, message, severity = 'info', children }) {
-  return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: '#0f172a',
-        p: 3,
-      }}
-    >
-      <Box sx={{ maxWidth: 600, width: '100%' }}>
-        <Alert severity={severity} sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-            {title}
-          </Typography>
-          {message}
-        </Alert>
-        {children}
-      </Box>
-    </Box>
-  );
-}
+import { Alert, Box, Button, Typography } from '@mui/material';
 
 function AdminRoute() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <AdminAccessPage
-        title="Проверяем доступ"
-        message="Подождите, идет проверка аккаунта."
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
-          <CircularProgress size={22} />
-          <Typography sx={{ color: '#e2e8f0' }}>Загрузка...</Typography>
-        </Stack>
-      </AdminAccessPage>
-    );
+    return null;
   }
 
   if (!user) {
-    return (
-      <AdminAccessPage
-        title="Войдите в аккаунт"
-        message="Для доступа к админ-панели нужно сначала авторизоваться."
-        severity="warning"
-      >
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <Button variant="contained" component={RouterLink} to="/login" fullWidth>
-            Войти
-          </Button>
-          <Button variant="outlined" component={RouterLink} to="/" fullWidth>
-            На главную
-          </Button>
-        </Stack>
-      </AdminAccessPage>
-    );
+    return <Navigate to="/login" replace />;
   }
 
   if (!user.is_staff && !user.is_superuser) {
     return (
-      <AdminAccessPage
-        title="Доступ запрещён"
-        message="Эта страница доступна только администраторам. Ваш аккаунт не имеет прав для открытия панели управления."
-        severity="error"
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: '#0f172a',
+          p: 3,
+        }}
       >
-        <Button variant="contained" component={RouterLink} to="/files" fullWidth>
-          Вернуться в личный кабинет
-        </Button>
-      </AdminAccessPage>
+        <Box sx={{ maxWidth: 600, width: '100%' }}>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+              Доступ запрещён
+            </Typography>
+            Эта страница доступна только администраторам. Ваш аккаунт не имеет прав
+            для открытия панели управления.
+          </Alert>
+
+          <Button
+            variant="contained"
+            component={RouterLink}
+            to="/files"
+            fullWidth
+          >
+            Вернуться в личный кабинет
+          </Button>
+        </Box>
+      </Box>
     );
   }
 
