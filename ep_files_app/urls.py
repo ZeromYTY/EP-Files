@@ -3,7 +3,7 @@ from django.urls import path
 
 from .api import views
 from .api.views import (
-    RegisterView, LoginView, MeView, protected_test_view,
+    ChangePasswordView, RegisterView, LoginView, MeView, protected_test_view,
     upload_file, list_files, download_file, delete_file,
     file_move, file_detail, report_file, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
@@ -37,6 +37,7 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("test-auth/", protected_test_view, name="test_auth"),
 
     path("upload/", upload_file, name="file_upload"),

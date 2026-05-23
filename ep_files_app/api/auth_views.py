@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from ep_files_app.models.models import User
-from .serializers import UserRegistrationSerializer, UserSerializer
+from .serializers import ChangePasswordSerializer, UserRegistrationSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,22 @@ class MeView(APIView):
     def get(self, request):
         """Возвращает email, имя и роль текущего пользователя."""
         return Response({"user": UserSerializer(request.user).data})
+
+class ChangePasswordView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save(update_fields=["password_hash"])
+        logger.info(
+            "User changed password: %s",
+            request.user.email,
+            extra={"user": request.user.email},
+        )
+        return Response({"message": "Пароль успешно изменен."})
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

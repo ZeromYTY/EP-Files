@@ -124,6 +124,73 @@ def test_login_wrong_password_returns_401(api_client, user_factory):
     assert response.data["error"] == "Invalid credentials"
 
 
+def test_change_password_success(api_client, user_factory, token_factory):
+    user = user_factory(email="change_password@example.com", password="OldPass123")
+    access_token = token_factory(user)
+
+    response = api_client.post(
+        reverse("change_password"),
+        {
+            "current_password": "OldPass123",
+            "new_password": "NewPass123",
+            "confirm_password": "NewPass123",
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert check_password("NewPass123", user.password_hash)
+    assert not check_password("OldPass123", user.password_hash)
+
+    login_response = api_client.post(
+        reverse("login"),
+        {"email": "change_password@example.com", "password": "NewPass123"},
+        format="json",
+    )
+    assert login_response.status_code == 200
+
+
+def test_change_password_validates_current_password(api_client, user_factory, token_factory):
+    user = user_factory(email="change_password_invalid@example.com", password="OldPass123")
+    access_token = token_factory(user)
+
+    response = api_client.post(
+        reverse("change_password"),
+        {
+            "current_password": "WrongPass123",
+            "new_password": "NewPass123",
+            "confirm_password": "NewPass123",
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 400
+    user.refresh_from_db()
+    assert check_password("OldPass123", user.password_hash)
+
+
+def test_change_password_requires_matching_confirmation(api_client, user_factory, token_factory):
+    user = user_factory(email="change_password_mismatch@example.com", password="OldPass123")
+    access_token = token_factory(user)
+
+    response = api_client.post(
+        reverse("change_password"),
+        {
+            "current_password": "OldPass123",
+            "new_password": "NewPass123",
+            "confirm_password": "OtherPass123",
+        },
+        format="json",
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 400
+    assert "confirm_password" in response.data
+
+
 def test_login_blocked_user_returns_403(api_client, user_factory):
     user_factory(
         email="blocked_login@example.com",

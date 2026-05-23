@@ -6,6 +6,7 @@ DRF-сериализаторы для ресурсов User и File.
 и вычисляемые поля, такие как ``download_url``.
 """
 
+from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from ep_files_app.models.models import User, File
 from ep_files_app.models.file_history import FileHistory
@@ -134,6 +135,30 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_current_password(self, value):
+        user = self.context["request"].user
+        if not check_password(value, user.password_hash):
+            raise serializers.ValidationError("Текущий пароль указан неверно.")
+        return value
+
+    def validate_new_password(self, value):
+        if len(value) < 6:
+            raise serializers.ValidationError("Новый пароль должен содержать минимум 6 символов.")
+        return value
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "Пароли не совпадают."})
+        if attrs["current_password"] == attrs["new_password"]:
+            raise serializers.ValidationError({"new_password": "Новый пароль должен отличаться от текущего."})
+        return attrs
 
 
 class FileSerializer(serializers.ModelSerializer):
