@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Avatar, Box, Button, CircularProgress, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, Description, Download as DownloadIcon, Folder, Image, LockReset, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { Alert, Avatar, Box, Button, CircularProgress, Collapse, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
+import { CheckCircle, Close, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LockReset, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -81,20 +81,29 @@ function StatsCard({ user, stats }) {
   );
 }
 
-function ChangePasswordCard({ form, loading, message, error, onChange, onSubmit }) {
+function ChangePasswordCard({ form, loading, open, error, onChange, onSubmit, onToggle }) {
   return (
     <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3 }}>Смена пароля</Typography>
-      <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 2 }}>
-        {message && <Alert severity="success">{message}</Alert>}
-        {error && <Alert severity="error">{error}</Alert>}
-        <TextField fullWidth label="Текущий пароль" type="password" autoComplete="current-password" value={form.current_password} onChange={(event) => onChange('current_password', event.target.value)} disabled={loading} />
-        <TextField fullWidth label="Новый пароль" type="password" autoComplete="new-password" value={form.new_password} onChange={(event) => onChange('new_password', event.target.value)} disabled={loading} />
-        <TextField fullWidth label="Повторите новый пароль" type="password" autoComplete="new-password" value={form.confirm_password} onChange={(event) => onChange('confirm_password', event.target.value)} disabled={loading} />
-        <Button type="submit" variant="contained" startIcon={loading ? <CircularProgress color="inherit" size={18} /> : <LockReset />} disabled={loading} sx={{ justifySelf: 'flex-start' }}>
-          Изменить пароль
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>Смена пароля</Typography>
+          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>После изменения понадобится войти заново.</Typography>
+        </Box>
+        <Button variant={open ? 'outlined' : 'contained'} onClick={onToggle} endIcon={<ExpandMore sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }} />}>
+          {open ? 'Скрыть' : 'Сменить пароль'}
         </Button>
       </Box>
+      <Collapse in={open} unmountOnExit>
+        <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 2, mt: 3 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField fullWidth label="Текущий пароль" type="password" autoComplete="current-password" value={form.current_password} onChange={(event) => onChange('current_password', event.target.value)} disabled={loading} />
+          <TextField fullWidth label="Новый пароль" type="password" autoComplete="new-password" value={form.new_password} onChange={(event) => onChange('new_password', event.target.value)} disabled={loading} />
+          <TextField fullWidth label="Повторите новый пароль" type="password" autoComplete="new-password" value={form.confirm_password} onChange={(event) => onChange('confirm_password', event.target.value)} disabled={loading} />
+          <Button type="submit" variant="contained" startIcon={loading ? <CircularProgress color="inherit" size={18} /> : <LockReset />} disabled={loading} sx={{ justifySelf: 'flex-start' }}>
+            Изменить пароль
+          </Button>
+        </Box>
+      </Collapse>
     </Paper>
   );
 }
@@ -208,8 +217,8 @@ export default function Files({ onPreviewFile }) {
     new_password: '',
     confirm_password: '',
   });
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
@@ -237,18 +246,18 @@ export default function Files({ onPreviewFile }) {
   const handleLogout = () => { logout(); navigate('/login'); };
   const handlePasswordChange = (field, value) => {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
-    setPasswordMessage('');
     setPasswordError('');
   };
   const handlePasswordSubmit = async (event) => {
     event.preventDefault();
     setPasswordLoading(true);
-    setPasswordMessage('');
     setPasswordError('');
     try {
-      const response = await api.post('/auth/change-password/', passwordForm);
-      setPasswordMessage(response.data?.message || 'Пароль успешно изменен.');
+      await api.post('/auth/change-password/', passwordForm);
       setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      sessionStorage.setItem('auth_notice', 'Пароль изменен. Войдите с новым паролем.');
+      logout();
+      navigate('/login');
     } catch (err) {
       const data = err.response?.data;
       const fieldError = data && typeof data === 'object'
@@ -270,10 +279,11 @@ export default function Files({ onPreviewFile }) {
             <ChangePasswordCard
               form={passwordForm}
               loading={passwordLoading}
-              message={passwordMessage}
+              open={passwordOpen}
               error={passwordError}
               onChange={handlePasswordChange}
               onSubmit={handlePasswordSubmit}
+              onToggle={() => setPasswordOpen((prev) => !prev)}
             />
           </Box>
         </Grid>
