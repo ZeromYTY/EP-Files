@@ -9,10 +9,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-@1i!@693izgkyqoju_svj
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS',
-    'localhost,127.0.0.1,backend,ep-files.ru,www.ep-files.ru',
-).split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -153,8 +150,6 @@ else:
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-        "https://ep-files.ru",
-        "https://www.ep-files.ru",
     ]
 
 CORS_ALLOW_CREDENTIALS = True

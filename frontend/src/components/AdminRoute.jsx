@@ -3,18 +3,10 @@ import { useAuth } from '../context/authContextValue';
 import { Alert, Box, Button, Typography } from '@mui/material';
 
 function AdminRoute() {
-  const { user, loading, hasToken } = useAuth();
-
-  if (!hasToken) {
-    return <Navigate to="/login" replace />;
-  }
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <Typography color="text.secondary">Загрузка...</Typography>
-      </Box>
-    );
+    return null;
   }
 
   if (!user) {
@@ -36,12 +28,18 @@ function AdminRoute() {
         <Box sx={{ maxWidth: 600, width: '100%' }}>
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-              Доступ запрещен
+              Доступ запрещён
             </Typography>
-            Эта страница доступна только администраторам. У вашего аккаунта нет прав для открытия панели управления.
+            Эта страница доступна только администраторам. Ваш аккаунт не имеет прав
+            для открытия панели управления.
           </Alert>
 
-          <Button variant="contained" component={RouterLink} to="/files" fullWidth>
+          <Button
+            variant="contained"
+            component={RouterLink}
+            to="/files"
+            fullWidth
+          >
             Вернуться в личный кабинет
           </Button>
         </Box>

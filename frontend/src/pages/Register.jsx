@@ -5,17 +5,14 @@ import * as yup from 'yup';
 import { useAuth } from '../context/authContextValue';
 import { useNavigate, Link } from 'react-router-dom';
 import { Alert, Box, Button, Container, Paper, TextField, Typography } from '@mui/material';
-
 const schema = yup.object({
   name: yup
     .string()
-    .trim()
     .min(2, 'Минимум 2 символа')
     .max(50, 'Максимум 50 символов')
     .required('Имя обязательно'),
   email: yup
     .string()
-    .trim()
     .email('Введите корректный email')
     .required('Email обязателен'),
   password: yup
@@ -28,27 +25,14 @@ const schema = yup.object({
     .required('Подтвердите пароль'),
 }).required();
 
-function stringifyErrorValue(value) {
-  if (Array.isArray(value)) return value.join(' ');
-  if (value && typeof value === 'object') return Object.values(value).flat().join(' ');
-  return String(value);
-}
-
 function getRegisterErrorMessage(err) {
   const responseData = err.response?.data;
-  if (!responseData) return 'Ошибка при регистрации. Проверьте соединение и попробуйте еще раз.';
+  if (!responseData) return 'Ошибка при регистрации';
   if (responseData.error || responseData.message || responseData.detail) {
     return responseData.error || responseData.message || responseData.detail;
   }
-  const fieldLabels = {
-    name: 'Имя',
-    email: 'Email',
-    password: 'Пароль',
-    non_field_errors: 'Ошибка',
-  };
-  const messages = Object.entries(responseData)
-    .map(([field, value]) => `${fieldLabels[field] || field}: ${stringifyErrorValue(value)}`)
-    .join('\n');
+  const fieldLabels = { name: 'Имя', email: 'Email', password: 'Пароль', non_field_errors: 'Ошибка' };
+  const messages = Object.entries(responseData).map(([field, value]) => `${fieldLabels[field] || field}: ${Array.isArray(value) ? value.join(' ') : value}`).join('\n');
   return messages || 'Ошибка при регистрации';
 }
 
@@ -60,12 +44,8 @@ function RegisterForm({ register, errors, isSubmitting, onSubmit, handleSubmit, 
       <TextField fullWidth label="Email" type="email" margin="normal" autoComplete="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} />
       <TextField fullWidth label="Пароль" type="password" margin="normal" autoComplete="new-password" {...register('password')} error={!!errors.password} helperText={errors.password?.message} />
       <TextField fullWidth label="Подтвердите пароль" type="password" margin="normal" autoComplete="new-password" {...register('confirmPassword')} error={!!errors.confirmPassword} helperText={errors.confirmPassword?.message} />
-      <Button fullWidth type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ mt: 3, mb: 2 }}>
-        {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
-      </Button>
-      <Typography align="center" color="text.secondary">
-        Уже есть аккаунт? <Link to="/login" style={{ textDecoration: 'none' }}>Войти</Link>
-      </Typography>
+      <Button fullWidth type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ mt: 3, mb: 2 }}>{isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}</Button>
+      <Typography align="center" color="text.secondary">Уже есть аккаунт? <Link to="/login" style={{ textDecoration: 'none' }}>Войти</Link></Typography>
     </Box>
   );
 }
@@ -86,7 +66,7 @@ export default function Register() {
   const onSubmit = async (data) => {
     try {
       setError('');
-      await registerUser(data.name.trim(), data.email.trim(), data.password);
+      await registerUser(data.name, data.email, data.password);
       navigate('/files');
     } catch (err) {
       setError(getRegisterErrorMessage(err));

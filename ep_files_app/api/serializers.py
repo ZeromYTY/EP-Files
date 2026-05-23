@@ -84,8 +84,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 ...
             ValidationError: ['Пользователь с такой почтой уже есть.']
         """
-        value = value.strip().lower()
-        if User.objects.filter(email__iexact=value).exists():
+        if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Пользователь с такой почтой уже есть.")
         return value
 
