@@ -98,6 +98,8 @@ class Folder(models.Model):
     )
     is_public = models.BooleanField(default=False)
     public_expires_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

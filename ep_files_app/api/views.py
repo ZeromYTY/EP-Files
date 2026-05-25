@@ -17,6 +17,8 @@ from .file_views import (
     trash_restore,
     trash_delete,
     trash_clear,
+    trash_restore_folder,
+    trash_delete_folder,
 )
 from .history_views import file_history, user_activity_history, recent_activity
 from .admin_views import (

@@ -16,6 +16,7 @@ from .api.views import (
     save_text_file, read_text_file, toggle_favorite,
     download_folder, get_user_favorites, get_files,
     trash_list, trash_restore, trash_delete, trash_clear,
+    trash_restore_folder, trash_delete_folder,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -55,6 +56,8 @@ urlpatterns = [
     path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),
     path("trash/", trash_list, name="trash_list"),
     path("trash/clear/", trash_clear, name="trash_clear"),
+    path("trash/folders/<int:folder_id>/restore/", trash_restore_folder, name="trash_restore_folder"),
+    path("trash/folders/<int:folder_id>/", trash_delete_folder, name="trash_delete_folder"),
     path("trash/<int:file_id>/restore/", trash_restore, name="trash_restore"),
     path("trash/<int:file_id>/", trash_delete, name="trash_delete"),
 

@@ -219,7 +219,7 @@ class PermissionService:
         """Возвращает список папок, доступных пользователю."""
         return [
             folder
-            for folder in Folder.objects.select_related("owner", "parent").all()
+            for folder in Folder.objects.select_related("owner", "parent").filter(is_deleted=False)
             if PermissionService.can_read_folder(user, folder)
         ]
 

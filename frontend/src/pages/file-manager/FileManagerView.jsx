@@ -41,6 +41,7 @@ import {
   NavigateNext,
   Person,
   ReportProblem,
+  RestoreFromTrash,
   Search,
   Share,
   Star,
@@ -62,6 +63,11 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate, onLogo
         <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: 'text.secondary' }} /></InputAdornment>, sx: { borderRadius: '8px' } }} />
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Tooltip title="Корзина">
+          <IconButton onClick={() => navigate('/trash')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}>
+            <RestoreFromTrash />
+          </IconButton>
+        </Tooltip>
         <Tooltip title={user?.email || 'Пользователь'}><IconButton onClick={() => navigate('/files')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}><Person /></IconButton></Tooltip>
         <Button variant="outlined" size="small" color="error" onClick={onLogout} startIcon={<Logout />}>Выйти</Button>
       </Box>
