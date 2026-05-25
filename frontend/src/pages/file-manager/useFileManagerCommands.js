@@ -139,3 +139,19 @@ export async function createFolder({ name, currentFolderId, setName, setOpen, se
     setError(getApiErrorMessage(err, 'Ошибка создания папки'));
   }
 }
+
+export async function moveFileToFolder({ file, targetFolder, setError, setSuccess, loadData }) {
+  if (!file || !targetFolder || file.type !== 'file' || targetFolder.type !== 'folder') return;
+  if (Number(file.folder) === Number(targetFolder.id)) {
+    setSuccess?.('Файл уже находится в этой папке');
+    return;
+  }
+
+  try {
+    await api.patch(`/files/${file.id}/move/`, { folder_id: targetFolder.id });
+    setSuccess?.(`Файл "${file.name}" перемещён в папку "${targetFolder.name}"`);
+    loadData?.({ silent: true });
+  } catch (err) {
+    setError?.(getApiErrorMessage(err, 'Не удалось переместить файл'));
+  }
+}

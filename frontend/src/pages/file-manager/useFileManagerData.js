@@ -38,8 +38,8 @@ export default function useFileManagerData(currentFolderId, searchQuery) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const data = await fetchFileManagerData(currentFolderId);
@@ -51,7 +51,7 @@ export default function useFileManagerData(currentFolderId, searchQuery) {
       console.error('Error loading data:', err);
       setError('Ошибка загрузки данных');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [currentFolderId]);
 

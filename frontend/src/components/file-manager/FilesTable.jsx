@@ -3,8 +3,8 @@ import FileRow from './FileRow';
 import { Description, Folder } from '@mui/icons-material';
 
 function FileVisual({ file, size = 32 }) {
-  if (file.type === 'folder') return <Folder sx={{ fontSize: size, color: '#FF9800' }} />;
-  return <Description sx={{ fontSize: size, color: '#2563EB' }} />;
+  if (file.type === 'folder') return <Folder sx={{ fontSize: size, color: 'secondary.main' }} />;
+  return <Description sx={{ fontSize: size, color: 'primary.main' }} />;
 }
 
 function formatFileSize(bytes) {
@@ -20,7 +20,7 @@ function formatDate(dateString) {
 
 export default function FilesTable({ files = [], ...handlers }) {
   return (
-    <Paper elevation={0} sx={{ borderRadius: '12px', border: '1px solid #e0e0e0', overflow: 'hidden', backgroundColor: '#fff' }}>
+    <Paper elevation={0} sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'divider', overflow: 'hidden', backgroundColor: (theme) => theme.ep.panel }}>
       {files.map((file) => (
         <FileRow
           key={`${file.type || 'file'}-${file.id}`}

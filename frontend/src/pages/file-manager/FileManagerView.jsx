@@ -54,16 +54,16 @@ import TextFileEditorDialog from '../../components/file-manager/TextFileEditorDi
 
 function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate, onLogout }) {
   return (
-    <Box sx={{ backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="a" href="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: '#2196F3', fontSize: '1.5rem' }}>ep-files</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
       <Box sx={{ flex: 1, maxWidth: 600, mx: 4 }}>
-        <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9e9e9e' }} /></InputAdornment>, sx: { backgroundColor: '#f1f3f4', borderRadius: '8px', '& fieldset': { border: 'none' } } }} />
+        <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: 'text.secondary' }} /></InputAdornment>, sx: { borderRadius: '8px' } }} />
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Tooltip title={user?.email || 'Пользователь'}><IconButton onClick={() => navigate('/files')} sx={{ backgroundColor: '#2196F3', color: '#fff' }}><Person /></IconButton></Tooltip>
-        <Button variant="outlined" size="small" onClick={onLogout} startIcon={<Logout />} sx={{ color: '#d32f2f', borderColor: '#d32f2f' }}>Выйти</Button>
+        <Tooltip title={user?.email || 'Пользователь'}><IconButton onClick={() => navigate('/files')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}><Person /></IconButton></Tooltip>
+        <Button variant="outlined" size="small" color="error" onClick={onLogout} startIcon={<Logout />}>Выйти</Button>
       </Box>
     </Box>
   );
@@ -71,17 +71,17 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate, onLogo
 
 function BreadcrumbBar({ currentFolderId, breadcrumbs, viewMode, setViewMode, onBack, onHome, onBreadcrumbClick }) {
   return (
-    <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid #e0e0e0', backgroundColor: '#fff' }}>
+    <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.panel }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <IconButton size="small" onClick={onBack} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}><ArrowBack /></IconButton>
-        <IconButton size="small" onClick={onHome} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? '#bdbdbd' : '#2196F3' }}><Home /></IconButton>
+        <IconButton size="small" onClick={onBack} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? 'text.disabled' : 'primary.main' }}><ArrowBack /></IconButton>
+        <IconButton size="small" onClick={onHome} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? 'text.disabled' : 'primary.main' }}><Home /></IconButton>
         <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <MuiLink component="button" variant="body1" onClick={() => onBreadcrumbClick(null)} sx={{ textDecoration: 'none', color: '#2196F3', cursor: 'pointer' }}>Корень</MuiLink>
+          <MuiLink component="button" variant="body1" onClick={() => onBreadcrumbClick(null)} sx={{ textDecoration: 'none', color: 'primary.main', cursor: 'pointer' }}>Корень</MuiLink>
           {breadcrumbs.map((folder) => <BreadcrumbItem key={folder.id} folder={folder} onClick={onBreadcrumbClick} />)}
         </Box>
         <Box sx={{ flexGrow: 1 }} />
-        <IconButton size="small" onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} sx={{ color: '#2196F3' }}>{viewMode === 'list' ? <GridView /> : <ViewList />}</IconButton>
+        <IconButton size="small" onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} sx={{ color: 'primary.main' }}>{viewMode === 'list' ? <GridView /> : <ViewList />}</IconButton>
       </Box>
     </Paper>
   );
@@ -90,8 +90,8 @@ function BreadcrumbBar({ currentFolderId, breadcrumbs, viewMode, setViewMode, on
 function BreadcrumbItem({ folder, onClick }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <NavigateNext fontSize="small" sx={{ color: '#9e9e9e' }} />
-      <MuiLink component="button" variant="body1" onClick={() => onClick(folder.id)} sx={{ textDecoration: 'none', color: '#2196F3', cursor: 'pointer' }}>{folder.name}</MuiLink>
+      <NavigateNext fontSize="small" sx={{ color: 'text.secondary' }} />
+      <MuiLink component="button" variant="body1" onClick={() => onClick(folder.id)} sx={{ textDecoration: 'none', color: 'primary.main', cursor: 'pointer' }}>{folder.name}</MuiLink>
     </Box>
   );
 }
@@ -100,7 +100,7 @@ function ContentArea({ loading, sortedItems, locationName, listProps }) {
   return (
     <>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>{locationName}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>{locationName}</Typography>
         <Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography>
       </Box>
       {loading ? <LoadingState /> : sortedItems.length === 0 ? <EmptyState onFileDropped={listProps?.onFileDropped} /> : <FileList files={sortedItems} {...listProps} />}
@@ -122,12 +122,12 @@ function EmptyState({ onFileDropped }) {
     if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
   };
   return (
-    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center', borderRadius: '12px', ...(isDragActive ? { boxShadow: '0 0 0 3px #ffffff, 0 0 0 6px #2196F3' } : {}) }}>
-      <Box sx={{ width: 96, height: 96, backgroundColor: '#e8f0fe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
-        <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', margin: 'auto' }} />
+    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
+      <Box sx={{ width: 96, height: 96, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
+        <CloudUpload sx={{ fontSize: 48, color: 'primary.main', margin: 'auto' }} />
       </Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', mb: 1.5, fontSize: '2rem' }}>Пусто</Typography>
-      <Typography variant="body1" sx={{ color: '#64748b', maxWidth: 320, lineHeight: 1.6 }}>Попробуйте добавить файлы, перетащив их сюда или нажав круглую кнопку справа внизу</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: '2rem' }}>Пусто</Typography>
+      <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 320, lineHeight: 1.6 }}>Попробуйте добавить файлы, перетащив их сюда или нажав круглую кнопку справа внизу</Typography>
     </Box>
   );
 }
@@ -137,7 +137,7 @@ function CreateFab({ tasks, anchorEl, onCreateClick }) {
   return (
     <Box sx={{ position: 'fixed', bottom: tasks.length > 0 ? 116 : 48, right: 48, zIndex: 1100, transition: 'bottom 0.3s ease' }}>
       <Tooltip title="Создать или загрузить" placement="left">
-        <Fab variant="extended" onClick={onCreateClick} sx={{ backgroundColor: '#2196F3', color: '#fff', px: 5, py: 4, borderRadius: '9999px', textTransform: 'none', gap: 1.5, boxShadow: '0 8px 24px rgba(33, 150, 243, 0.35)', '&:hover': { backgroundColor: '#1976D2' } }}>
+        <Fab variant="extended" onClick={onCreateClick} sx={{ background: 'linear-gradient(135deg, #44d7b6 0%, #f4b95f 100%)', color: '#06110f', px: 5, py: 4, borderRadius: '9999px', textTransform: 'none', gap: 1.5, boxShadow: '0 18px 42px rgba(68, 215, 182, 0.28)', '&:hover': { filter: 'brightness(1.08)' } }}>
           <Add sx={{ transform: isOpen ? 'rotate(135deg)' : 'rotate(0deg)', transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontSize: '1.8rem' }} />
           <Typography variant="button" sx={{ fontWeight: 800, letterSpacing: '0.5px', fontSize: '1.05rem' }}>Создать</Typography>
         </Fab>
@@ -205,18 +205,24 @@ function ReportDialog({ open, file, reason, setReason, message, setMessage, onCl
   );
 }
 
-function ItemMenu({ anchorEl, selectedItem, currentUserEmail, canEdit, onClose, actions }) {
+function ItemMenu({ anchorEl, anchorPosition, selectedItem, currentUserEmail, canEdit, onClose, actions }) {
   return (
-    <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
-      {selectedItem && canEdit(selectedItem) && <MenuItem onClick={actions.edit}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Редактировать</MenuItem>}
-      <MenuItem onClick={actions.rename}><Edit fontSize="small" sx={{ mr: 1.5, color: '#616161' }} /> Переименовать</MenuItem>
-      <MenuItem onClick={actions.move}><FolderOpen fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Переместить</MenuItem>
-      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: selectedItem?.is_favorite ? '#f59e0b' : '#616161' }} />{selectedItem?.is_favorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
-      <MenuItem onClick={actions.download}><DownloadIcon fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />{selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}</MenuItem>
+    <Menu
+      anchorEl={anchorEl}
+      anchorReference={anchorPosition ? 'anchorPosition' : 'anchorEl'}
+      anchorPosition={anchorPosition || undefined}
+      open={Boolean(anchorEl || anchorPosition)}
+      onClose={onClose}
+    >
+      {selectedItem && canEdit(selectedItem) && <MenuItem onClick={actions.edit}><Edit fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} /> Редактировать</MenuItem>}
+      <MenuItem onClick={actions.rename}><Edit fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} /> Переименовать</MenuItem>
+      <MenuItem onClick={actions.move}><FolderOpen fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />Переместить</MenuItem>
+      <MenuItem onClick={actions.favorite}><Star sx={{ fontSize: 18, mr: 1.5, color: selectedItem?.is_favorite ? 'secondary.main' : 'text.secondary' }} />{selectedItem?.is_favorite ? 'Убрать из избранного' : 'В избранное'}</MenuItem>
+      <MenuItem onClick={actions.download}><DownloadIcon fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />{selectedItem?.type === 'folder' ? 'Скачать как ZIP' : 'Скачать'}</MenuItem>
       {canReportItem(selectedItem, currentUserEmail) && <MenuItem onClick={actions.report}><ReportProblem fontSize="small" sx={{ mr: 1.5, color: '#ED6C02' }} />Пожаловаться</MenuItem>}
-      <MenuItem onClick={actions.access}><Share fontSize="small" sx={{ mr: 1.5, color: '#616161' }} />Доступ и ссылки</MenuItem>
+      <MenuItem onClick={actions.access}><Share fontSize="small" sx={{ mr: 1.5, color: 'text.secondary' }} />Доступ и ссылки</MenuItem>
       <Divider sx={{ my: 0.5 }} />
-      <MenuItem onClick={actions.delete} sx={{ color: 'error.main' }}><Delete fontSize="small" sx={{ mr: 1.5, color: '#D32F2F' }} /> Удалить</MenuItem>
+      <MenuItem onClick={actions.delete} sx={{ color: 'error.main' }}><Delete fontSize="small" sx={{ mr: 1.5, color: 'error.main' }} /> Удалить</MenuItem>
     </Menu>
   );
 }
@@ -225,12 +231,12 @@ function TaskWidget({ tasks, isMinimized, setIsMinimized, clearTasks }) {
   if (tasks.length === 0) return null;
   const activeCount = tasks.filter((task) => ['uploading', 'downloading', 'deleting'].includes(task.status)).length;
   return (
-    <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 12px 36px rgba(0,0,0,0.16)', zIndex: 2000, overflow: 'hidden', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1e293b', borderBottom: '1px solid #e2e8f0' }}>
+    <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, backgroundColor: (theme) => theme.ep.panel, borderRadius: '12px', boxShadow: (theme) => theme.ep.shadow, zIndex: 2000, overflow: 'hidden', border: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Выполняется операций: {activeCount}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <IconButton size="small" sx={{ color: '#64748b' }} onClick={() => setIsMinimized(!isMinimized)}>{isMinimized ? <ArrowDropUp /> : <ArrowDropDown />}</IconButton>
-          <IconButton size="small" sx={{ color: '#64748b' }} onClick={clearTasks}><Close fontSize="small" /></IconButton>
+          <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={() => setIsMinimized(!isMinimized)}>{isMinimized ? <ArrowDropUp /> : <ArrowDropDown />}</IconButton>
+          <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={clearTasks}><Close fontSize="small" /></IconButton>
         </Box>
       </Box>
       {!isMinimized && <Box sx={{ overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 300 }}>{tasks.map((task) => <TaskItem key={task.id} task={task} />)}</Box>}
@@ -241,11 +247,11 @@ function TaskWidget({ tasks, isMinimized, setIsMinimized, clearTasks }) {
 function TaskItem({ task }) {
   const isActive = ['uploading', 'downloading', 'deleting'].includes(task.status);
   return (
-    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid #f1f5f9', backgroundColor: task.status === 'success' ? '#f0fdf4' : task.status === 'error' ? '#fef2f2' : '#ffffff' }}>
-      {isActive ? <CircularProgress variant={task.status === 'uploading' ? 'determinate' : 'indeterminate'} value={task.status === 'uploading' ? task.progress : undefined} size={32} thickness={4.5} sx={{ color: '#2196F3' }} /> : task.status === 'success' ? <CheckCircle sx={{ color: '#16a34a', fontSize: 32, flexShrink: 0 }} /> : <Box sx={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#ef4444', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>!</Box>}
+    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid', borderColor: 'divider', backgroundColor: task.status === 'success' ? 'rgba(74, 222, 128, 0.1)' : task.status === 'error' ? 'rgba(255, 107, 122, 0.1)' : 'rgba(255,255,255,0.035)' }}>
+      {isActive ? <CircularProgress variant={task.status === 'uploading' ? 'determinate' : 'indeterminate'} value={task.status === 'uploading' ? task.progress : undefined} size={32} thickness={4.5} sx={{ color: 'primary.main' }} /> : task.status === 'success' ? <CheckCircle sx={{ color: 'success.main', fontSize: 32, flexShrink: 0 }} /> : <Box sx={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'error.main', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>!</Box>}
       <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
-        <Typography variant="caption" sx={{ color: task.status === 'success' ? '#16a34a' : task.status === 'error' ? '#ef4444' : '#64748b', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.subText}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
+        <Typography variant="caption" sx={{ color: task.status === 'success' ? 'success.main' : task.status === 'error' ? 'error.main' : 'text.secondary', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.subText}</Typography>
       </Box>
     </Box>
   );
@@ -254,7 +260,7 @@ function TaskItem({ task }) {
 export default function FileManagerView(props) {
   const { user, navigate, searchQuery, setSearchQuery, viewMode, setViewMode, currentFolderId, breadcrumbs, sortedItems, loading, error, success, setError, setSuccess, locationName, handlers, dialogs, tasks, textEditor } = props;
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa', position: 'relative' }}>
+    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, position: 'relative' }}>
       <input type="file" id="manual-file-input" onChange={handlers.manualUpload} style={{ display: 'none' }} />
       <FileManagerHeader user={user} searchQuery={searchQuery} setSearchQuery={setSearchQuery} navigate={navigate} onLogout={handlers.logout} />
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -282,7 +288,7 @@ export default function FileManagerView(props) {
       <DeleteDialog open={dialogs.deleteDialogOpen} fileToDelete={dialogs.fileToDelete} onClose={dialogs.closeDelete} onConfirm={dialogs.confirmDelete} />
       <ReportDialog open={dialogs.reportDialogOpen} file={dialogs.reportFile} reason={dialogs.reportReason} setReason={dialogs.setReportReason} message={dialogs.reportMessage} setMessage={dialogs.setReportMessage} onClose={dialogs.closeReport} onSubmit={dialogs.submitReport} />
       <AccessControlDialog open={dialogs.accessDialogOpen} item={dialogs.selectedItem} onClose={dialogs.closeAccess} onChanged={dialogs.onAccessChanged} />
-      <ItemMenu anchorEl={dialogs.menuAnchor} selectedItem={dialogs.selectedItem} currentUserEmail={user?.email} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
+      <ItemMenu anchorEl={dialogs.menuAnchor} anchorPosition={dialogs.menuAnchorPosition} selectedItem={dialogs.selectedItem} currentUserEmail={user?.email} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
       <TaskWidget tasks={tasks.tasks} isMinimized={tasks.isWidgetMinimized} setIsMinimized={tasks.setIsWidgetMinimized} clearTasks={() => tasks.setTasks([])} />
     </Box>
   );

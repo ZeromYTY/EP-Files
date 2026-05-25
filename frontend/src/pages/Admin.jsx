@@ -242,7 +242,7 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f172a' }}><CircularProgress /></Box>;
+  if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: (theme) => theme.ep.pageGradient }}><CircularProgress /></Box>;
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Alert severity="warning" sx={{ mb: 3 }}>РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ - будьте аккуратны с деструктивными действиями.</Alert>

@@ -114,7 +114,7 @@ export default function HomePage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <input id="home-quick-upload-input" type="file" style={{ display: 'none' }} onChange={handleQuickUploadChange} />
       <HomeHeader user={user} onLogout={handleLogout} />
       <Container maxWidth="lg" sx={{ py: 6 }}>
