@@ -13,6 +13,7 @@ const Files = lazy(() => import('./pages/Files'));
 const FileManager = lazy(() => import('./pages/FileManager'));
 const Admin = lazy(() => import('./pages/Admin'));
 const PublicAccess = lazy(() => import('./pages/PublicAccess'));
+const Trash = lazy(() => import('./pages/Trash'));
 const FilePreviewModal = lazy(() => import('./FilePreviewModal'));
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/files" element={<Files onPreviewFile={setSelectedFile} />} />
             <Route path="/file-manager" element={<FileManager onPreviewFile={setSelectedFile} />} />
+            <Route path="/trash" element={<Trash />} />
 
             {/* Админка доступна только staff/superuser */}
             <Route element={<AdminRoute />}>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Avatar, Box, Button, CircularProgress, Collapse, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, DarkMode, DeleteOutline, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LightMode, LockReset, Logout, Movie, MusicNote, PhotoCamera, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { CheckCircle, Close, DarkMode, DeleteOutline, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LightMode, LockReset, Logout, Movie, MusicNote, PhotoCamera, PictureAsPdf, RestoreFromTrash, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 import { useThemeMode } from '../themeMode';
@@ -58,7 +58,7 @@ function FavoriteMeta({ item }) {
   return `${label} · ${formatFileSize(item.size)}`;
 }
 
-function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, onAvatarChange, onAvatarDelete, onThemeToggle, onFiles, onAdmin, onLogout }) {
+function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, onAvatarChange, onAvatarDelete, onThemeToggle, onFiles, onTrash, onAdmin, onLogout }) {
   const nextThemeLabel = themeMode === 'dark' ? 'Светлая тема' : 'Темная тема';
   return (
     <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px', textAlign: 'center' }}>
@@ -77,6 +77,7 @@ function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, o
         {user?.avatar_url && <Button variant="outlined" color="error" fullWidth onClick={onAvatarDelete} disabled={avatarUploading} startIcon={<DeleteOutline />}>Удалить аватар</Button>}
         <Button variant="outlined" fullWidth onClick={onThemeToggle} startIcon={themeMode === 'dark' ? <LightMode /> : <DarkMode />}>{nextThemeLabel}</Button>
         <Button variant="contained" fullWidth onClick={onFiles} startIcon={<Folder />}>В файловый менеджер</Button>
+        <Button variant="outlined" fullWidth onClick={onTrash} startIcon={<RestoreFromTrash />}>Корзина файлов</Button>
         {isAdmin && <Button variant="contained" color="warning" fullWidth onClick={onAdmin} startIcon={<Shield />}>Войти в админ-панель</Button>}
         <Button variant="outlined" color="error" fullWidth onClick={onLogout} startIcon={<Logout />}>Выйти из аккаунта</Button>
       </Box>
@@ -323,7 +324,7 @@ export default function Files({ onPreviewFile }) {
     <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
       <Grid container spacing={4}>
-        <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
+        <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
         <Grid item xs={12} md={7}>
           <Box sx={{ display: 'grid', gap: 3 }}>
             <StatsCard user={user} stats={storageStats} />

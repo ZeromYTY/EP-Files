@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import FileResponse
+from django.utils import timezone
 
 from ep_files_app.models.models import File, Folder, FavoriteFile
 from ep_files_app.services.permission_service import permission_service
@@ -24,7 +25,7 @@ def add_folder_to_zip(zip_file, folder, current_path=""):
             archive_path = os.path.join(current_path, file_rec.name)
             zip_file.write(file_rec.file.path, archive_path)
 
-    subfolders = Folder.objects.filter(parent_id=folder.id)
+    subfolders = Folder.objects.filter(parent_id=folder.id, is_deleted=False)
     for subfolder in subfolders:
         new_path = os.path.join(current_path, subfolder.name)
         add_folder_to_zip(zip_file, subfolder, new_path)
@@ -33,7 +34,7 @@ def add_folder_to_zip(zip_file, folder, current_path=""):
 @permission_classes([IsAuthenticated])
 def download_folder(request, folder_id):
     try:
-        folder_rec = Folder.objects.get(id=folder_id)
+        folder_rec = Folder.objects.get(id=folder_id, is_deleted=False)
         if not permission_service.can_read_folder(request.user, folder_rec):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -101,7 +102,7 @@ def folder_create(request):
     parent = None
     if parent_id:
         try:
-            parent = Folder.objects.get(id=parent_id, owner=request.user)
+            parent = Folder.objects.get(id=parent_id, owner=request.user, is_deleted=False)
         except Folder.DoesNotExist:
             return Response(
                 {"error": "Parent folder not found"},
@@ -120,7 +121,7 @@ def folder_create(request):
 def folder_rename(request, folder_id):
 
     try:
-        folder = Folder.objects.get(id=folder_id, owner=request.user)
+        folder = Folder.objects.get(id=folder_id, owner=request.user, is_deleted=False)
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
     new_name = request.data.get("name", "").strip()
@@ -134,13 +135,13 @@ def folder_rename(request, folder_id):
 @permission_classes([IsAuthenticated])
 def folder_move(request, folder_id):
     try:
-        folder = Folder.objects.get(id=folder_id, owner=request.user)
+        folder = Folder.objects.get(id=folder_id, owner=request.user, is_deleted=False)
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
     new_parent_id = request.data.get("parent_id")
     if new_parent_id:
         try:
-            new_parent = Folder.objects.get(id=new_parent_id, owner=request.user)
+            new_parent = Folder.objects.get(id=new_parent_id, owner=request.user, is_deleted=False)
         except Folder.DoesNotExist:
             return Response({"error": "Target folder not found"}, status=status.HTTP_404_NOT_FOUND)
         if new_parent.id == folder.id or new_parent.id in folder.get_all_descendant_ids():
@@ -156,9 +157,15 @@ def folder_move(request, folder_id):
 @permission_classes([IsAuthenticated])
 def folder_delete(request, folder_id):
     try:
-        folder = Folder.objects.get(id=folder_id, owner=request.user)
+        folder = Folder.objects.get(id=folder_id, owner=request.user, is_deleted=False)
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def _has_active_files(fold):
+        if File.objects.filter(folder=fold, is_deleted=False).exists():
+            return True
+        return any(_has_active_files(child) for child in Folder.objects.filter(parent=fold, is_deleted=False))
+
     def _delete_folder_recursive(fold):
         files = File.objects.filter(folder_id=fold.id, is_deleted=False)
         for file_rec in files:
@@ -180,6 +187,23 @@ def folder_delete(request, folder_id):
             fold.delete()
         except Exception:
             logger.exception(f"Failed to delete folder: {fold}")
+
+    def _move_folder_to_trash(fold, deleted_at):
+        fold.is_deleted = True
+        fold.deleted_at = deleted_at
+        fold.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+
+        File.objects.filter(folder=fold, is_deleted=False).update(
+            is_deleted=True,
+            deleted_at=deleted_at,
+        )
+
+        for child in Folder.objects.filter(parent=fold, is_deleted=False):
+            _move_folder_to_trash(child, deleted_at)
+
+    if _has_active_files(folder):
+        _move_folder_to_trash(folder, timezone.now())
+        return Response({"status": "moved_to_trash", "id": folder_id})
 
     _delete_folder_recursive(folder)
     return Response({"status": "deleted", "id": folder_id})

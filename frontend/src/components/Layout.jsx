@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContextValue';
 import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography } from '@mui/material';
-import { AdminPanelSettings, Folder, Logout } from '@mui/icons-material';
+import { AdminPanelSettings, Folder, Logout, RestoreFromTrash } from '@mui/icons-material';
 
 function Brand() {
   return (
@@ -27,6 +27,7 @@ function UserNav({ user, onLogout }) {
       <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.95rem', fontWeight: 500 }}>{user?.name || user?.email}</Typography>
       <Button color="inherit" component={Link} to="/admin" startIcon={<AdminPanelSettings />} sx={{ fontWeight: 600, backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>Админка</Button>
       <Button color="inherit" component={Link} to="/files" startIcon={<Folder />} sx={{ fontWeight: 500 }}>Файлы</Button>
+      <Button color="inherit" component={Link} to="/trash" startIcon={<RestoreFromTrash />} sx={{ fontWeight: 500 }}>Корзина</Button>
       <IconButton onClick={onLogout} size="small" sx={{ color: '#fff' }} title="Выйти"><Logout /></IconButton>
     </Box>
   );
