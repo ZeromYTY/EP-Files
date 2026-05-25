@@ -159,5 +159,31 @@ def folder_delete(request, folder_id):
         folder = Folder.objects.get(id=folder_id, owner=request.user)
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
-    folder.delete()
+    # Рекурсивно удаляем все файлы и подпапки, чтобы содержимое не переехало в родительскую папку
+    def _delete_folder_recursive(fold):
+        # удалить файлы в папке
+        files = File.objects.filter(folder_id=fold.id)
+        for file_rec in files:
+            try:
+                if file_rec.file and os.path.exists(file_rec.file.path):
+                    os.remove(file_rec.file.path)
+            except Exception:
+                logger.exception(f"Failed to remove file from disk: {file_rec}")
+            try:
+                file_rec.delete()
+            except Exception:
+                logger.exception(f"Failed to delete file record: {file_rec}")
+
+        # рекурсивно удалить подпапки
+        subfolders = Folder.objects.filter(parent_id=fold.id)
+        for sub in subfolders:
+            _delete_folder_recursive(sub)
+
+        # удалить саму папку
+        try:
+            fold.delete()
+        except Exception:
+            logger.exception(f"Failed to delete folder: {fold}")
+
+    _delete_folder_recursive(folder)
     return Response({"status": "deleted", "id": folder_id})

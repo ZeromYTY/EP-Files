@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {
   Alert,
   Box,
@@ -102,7 +103,7 @@ function ContentArea({ loading, sortedItems, locationName, listProps }) {
         <Typography variant="h5" sx={{ fontWeight: 600, color: '#202124' }}>{locationName}</Typography>
         <Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography>
       </Box>
-      {loading ? <LoadingState /> : sortedItems.length === 0 ? <EmptyState /> : <FileList files={sortedItems} {...listProps} />}
+      {loading ? <LoadingState /> : sortedItems.length === 0 ? <EmptyState onFileDropped={listProps?.onFileDropped} /> : <FileList files={sortedItems} {...listProps} />}
     </>
   );
 }
@@ -111,9 +112,17 @@ function LoadingState() {
   return <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress /></Box>;
 }
 
-function EmptyState() {
+function EmptyState({ onFileDropped }) {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const stop = (event) => { event.preventDefault(); event.stopPropagation(); };
+  const handleDrop = async (event) => {
+    stop(event);
+    setIsDragActive(false);
+    const droppedFiles = Array.from(event.dataTransfer?.files || []);
+    if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
+  };
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center' }}>
+    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center', borderRadius: '12px', ...(isDragActive ? { boxShadow: '0 0 0 3px #ffffff, 0 0 0 6px #2196F3' } : {}) }}>
       <Box sx={{ width: 96, height: 96, backgroundColor: '#e8f0fe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
         <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', margin: 'auto' }} />
       </Box>

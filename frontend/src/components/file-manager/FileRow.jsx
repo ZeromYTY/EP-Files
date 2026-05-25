@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Download as DownloadIcon, Edit, MoreVert, Star } from '@mui/icons-material';
 
@@ -46,12 +47,22 @@ function UploaderEmail({ file, currentUserEmail }) {
 }
 
 export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, ...actions }) {
+  const [isDragActive, setIsDragActive] = useState(false);
   const openItem = () => {
     if (file.type === 'folder') onFolderClick?.(file.id);
     else actions.onPreviewClick?.(file);
   };
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e) => {
+    stop(e);
+    setIsDragActive(false);
+    const droppedFiles = Array.from(e.dataTransfer?.files || []);
+    if (droppedFiles.length === 0) return;
+    if (file.type === 'folder') actions.onFileDropped?.(droppedFiles, file.id);
+    else actions.onFileDropped?.(droppedFiles);
+  };
   return (
-    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
+    <Box onClick={openItem} onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }} onDragLeave={() => setIsDragActive(false)} onDrop={handleDrop} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', backgroundColor: isDragActive ? 'rgba(33,150,243,0.04)' : 'inherit', '&:hover': { backgroundColor: '#f8fafc' } }}>
       <Box>{getFileIcon(file, 32)}</Box>
       <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Typography>
       <UploaderEmail file={file} currentUserEmail={actions.currentUserEmail} />

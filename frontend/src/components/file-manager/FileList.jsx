@@ -78,10 +78,20 @@ function GridActionButtons({ file, onFavoriteClick, onDownloadClick, onEditClick
 
 function GridCard({ file, handlers }) {
   const isFolder = file.type === 'folder';
+  const [isDragOver, setIsDragOver] = useState(false);
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDropOnCard = (e) => {
+    stop(e);
+    setIsDragOver(false);
+    const droppedFiles = Array.from(e.dataTransfer?.files || []);
+    if (droppedFiles.length === 0) return;
+    if (isFolder) handlers.onFileDropped?.(droppedFiles, file.id);
+    else handlers.onFileDropped?.(droppedFiles);
+  };
   const open = () => (isFolder ? handlers.onFolderClick?.(file.id) : handlers.onPreviewClick?.(file));
   const uploaderText = canReportFile(file, handlers.currentUserEmail) ? `Загрузил: ${file.owner_email}` : '';
   return (
-    <Paper elevation={0} onClick={open} sx={{ p: 2, borderRadius: '12px', border: '1px solid #e0e0e0', position: 'relative', cursor: 'pointer', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.1)', transform: 'translateY(-2px)', borderColor: '#2196F3', '& .grid-menu-btn,.download-btn,.favorite-btn,.edit-btn': { opacity: 1 } } }}>
+    <Paper elevation={0} onClick={open} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={handleDropOnCard} sx={{ p: 2, borderRadius: '12px', border: '1px solid #e0e0e0', position: 'relative', cursor: 'pointer', backgroundColor: isDragOver ? 'rgba(33,150,243,0.04)' : 'inherit', '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.1)', transform: 'translateY(-2px)', borderColor: '#2196F3', '& .grid-menu-btn,.download-btn,.favorite-btn,.edit-btn': { opacity: 1 } } }}>
       {isFolder ? <FolderActions folder={file} handlers={handlers} /> : <GridActionButtons file={file} {...handlers} />}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}><FileVisual file={file} size={44} /></Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6 }}>{file.name}</Typography>
@@ -110,7 +120,7 @@ export default function FileList({ files, viewMode, onFileDropped, ...handlers }
     event.preventDefault();
     setIsDragActive(false);
     const droppedFiles = await getDroppedFiles(event);
-    if (droppedFiles.length > 0) onFileDropped?.(droppedFiles, null);
+    if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
   };
   const wrapperSx = {
     position: 'relative', width: '100%', minHeight: '300px', borderRadius: '12px',
