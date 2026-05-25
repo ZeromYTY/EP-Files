@@ -111,10 +111,59 @@ def test_delete_api_success_forbidden_and_not_found(settings, tmp_path):
 
     response = auth_client(owner).delete(f"/api/files/{file_obj.id}/")
     assert response.status_code == 200
-    assert not File.objects.filter(id=file_obj.id).exists()
+    file_obj.refresh_from_db()
+    assert file_obj.is_deleted is True
+    assert file_obj.deleted_at is not None
 
     response = auth_client(owner).delete("/api/files/999999/")
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_trash_api_list_restore_delete_and_clear(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("trash_owner@example.com")
+    stranger = make_user("trash_stranger@example.com")
+    client = auth_client(owner)
+
+    first_file = make_file(owner, "first.txt", b"first")
+    second_file = make_file(owner, "second.txt", b"second")
+    stranger_file = make_file(stranger, "hidden.txt", b"hidden")
+
+    assert client.delete(f"/api/files/{first_file.id}/").status_code == 200
+    assert client.delete(f"/api/files/{second_file.id}/").status_code == 200
+    assert auth_client(stranger).delete(f"/api/files/{stranger_file.id}/").status_code == 200
+
+    response = client.get("/api/trash/")
+    assert response.status_code == 200
+    trash_ids = {item["id"] for item in response.data}
+    assert trash_ids == {first_file.id, second_file.id}
+
+    response = client.get("/api/files/")
+    assert response.status_code == 200
+    assert first_file.id not in {item["id"] for item in response.data}
+
+    response = client.patch(f"/api/trash/{first_file.id}/restore/")
+    assert response.status_code == 200
+    first_file.refresh_from_db()
+    assert first_file.is_deleted is False
+    assert first_file.deleted_at is None
+
+    response = auth_client(stranger).patch(f"/api/trash/{second_file.id}/restore/")
+    assert response.status_code == 404
+
+    response = client.delete(f"/api/trash/{second_file.id}/")
+    assert response.status_code == 200
+    assert not File.objects.filter(id=second_file.id).exists()
+
+    third_file = make_file(owner, "third.txt", b"third")
+    assert client.delete(f"/api/files/{third_file.id}/").status_code == 200
+    response = client.delete("/api/trash/clear/")
+    assert response.status_code == 200
+    assert response.data["deleted_count"] == 1
+    assert not File.objects.filter(id=third_file.id).exists()
+    assert File.objects.filter(id=stranger_file.id).exists()
 
 
 @pytest.mark.django_db

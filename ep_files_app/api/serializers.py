@@ -194,6 +194,8 @@ class FileSerializer(serializers.ModelSerializer):
             "is_public",
             "public_token",
             "public_expires_at",
+            "is_deleted",
+            "deleted_at",
         ]
 
     def get_download_url(self, obj):

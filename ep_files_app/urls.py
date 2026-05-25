@@ -15,6 +15,7 @@ from .api.views import (
     admin_download_reported_file,
     save_text_file, read_text_file, toggle_favorite,
     download_folder, get_user_favorites, get_files,
+    trash_list, trash_restore, trash_delete, trash_clear,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -51,6 +52,10 @@ urlpatterns = [
     path("files/<int:file_id>/report/", report_file, name="report_file"),
     path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
     path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),
+    path("trash/", trash_list, name="trash_list"),
+    path("trash/clear/", trash_clear, name="trash_clear"),
+    path("trash/<int:file_id>/restore/", trash_restore, name="trash_restore"),
+    path("trash/<int:file_id>/", trash_delete, name="trash_delete"),
 
     path("storage/stats/", user_storage_stats, name="storage_stats"),
     path("search/", search_files, name="search_files"),

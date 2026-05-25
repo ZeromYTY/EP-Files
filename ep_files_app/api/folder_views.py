@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def add_folder_to_zip(zip_file, folder, current_path=""):
     """Рекурсивно добавляет файлы папки и подпапок в ZIP-архив."""
-    files = File.objects.filter(folder_id=folder.id)
+    files = File.objects.filter(folder_id=folder.id, is_deleted=False)
     for file_rec in files:
         if file_rec.file and os.path.exists(file_rec.file.path):
             archive_path = os.path.join(current_path, file_rec.name)
@@ -160,7 +160,7 @@ def folder_delete(request, folder_id):
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
     def _delete_folder_recursive(fold):
-        files = File.objects.filter(folder_id=fold.id)
+        files = File.objects.filter(folder_id=fold.id, is_deleted=False)
         for file_rec in files:
             try:
                 if file_rec.file and os.path.exists(file_rec.file.path):

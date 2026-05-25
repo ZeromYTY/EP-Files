@@ -210,7 +210,7 @@ class PermissionService:
         """Возвращает список файлов, доступных пользователю."""
         return [
             file_obj
-            for file_obj in File.objects.select_related("owner", "folder").all()
+            for file_obj in File.objects.select_related("owner", "folder").filter(is_deleted=False)
             if PermissionService.can_read_file(user, file_obj)
         ]
     
