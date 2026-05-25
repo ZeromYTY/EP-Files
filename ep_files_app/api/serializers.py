@@ -26,6 +26,8 @@ class UserSerializer(serializers.ModelSerializer):
             ``['id', 'name', 'email', 'is_staff', 'is_superuser', 'is_active', 'storage_limit', 'date_joined']``.
     """
 
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -37,7 +39,15 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "storage_limit",
             "date_joined",
+            "avatar_url",
         ]
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        url = obj.avatar.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

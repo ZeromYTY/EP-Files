@@ -39,6 +39,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
+    path("auth/avatar/", views.avatar_view, name="avatar"),
     path("test-auth/", protected_test_view, name="test_auth"),
 
     path("upload/", upload_file, name="file_upload"),

@@ -80,4 +80,5 @@ history_export/
 
 # Uploaded user files
 storage/files/
+storage/avatars/
 docs/build
