@@ -31,6 +31,7 @@ import {
   FolderOff,
   RestoreFromTrash,
 } from '@mui/icons-material';
+import { alpha } from '@mui/material/styles';
 import api from '../api/axios';
 
 function formatFileSize(bytes) {
@@ -66,10 +67,12 @@ function EmptyTrash() {
       sx={{
         py: 10,
         px: 3,
-        border: '1px solid #e2e8f0',
+        border: '1px solid',
+        borderColor: 'divider',
         borderRadius: '12px',
         textAlign: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: (theme) => theme.ep.panel,
+        boxShadow: (theme) => theme.ep.shadow,
       }}
     >
       <Box
@@ -79,18 +82,18 @@ function EmptyTrash() {
           mx: 'auto',
           mb: 2,
           borderRadius: '50%',
-          bgcolor: '#f1f5f9',
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <FolderOff sx={{ fontSize: 44, color: '#64748b' }} />
+        <FolderOff sx={{ fontSize: 44, color: 'text.secondary' }} />
       </Box>
-      <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', mb: 1 }}>
+      <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 1 }}>
         Корзина пуста
       </Typography>
-      <Typography variant="body2" sx={{ color: '#64748b' }}>
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         Удаленные файлы и непустые папки появятся здесь.
       </Typography>
     </Paper>
@@ -116,10 +119,10 @@ function ConfirmDialog({ open, title, text, confirmLabel, confirmColor = 'error'
 
 function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
   return (
-    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', backgroundColor: (theme) => theme.ep.panel, boxShadow: (theme) => theme.ep.shadow }}>
       <Table>
         <TableHead>
-          <TableRow sx={{ bgcolor: '#f8fafc' }}>
+          <TableRow sx={{ bgcolor: (theme) => theme.ep.subtle }}>
             <TableCell sx={{ fontWeight: 800 }}>Объект</TableCell>
             <TableCell sx={{ fontWeight: 800, width: 120 }}>Тип</TableCell>
             <TableCell sx={{ fontWeight: 800, width: 140 }}>Размер</TableCell>
@@ -147,19 +150,19 @@ function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
                         width: 38,
                         height: 38,
                         borderRadius: '8px',
-                        bgcolor: isFolder ? '#e8f0fe' : '#eff6ff',
+                        bgcolor: (theme) => alpha(theme.palette.primary.main, isFolder ? 0.14 : 0.1),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                       }}
                     >
-                      <Icon sx={{ color: '#2563eb' }} />
+                      <Icon sx={{ color: 'primary.main' }} />
                     </Box>
                     <Typography sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.name}
                     </Typography>
-                    {isFolder && <ChevronRight sx={{ color: '#94a3b8', ml: 'auto' }} />}
+                    {isFolder && <ChevronRight sx={{ color: 'text.secondary', ml: 'auto' }} />}
                   </Box>
                 </TableCell>
                 <TableCell>{itemLabel(item)}</TableCell>
@@ -328,10 +331,10 @@ export default function Trash() {
             {currentFolder && <Button onClick={goToRoot}>Корень корзины</Button>}
             <Button onClick={() => loadTrash(currentFolder?.id || null)}>Обновить</Button>
           </Box>
-          <Typography variant="h4" sx={{ fontWeight: 900, color: '#0f172a', letterSpacing: 0 }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0 }}>
             {currentFolder ? currentFolder.name : 'Корзина файлов'}
           </Typography>
-          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
             {items.length} объектов · {formatFileSize(totalSize)}
           </Typography>
         </Box>
