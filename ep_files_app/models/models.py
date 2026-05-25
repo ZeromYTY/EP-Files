@@ -133,7 +133,7 @@ class Folder(models.Model):
         from django.db.models import Sum
         
         total_size = 0
-        direct_files_size = self.files.aggregate(total=Sum('size'))['total'] or 0
+        direct_files_size = self.files.filter(is_deleted=False).aggregate(total=Sum('size'))['total'] or 0
         total_size += direct_files_size
         
         for child in self.children.all():
@@ -166,6 +166,8 @@ class File(models.Model):
     )
     is_public = models.BooleanField(default=False)
     public_expires_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name if self.name else "Unnamed File"

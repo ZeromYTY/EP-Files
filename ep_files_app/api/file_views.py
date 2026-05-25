@@ -85,7 +85,7 @@ def create_uploaded_file(uploaded_file, request, folder):
 
 
 def validate_storage_limit(user, incoming_size, replaced_size=0):
-    current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+    current_size = File.objects.filter(owner=user, is_deleted=False).aggregate(total=Sum("size"))["total"] or 0
     projected_size = current_size - replaced_size + incoming_size
     if projected_size > user.storage_limit:
         available_space = max(user.storage_limit - current_size, 0)
@@ -151,7 +151,7 @@ def list_files(request):
 @permission_classes([IsAuthenticated])
 def download_file(request, file_id):
     try:
-        file_rec = File.objects.get(id=file_id)
+        file_rec = File.objects.get(id=file_id, is_deleted=False)
         if not permission_service.can_read_file(request.user, file_rec):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         if not file_rec.file or not os.path.exists(file_rec.file.path):
@@ -180,7 +180,7 @@ def download_file(request, file_id):
 @permission_classes([IsAuthenticated])
 def delete_file(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
         
         if request.method == "PATCH":
             if not permission_service.can_write_file(request.user, file_obj):
@@ -204,28 +204,91 @@ def delete_file(request, file_id):
 
         filename = file_obj.name
         file_id_for_event = file_obj.id
-        if file_obj.file:
-            try:
-                file_obj.file.delete(save=False)
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error deleting physical file: %s", str(exc))
-        file_obj.delete()
+        file_obj.is_deleted = True
+        file_obj.deleted_at = timezone.now()
+        file_obj.save(update_fields=["is_deleted", "deleted_at"])
         file_event_service.emit_delete_event(
             file_id=file_id_for_event,
             file_name=filename,
             user=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
         )
-        logger.info("File deleted: %s by user %s", filename, request.user.email)
-        return Response({"message": f'File "{filename}" deleted successfully'})
+        logger.info("File moved to trash: %s by user %s", filename, request.user.email)
+        return Response({"message": f'File "{filename}" moved to trash successfully'})
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+def permanently_delete_file(file_obj):
+    """Deletes a file record and its physical file from storage."""
+    if file_obj.file:
+        try:
+            file_obj.file.delete(save=False)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error("Error deleting physical file: %s", str(exc))
+    file_obj.delete()
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def trash_list(request):
+    files = File.objects.filter(
+        owner=request.user,
+        is_deleted=True,
+    ).select_related("owner", "folder").order_by("-deleted_at", "-date")
+    return Response(FileSerializer(files, many=True).data)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def trash_restore(request, file_id):
+    try:
+        file_obj = File.objects.get(id=file_id, owner=request.user, is_deleted=True)
+    except File.DoesNotExist:
+        return Response({"error": "File not found in trash"}, status=status.HTTP_404_NOT_FOUND)
+
+    file_obj.is_deleted = False
+    file_obj.deleted_at = None
+    file_obj.save(update_fields=["is_deleted", "deleted_at"])
+    logger.info("File restored from trash: %s by user %s", file_obj.name, request.user.email)
+    return Response({
+        "message": f'File "{file_obj.name}" restored successfully',
+        "file": FileSerializer(file_obj).data,
+    })
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def trash_delete(request, file_id):
+    try:
+        file_obj = File.objects.get(id=file_id, owner=request.user, is_deleted=True)
+    except File.DoesNotExist:
+        return Response({"error": "File not found in trash"}, status=status.HTTP_404_NOT_FOUND)
+
+    filename = file_obj.name
+    permanently_delete_file(file_obj)
+    logger.info("File permanently deleted: %s by user %s", filename, request.user.email)
+    return Response({"message": f'File "{filename}" permanently deleted'})
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def trash_clear(request):
+    files = list(File.objects.filter(owner=request.user, is_deleted=True))
+    deleted_count = len(files)
+    for file_obj in files:
+        permanently_delete_file(file_obj)
+    logger.info("Trash cleared by user %s, files deleted: %s", request.user.email, deleted_count)
+    return Response({
+        "message": "Trash cleared successfully",
+        "deleted_count": deleted_count,
+    })
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def file_move(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -277,7 +340,7 @@ def file_move(request, file_id):
 @permission_classes([IsAuthenticated])
 def file_detail(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
         if not permission_service.can_read_file(request.user, file_obj):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         data = FileSerializer(file_obj).data
@@ -348,7 +411,11 @@ def search_files(request):
         if not query:
             return Response({"error": "Search parameter 'q' is required"},
                             status=status.HTTP_400_BAD_REQUEST)
-        files = File.objects.filter(owner=request.user, name__icontains=query).order_by("-date")
+        files = File.objects.filter(
+            owner=request.user,
+            is_deleted=False,
+            name__icontains=query,
+        ).order_by("-date")
         return Response({
             "query": query,
             "count": files.count(),
@@ -363,14 +430,15 @@ def search_files(request):
 def user_storage_stats(request):
     try:
         user = request.user
-        total_files = File.objects.filter(owner=user).count()
-        total_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+        active_files = File.objects.filter(owner=user, is_deleted=False)
+        total_files = active_files.count()
+        total_size = active_files.aggregate(total=Sum("size"))["total"] or 0
         storage_limit = user.storage_limit
         usage_percent = (total_size / storage_limit * 100) if storage_limit > 0 else 0
         week_ago = timezone.now() - timedelta(days=7)
-        recent_files = File.objects.filter(owner=user, date__gte=week_ago).count()
+        recent_files = active_files.filter(date__gte=week_ago).count()
         file_types = {}
-        for file in File.objects.filter(owner=user):
+        for file in active_files:
             ext = os.path.splitext(file.name)[1].lower() or "no extension"
             file_types[ext] = file_types.get(ext, 0) + 1
         return Response({
