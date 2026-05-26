@@ -2,6 +2,8 @@
 set -eu
 
 cd "$(dirname "$0")"
-git pull origin master
-docker compose up -d --build
+git fetch origin
+git checkout master
+git pull --ff-only origin master
+docker compose up -d --build --remove-orphans
 docker compose ps

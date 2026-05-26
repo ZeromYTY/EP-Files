@@ -15,6 +15,8 @@ docker-compose up --build
 - **Бэкенд API:** http://localhost:8000/api/
 - **Django Admin:** http://localhost:8000/admin/
 
+Frontend-контейнер собирает React production build и отдаёт его через nginx. При обращении к `http://localhost:5173/api/`, `http://localhost:5173/admin/` и `http://localhost:5173/media/` nginx внутри frontend-контейнера проксирует запросы в backend.
+
 ---
 
 ## Переменные окружения
@@ -64,7 +66,7 @@ docker-compose exec backend python manage.py createsuperuser
 | Сервис | Образ | Порт |
 |---|---|---|
 | `backend` | Python 3.13 + Django | 8000 |
-| `frontend` | Node 22 + Vite | 5173 |
+| `frontend` | nginx + React build | 5173 |
 | `db` | PostgreSQL 16 | 5432 |
 
 ---
