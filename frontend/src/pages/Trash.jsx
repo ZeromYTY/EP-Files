@@ -317,37 +317,36 @@ export default function Trash() {
     <Box sx={{ display: 'grid', gap: 3 }}>
       <Box
         sx={{
-          display: 'flex',
-          alignItems: { xs: 'stretch', sm: 'center' },
-          justifyContent: 'space-between',
+          display: 'grid',
           gap: 2,
-          flexDirection: { xs: 'column', sm: 'row' },
         }}
       >
-        <Box>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-            <Button startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')}>К файлам</Button>
-            {currentFolder && <Button onClick={goBack}>Назад в корзине</Button>}
-            {currentFolder && <Button onClick={goToRoot}>Корень корзины</Button>}
-            <Button onClick={() => loadTrash(currentFolder?.id || null)}>Обновить</Button>
+        <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0 }}>
+              {currentFolder ? currentFolder.name : 'Корзина файлов'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              {items.length} объектов · {formatFileSize(totalSize)}
+            </Typography>
           </Box>
-          <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0 }}>
-            {currentFolder ? currentFolder.name : 'Корзина файлов'}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            {items.length} объектов · {formatFileSize(totalSize)}
-          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteSweep />}
+            disabled={items.length === 0 || Boolean(busyId)}
+            onClick={() => setClearDialogOpen(true)}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'center' } }}
+          >
+            Очистить корзину
+          </Button>
         </Box>
-        <Button
-          variant="contained"
-          color="error"
-          startIcon={<DeleteSweep />}
-          disabled={items.length === 0 || Boolean(busyId)}
-          onClick={() => setClearDialogOpen(true)}
-          sx={{ alignSelf: { xs: 'stretch', sm: 'center' } }}
-        >
-          Очистить корзину
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: (theme) => theme.ep.subtle }}>
+          <Button variant="outlined" size="small" startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')}>К файлам</Button>
+          {currentFolder && <Button variant="outlined" size="small" onClick={goBack}>Назад в корзине</Button>}
+          {currentFolder && <Button variant="outlined" size="small" onClick={goToRoot}>Корень корзины</Button>}
+          <Button variant="outlined" size="small" onClick={() => loadTrash(currentFolder?.id || null)}>Обновить</Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -37,9 +38,7 @@ import {
   FolderOpen,
   GridView,
   Home,
-  Logout,
   NavigateNext,
-  Person,
   ReportProblem,
   RestoreFromTrash,
   Search,
@@ -53,7 +52,9 @@ import FileList from '../../components/file-manager/FileList';
 import MoveFolderDialog from '../../components/file-manager/MoveFolderDialog';
 import TextFileEditorDialog from '../../components/file-manager/TextFileEditorDialog';
 
-function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate, onLogout }) {
+function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
+  const initials = user?.name?.[0] || user?.email?.[0] || 'U';
+
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="a" href="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
@@ -68,8 +69,13 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate, onLogo
             <RestoreFromTrash />
           </IconButton>
         </Tooltip>
-        <Tooltip title={user?.email || 'Пользователь'}><IconButton onClick={() => navigate('/files')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}><Person /></IconButton></Tooltip>
-        <Button variant="outlined" size="small" color="error" onClick={onLogout} startIcon={<Logout />}>Выйти</Button>
+        <Tooltip title={user?.email || 'Пользователь'}>
+          <IconButton onClick={() => navigate('/files')} sx={{ p: 0, '&:hover': { opacity: 0.9 } }}>
+            <Avatar src={user?.avatar_url || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '1rem', fontWeight: 700 }}>
+              {initials.toUpperCase()}
+            </Avatar>
+          </IconButton>
+        </Tooltip>
       </Box>
     </Box>
   );
@@ -268,7 +274,7 @@ export default function FileManagerView(props) {
   return (
     <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, position: 'relative' }}>
       <input type="file" id="manual-file-input" onChange={handlers.manualUpload} style={{ display: 'none' }} />
-      <FileManagerHeader user={user} searchQuery={searchQuery} setSearchQuery={setSearchQuery} navigate={navigate} onLogout={handlers.logout} />
+      <FileManagerHeader user={user} searchQuery={searchQuery} setSearchQuery={setSearchQuery} navigate={navigate} />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}

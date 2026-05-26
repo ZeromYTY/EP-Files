@@ -37,7 +37,7 @@ const panelSx = {
   boxShadow: (theme) => theme.ep.shadow,
 };
 
-export function HomeHeader({ user, onLogout }) {
+export function HomeHeader({ user }) {
   const initials = user?.name?.[0] || user?.email?.[0] || 'U';
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', py: 2, position: 'sticky', top: 0, zIndex: 1000 }}>
@@ -72,7 +72,6 @@ export function HomeHeader({ user, onLogout }) {
                   }}
                 />
                 <Button variant="contained" component={Link} to="/file-manager" startIcon={<Dashboard />}>Мои файлы</Button>
-                <Button variant="outlined" color="error" onClick={onLogout}>Выйти</Button>
               </>
             )}
           </Box>
