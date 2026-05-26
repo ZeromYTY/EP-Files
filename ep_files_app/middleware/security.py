@@ -2,8 +2,12 @@
 Middleware для дополнительной безопасности
 """
 import logging
+import time
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+
+from ep_files_app.api.authentication import EpFilesJWTAuthentication
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +22,13 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
     Methods:
         process_response(request, response): Внедряет заголовки безопасности в объект ответа.
     """
-    
-    def process_response(self, request, response):
+
+    def process_response(self, _request, response):
         """Инжектирует защитные HTTP-заголовки в исходящий ответ сервера.
 
                 Устанавливает параметры ``X-Content-Type-Options``, ``X-Frame-Options``,
-                ``X-XSS-Protection``, строгие правила ``Content-Security-Policy`` (только собственный
-                ориджин) и безопасную политику передачи реферера.
+                ``X-XSS-Protection``, строгие правила ``Content-Security-Policy``
+                (только собственный ориджин) и безопасную политику передачи реферера.
 
                 Args:
                     request (HttpRequest): Объект текущего веб-запроса Django.
@@ -40,7 +44,7 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
         response['Content-Security-Policy'] = "default-src 'self'"
 
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        
+
         return response
 
 
@@ -61,7 +65,8 @@ class RateLimitMiddleware(MiddlewareMixin):
     """
 
     request_counts = {}
-    
+    jwt_authentication = EpFilesJWTAuthentication()
+
     def process_request(self, request):
         """Анализирует частоту запросов текущего пользователя перед передачей контроллеру.
 
@@ -73,18 +78,20 @@ class RateLimitMiddleware(MiddlewareMixin):
                     request (HttpRequest): Объект входящего веб-запроса Django.
 
                 Returns:
-                    Optional[JsonResponse]: Объект ``JsonResponse`` со статусом 429 Too Many Requests,
-                    если лимит исчерпан, иначе ``None`` (для продолжения обработки).
+                    Optional[JsonResponse]: объект ``JsonResponse`` со статусом
+                    429 Too Many Requests, если лимит исчерпан, иначе ``None``.
                 """
         ip = self.get_client_ip(request)
 
         if ip in self.request_counts:
             count, timestamp = self.request_counts[ip]
 
-            import time
             if time.time() - timestamp < 60:
                 if count > 100:
-                    logger.warning(f"Rate limit exceeded for IP: {ip}")
+                    if self.is_admin_request(request):
+                        self.request_counts[ip] = (count + 1, timestamp)
+                        return None
+                    logger.warning("Rate limit exceeded for IP: %s", ip)
                     return JsonResponse({
                         'error': 'Слишком много запросов. Попробуйте позже.'
                     }, status=429)
@@ -92,11 +99,36 @@ class RateLimitMiddleware(MiddlewareMixin):
             else:
                 self.request_counts[ip] = (1, time.time())
         else:
-            import time
             self.request_counts[ip] = (1, time.time())
-        
+
         return None
-    
+
+    def is_admin_request(self, request):
+        """Проверяет, принадлежит ли запрос администратору."""
+        user = getattr(request, "user", None)
+        if self.is_admin_user(user):
+            return True
+
+        try:
+            auth_result = self.jwt_authentication.authenticate(request)
+        except AuthenticationFailed:
+            return False
+
+        if not auth_result:
+            return False
+
+        jwt_user, _ = auth_result
+        return self.is_admin_user(jwt_user)
+
+    @staticmethod
+    def is_admin_user(user):
+        """Проверяет флаги администратора у пользователя."""
+        return bool(
+            user
+            and getattr(user, "is_authenticated", False)
+            and (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+        )
+
     def get_client_ip(self, request):
         """Определяет реальный IP-адрес клиента, учитывая прокси-серверы и балансировщики.
 
