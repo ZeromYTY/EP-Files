@@ -98,14 +98,10 @@ function useHomePageData(user) {
 }
 
 export default function HomePage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const homeData = useHomePageData(user);
   const handleQuickUploadClick = () => document.getElementById('home-quick-upload-input')?.click();
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   const handleQuickUploadChange = (event) => {
     const selectedFile = event.target.files?.[0];
@@ -114,9 +110,9 @@ export default function HomePage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <input id="home-quick-upload-input" type="file" style={{ display: 'none' }} onChange={handleQuickUploadChange} />
-      <HomeHeader user={user} onLogout={handleLogout} />
+      <HomeHeader user={user} />
       <Container maxWidth="lg" sx={{ py: 6 }}>
         <HomeHero user={user} />
         {user && <StorageStatsPanel stats={homeData.storageStats} formatFileSize={formatFileSize} isUploading={homeData.isQuickUploading} onUploadClick={handleQuickUploadClick} />}

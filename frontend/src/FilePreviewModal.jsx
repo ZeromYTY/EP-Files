@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { alpha, useTheme } from '@mui/material/styles';
 import api from './api/axios';
 
 const previewGroups = {
@@ -21,6 +22,15 @@ function getExtension(fileName) {
 
 function getDownloadPath(file) {
   return file.download_url ? file.download_url.replace(/^\/api/, '') : `/files/${file.id}/download/`;
+}
+
+function getPreviewMime(previewType, fileName, responseType = '') {
+  if (responseType && !responseType.includes('octet-stream')) return responseType;
+  if (previewType === 'pdf') return 'application/pdf';
+  if (previewType === 'image') return `image/${getExtension(fileName) === 'jpg' ? 'jpeg' : getExtension(fileName)}`;
+  if (previewType === 'video') return `video/${getExtension(fileName)}`;
+  if (previewType === 'audio') return `audio/${getExtension(fileName)}`;
+  return 'application/octet-stream';
 }
 
 function decodeText(bytes) {
@@ -549,7 +559,9 @@ function usePreview(file) {
           const office = await parseOfficePreview(file.name, response.data);
           if (!cancelled) setState({ content: '', previewUrl: null, office, loading: false, error: null });
         } else {
-          objectUrl = URL.createObjectURL(new Blob([response.data]));
+          const contentType = response.headers?.['content-type'] || '';
+          const blob = new Blob([response.data], { type: getPreviewMime(previewType, file.name, contentType) });
+          objectUrl = URL.createObjectURL(blob);
           setState({ content: '', previewUrl: objectUrl, office: null, loading: false, error: null });
         }
       } catch (err) {
@@ -562,31 +574,31 @@ function usePreview(file) {
   return state;
 }
 
-function SpreadsheetPreview({ office }) {
+function SpreadsheetPreview({ office, theme }) {
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const activeSheet = office.sheets[Math.min(activeSheetIndex, office.sheets.length - 1)];
-  if (!activeSheet) return <div style={{ color: '#64748b' }}>В книге нет данных для предпросмотра.</div>;
+  if (!activeSheet) return <div style={{ color: theme.palette.text.secondary }}>В книге нет данных для предпросмотра.</div>;
 
   return (
-    <div style={{ width: '100%', height: '70vh', minHeight: 360, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #dbe3ee', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+    <div style={{ width: '100%', height: '70vh', minHeight: 360, display: 'flex', flexDirection: 'column', background: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderBottom: `1px solid ${theme.palette.divider}`, background: theme.ep.subtle }}>
         <div style={{ minWidth: 0 }}>
-          <strong style={{ display: 'block', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSheet.name}</strong>
-          <span style={{ color: '#64748b', fontSize: 12 }}>{activeSheet.totalRows} строк, {activeSheet.totalColumns} колонок</span>
+          <strong style={{ display: 'block', color: theme.palette.text.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSheet.name}</strong>
+          <span style={{ color: theme.palette.text.secondary, fontSize: 12 }}>{activeSheet.totalRows} строк, {activeSheet.totalColumns} колонок</span>
         </div>
       </div>
       {office.sheets.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, padding: '8px 10px', borderBottom: '1px solid #e2e8f0', background: '#fff', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '8px 10px', borderBottom: `1px solid ${theme.palette.divider}`, background: theme.palette.background.paper, overflowX: 'auto' }}>
           {office.sheets.map((sheet, index) => (
             <button
               key={sheet.id}
               type="button"
               onClick={() => setActiveSheetIndex(index)}
               style={{
-                border: `1px solid ${index === activeSheetIndex ? '#2563eb' : '#cbd5e1'}`,
+                border: `1px solid ${index === activeSheetIndex ? theme.palette.primary.main : theme.palette.divider}`,
                 borderRadius: 6,
-                background: index === activeSheetIndex ? '#dbeafe' : '#fff',
-                color: index === activeSheetIndex ? '#1d4ed8' : '#334155',
+                background: index === activeSheetIndex ? alpha(theme.palette.primary.main, 0.14) : theme.palette.background.paper,
+                color: index === activeSheetIndex ? theme.palette.primary.main : theme.palette.text.primary,
                 cursor: 'pointer',
                 fontSize: 12,
                 fontWeight: 700,
@@ -600,23 +612,23 @@ function SpreadsheetPreview({ office }) {
         </div>
       )}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', background: '#fff', fontSize: 13, tableLayout: 'fixed' }}>
+        <table style={{ borderCollapse: 'separate', borderSpacing: 0, minWidth: '100%', background: theme.palette.background.paper, fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 48 }} />
             {activeSheet.columns.map((column, index) => <col key={`width-${index}`} style={{ width: column.hidden ? 0 : column.width }} />)}
           </colgroup>
           <thead>
             <tr>
-              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 3, width: 48, minWidth: 48, background: '#eef2f7', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1' }} />
+              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 3, width: 48, minWidth: 48, background: theme.ep.subtle, borderRight: `1px solid ${theme.palette.divider}`, borderBottom: `1px solid ${theme.palette.divider}` }} />
               {activeSheet.columns.map((column, index) => (
-                <th key={`col-${index}`} style={{ position: 'sticky', top: 0, zIndex: 2, width: column.hidden ? 0 : column.width, minWidth: column.hidden ? 0 : 44, background: '#eef2f7', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', color: '#475569', fontWeight: 700, padding: column.hidden ? 0 : '7px 10px', textAlign: 'center', overflow: 'hidden' }}>{column.hidden ? '' : columnNameFromIndex(index)}</th>
+                <th key={`col-${index}`} style={{ position: 'sticky', top: 0, zIndex: 2, width: column.hidden ? 0 : column.width, minWidth: column.hidden ? 0 : 44, background: theme.ep.subtle, borderRight: `1px solid ${theme.palette.divider}`, borderBottom: `1px solid ${theme.palette.divider}`, color: theme.palette.text.secondary, fontWeight: 700, padding: column.hidden ? 0 : '7px 10px', textAlign: 'center', overflow: 'hidden' }}>{column.hidden ? '' : columnNameFromIndex(index)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {activeSheet.rows.map((row, rowIndex) => activeSheet.rowMeta[rowIndex]?.hidden ? null : (
               <tr key={`row-${rowIndex}`} style={{ height: activeSheet.rowMeta[rowIndex]?.height }}>
-                <th style={{ position: 'sticky', left: 0, zIndex: 1, width: 48, minWidth: 48, background: '#f8fafc', borderRight: '1px solid #cbd5e1', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 700, padding: activeSheet.rowMeta[rowIndex]?.hidden ? 0 : '7px 8px', textAlign: 'right', overflow: 'hidden' }}>{activeSheet.rowMeta[rowIndex]?.hidden ? '' : rowIndex + 1}</th>
+                <th style={{ position: 'sticky', left: 0, zIndex: 1, width: 48, minWidth: 48, background: theme.ep.subtle, borderRight: `1px solid ${theme.palette.divider}`, borderBottom: `1px solid ${theme.palette.divider}`, color: theme.palette.text.secondary, fontWeight: 700, padding: activeSheet.rowMeta[rowIndex]?.hidden ? 0 : '7px 8px', textAlign: 'right', overflow: 'hidden' }}>{activeSheet.rowMeta[rowIndex]?.hidden ? '' : rowIndex + 1}</th>
                 {row.map((cell, cellIndex) => {
                   if (cell.hiddenByMerge || activeSheet.columns[cellIndex]?.hidden) return null;
                   const span = cell.span || {};
@@ -627,10 +639,10 @@ function SpreadsheetPreview({ office }) {
                       rowSpan={span.rowSpan}
                       title={cell.value}
                       style={{
-                        borderRight: '1px solid #e2e8f0',
-                        borderBottom: '1px solid #e2e8f0',
-                        color: '#0f172a',
-                        backgroundColor: '#fff',
+                        borderRight: `1px solid ${theme.palette.divider}`,
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                        color: theme.palette.text.primary,
+                        backgroundColor: theme.palette.background.paper,
                         minWidth: 44,
                         padding: '5px 8px',
                         overflow: 'hidden',
@@ -653,14 +665,14 @@ function SpreadsheetPreview({ office }) {
   );
 }
 
-function OfficePreview({ office }) {
+function OfficePreview({ office, theme }) {
   if (!office) return null;
-  if (office.type === 'spreadsheet') return <SpreadsheetPreview office={office} />;
+  if (office.type === 'spreadsheet') return <SpreadsheetPreview office={office} theme={theme} />;
   if (office.type === 'presentation') {
     return (
       <div style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', display: 'grid', gap: 12 }}>
         {office.slides.map((slide) => (
-          <section key={slide.title} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16 }}>
+          <section key={slide.title} style={{ background: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8, padding: 16, color: theme.palette.text.primary }}>
             <strong style={{ display: 'block', marginBottom: 8 }}>{slide.title}</strong>
             {slide.lines.map((line, index) => <p key={`${slide.title}-${index}`} style={{ margin: '4px 0' }}>{line}</p>)}
           </section>
@@ -668,20 +680,20 @@ function OfficePreview({ office }) {
       </div>
     );
   }
-  return <div style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', background: '#fff', padding: 18, borderRadius: 8 }}>{office.paragraphs.map((paragraph, index) => <p key={`paragraph-${index}`} style={{ margin: '0 0 10px', lineHeight: 1.55 }}>{paragraph}</p>)}</div>;
+  return <div style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', background: theme.palette.background.paper, color: theme.palette.text.primary, padding: 18, borderRadius: 8 }}>{office.paragraphs.map((paragraph, index) => <p key={`paragraph-${index}`} style={{ margin: '0 0 10px', lineHeight: 1.55 }}>{paragraph}</p>)}</div>;
 }
 
-function PreviewContent({ file, state }) {
+function PreviewContent({ file, state, theme }) {
   const type = getPreviewType(file.name);
   const mediaStyle = { maxWidth: '100%', maxHeight: '70vh', borderRadius: 8 };
-  if (state.loading) return <div style={{ color: '#9ca3af' }}>Загрузка данных...</div>;
-  if (state.error) return <div style={{ color: '#b91c1c', fontWeight: 600 }}>{state.error}</div>;
+  if (state.loading) return <div style={{ color: theme.palette.text.secondary }}>Загрузка данных...</div>;
+  if (state.error) return <div style={{ color: theme.palette.error.main, fontWeight: 600 }}>{state.error}</div>;
   if (type === 'image') return <img src={state.previewUrl} alt="Preview" style={mediaStyle} />;
   if (type === 'video') return <video src={state.previewUrl} style={{ ...mediaStyle, width: '100%', background: '#000' }} controls />;
   if (type === 'audio') return <audio src={state.previewUrl} controls style={{ width: '100%' }} />;
-  if (type === 'pdf') return <object data={state.previewUrl} type="application/pdf" style={{ width: '100%', height: '70vh' }} />;
-  if (type === 'office') return <OfficePreview office={state.office} />;
-  return <pre style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', background: '#fff', padding: 16, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{state.content}</pre>;
+  if (type === 'pdf') return <iframe src={`${state.previewUrl}#toolbar=1&navpanes=0`} title={file.name} style={{ width: '100%', height: '70vh', border: `1px solid ${theme.palette.divider}`, borderRadius: 8, background: '#fff' }} />;
+  if (type === 'office') return <OfficePreview office={state.office} theme={theme} />;
+  return <pre style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', background: theme.palette.background.paper, color: theme.palette.text.primary, border: `1px solid ${theme.palette.divider}`, padding: 16, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{state.content}</pre>;
 }
 
 const baseButtonStyle = {
@@ -726,6 +738,7 @@ async function downloadFile(file, setError, setDownloading) {
 }
 
 export default function FilePreviewModal({ file, onClose }) {
+  const theme = useTheme();
   const state = usePreview(file);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
@@ -738,20 +751,26 @@ export default function FilePreviewModal({ file, onClose }) {
 
   const closeButtonCurrentStyle = {
     ...closeButtonStyle,
-    ...(hoveredButton === 'close' ? { background: '#efd0d0', borderColor: '#dca7a7', boxShadow: '0 8px 20px rgba(138, 47, 47, 0.16)', transform: 'translateY(-1px)' } : {}),
+    background: alpha(theme.palette.error.main, 0.12),
+    borderColor: alpha(theme.palette.error.main, 0.32),
+    color: theme.palette.error.main,
+    ...(hoveredButton === 'close' ? { background: alpha(theme.palette.error.main, 0.18), borderColor: alpha(theme.palette.error.main, 0.46), boxShadow: `0 8px 20px ${alpha(theme.palette.error.main, 0.16)}`, transform: 'translateY(-1px)' } : {}),
   };
   const downloadButtonCurrentStyle = {
     ...downloadButtonStyle,
-    ...(hoveredButton === 'download' && !downloading ? { background: '#cfe8d8', borderColor: '#a7d0b7', boxShadow: '0 8px 20px rgba(31, 107, 67, 0.16)', transform: 'translateY(-1px)' } : {}),
+    background: alpha(theme.palette.success.main, 0.12),
+    borderColor: alpha(theme.palette.success.main, 0.32),
+    color: theme.palette.success.main,
+    ...(hoveredButton === 'download' && !downloading ? { background: alpha(theme.palette.success.main, 0.18), borderColor: alpha(theme.palette.success.main, 0.46), boxShadow: `0 8px 20px ${alpha(theme.palette.success.main, 0.16)}`, transform: 'translateY(-1px)' } : {}),
     ...(downloading ? { cursor: 'not-allowed', opacity: 0.68, transform: 'none' } : {}),
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', zIndex: 2000, padding: 16 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: 12, width: 'min(95vw, 920px)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-        <div style={{ display: 'flex', alignItems: 'center', padding: 16, borderBottom: '1px solid #eef2f7' }}><strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</strong></div>
-        <div style={{ flex: 1, overflow: 'auto', background: '#f7fafc', padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PreviewContent file={file} state={{ ...state, error: state.error || downloadError }} /></div>
-        <div style={{ padding: 14, borderTop: '1px solid #eef2f7', display: 'flex', justifyContent: 'space-between', gap: 12 }}><button type="button" style={downloadButtonCurrentStyle} onMouseEnter={() => setHoveredButton('download')} onMouseLeave={() => setHoveredButton('')} onClick={() => downloadFile(file, setDownloadError, setDownloading)} disabled={downloading}>{downloading ? 'Скачивание...' : 'Скачать'}</button><button type="button" style={closeButtonCurrentStyle} onMouseEnter={() => setHoveredButton('close')} onMouseLeave={() => setHoveredButton('')} onClick={onClose}>Закрыть</button></div>
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: alpha('#000', theme.palette.mode === 'dark' ? 0.74 : 0.6), zIndex: 2000, padding: 16 }} onClick={onClose}>
+      <div style={{ background: theme.palette.background.paper, color: theme.palette.text.primary, border: `1px solid ${theme.palette.divider}`, boxShadow: theme.ep.menuShadow, borderRadius: 12, width: 'min(95vw, 920px)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+        <div style={{ display: 'flex', alignItems: 'center', padding: 16, borderBottom: `1px solid ${theme.palette.divider}` }}><strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</strong></div>
+        <div style={{ flex: 1, overflow: 'auto', background: theme.ep.subtle, padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PreviewContent file={file} state={{ ...state, error: state.error || downloadError }} theme={theme} /></div>
+        <div style={{ padding: 14, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between', gap: 12 }}><button type="button" style={downloadButtonCurrentStyle} onMouseEnter={() => setHoveredButton('download')} onMouseLeave={() => setHoveredButton('')} onClick={() => downloadFile(file, setDownloadError, setDownloading)} disabled={downloading}>{downloading ? 'Скачивание...' : 'Скачать'}</button><button type="button" style={closeButtonCurrentStyle} onMouseEnter={() => setHoveredButton('close')} onMouseLeave={() => setHoveredButton('')} onClick={onClose}>Закрыть</button></div>
       </div>
     </div>
   );

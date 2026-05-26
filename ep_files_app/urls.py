@@ -4,7 +4,7 @@ from django.urls import path
 from .api import views
 from .api.views import (
     ChangePasswordView, RegisterView, LoginView, MeView, protected_test_view,
-    upload_file, list_files, download_file, delete_file,
+    upload_file, download_file, delete_file,
     file_move, file_detail, report_file, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,
@@ -15,6 +15,8 @@ from .api.views import (
     admin_download_reported_file,
     save_text_file, read_text_file, toggle_favorite,
     download_folder, get_user_favorites, get_files,
+    trash_list, trash_restore, trash_delete, trash_clear,
+    trash_restore_folder, trash_delete_folder,
 )
 from .api.permission_views import (
     grant_file_permission, revoke_file_permission, list_file_permissions,
@@ -38,6 +40,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
+    path("auth/avatar/", views.avatar_view, name="avatar"),
     path("test-auth/", protected_test_view, name="test_auth"),
 
     path("upload/", upload_file, name="file_upload"),
@@ -51,6 +54,12 @@ urlpatterns = [
     path("files/<int:file_id>/report/", report_file, name="report_file"),
     path("files/<int:file_id>/content/", read_text_file, name="read_text_file"),
     path("files/<int:file_id>/save/", save_text_file, name="save_text_file"),
+    path("trash/", trash_list, name="trash_list"),
+    path("trash/clear/", trash_clear, name="trash_clear"),
+    path("trash/folders/<int:folder_id>/restore/", trash_restore_folder, name="trash_restore_folder"),
+    path("trash/folders/<int:folder_id>/", trash_delete_folder, name="trash_delete_folder"),
+    path("trash/<int:file_id>/restore/", trash_restore, name="trash_restore"),
+    path("trash/<int:file_id>/", trash_delete, name="trash_delete"),
 
     path("storage/stats/", user_storage_stats, name="storage_stats"),
     path("search/", search_files, name="search_files"),

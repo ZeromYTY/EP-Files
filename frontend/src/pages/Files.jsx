@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Avatar, Box, Button, CircularProgress, Collapse, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LockReset, Logout, Movie, MusicNote, PictureAsPdf, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { CheckCircle, Close, DarkMode, DeleteOutline, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LightMode, LockReset, Logout, Movie, MusicNote, PhotoCamera, PictureAsPdf, RestoreFromTrash, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
+import { useThemeMode } from '../themeMode';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 Б';
@@ -13,13 +14,20 @@ function formatFileSize(bytes) {
 }
 
 const fileGroups = [
-  { extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'], icon: Image, color: '#059669', bg: '#ECFDF5' },
-  { extensions: ['mp4', 'webm', 'ogv', 'mov', 'm4v', 'mpeg', 'mpg', 'avi'], icon: Movie, color: '#EA580C', bg: '#FFF7ED' },
-  { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#4F46E5', bg: '#eef2ff' },
-  { extensions: ['pdf'], icon: PictureAsPdf, color: '#DC2626', bg: '#FEF2F2' },
-  { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#16A34A', bg: '#F0FDF4' },
-  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#D97706', bg: '#FFF7ED' },
+  { extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'], icon: Image, color: '#5eead4', bg: 'rgba(94, 234, 212, 0.12)' },
+  { extensions: ['mp4', 'webm', 'ogv', 'mov', 'm4v', 'mpeg', 'mpg', 'avi'], icon: Movie, color: '#fb923c', bg: 'rgba(251, 146, 60, 0.13)' },
+  { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.13)' },
+  { extensions: ['pdf'], icon: PictureAsPdf, color: '#fb7185', bg: 'rgba(251, 113, 133, 0.13)' },
+  { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#4ade80', bg: 'rgba(74, 222, 128, 0.13)' },
+  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.13)' },
 ];
+
+const panelSx = {
+  backgroundColor: (theme) => theme.ep.panel,
+  border: '1px solid',
+  borderColor: 'divider',
+  boxShadow: (theme) => theme.ep.shadow,
+};
 
 function getExtension(item) {
   return item?.name?.split('.')?.pop()?.toLowerCase() || '';
@@ -31,11 +39,11 @@ function canPreview(item) {
 
 function FavoriteFileIcon({ item, size = 48 }) {
   const group = item.type === 'folder'
-    ? { icon: Folder, color: '#F59E0B', bg: '#FFFBEB' }
+    ? { icon: Folder, color: '#f4b95f', bg: 'rgba(244, 185, 95, 0.13)' }
     : fileGroups.find((fileGroup) => fileGroup.extensions.includes(getExtension(item)));
   const Icon = group?.icon || Description;
-  const bg = group?.bg || '#EFF6FF';
-  const color = group?.color || '#2563EB';
+  const bg = group?.bg || 'rgba(68, 215, 182, 0.12)';
+  const color = group?.color || '#44d7b6';
   return (
     <Box sx={{ width: size, height: size, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backgroundColor: bg }}>
       <Icon sx={{ fontSize: Math.round(size * 0.7), color }} />
@@ -50,14 +58,32 @@ function FavoriteMeta({ item }) {
   return `${label} · ${formatFileSize(item.size)}`;
 }
 
-function ProfileCard({ user, isAdmin, displayName, onFiles, onAdmin, onLogout }) {
+function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, onAvatarChange, onAvatarDelete, onThemeToggle, onFiles, onTrash, onAdmin, onLogout }) {
+  const nextThemeLabel = themeMode === 'dark' ? 'Светлая тема' : 'Темная тема';
   return (
-    <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', textAlign: 'center', backgroundColor: '#fff' }}>
-      <Avatar sx={{ width: 100, height: 100, bgcolor: '#2196F3', fontSize: '2.5rem', mx: 'auto', mb: 2 }}>{(user?.name || user?.email || 'U').toUpperCase()}</Avatar>
-      <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>{displayName}</Typography>
-      <Typography variant="body2" sx={{ mb: 3, fontWeight: 700, color: isAdmin ? '#dc2626' : '#64748b' }}>{isAdmin ? 'Роль: Администратор' : 'Роль: Пользователь'}</Typography>
+    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px', textAlign: 'center' }}>
+      <Box sx={{ position: 'relative', width: 112, height: 112, mx: 'auto', mb: 2 }}>
+        <Avatar src={user?.avatar_url || undefined} sx={{ width: 112, height: 112, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '2.6rem', fontWeight: 800 }}>{(user?.name || user?.email || 'U')[0]?.toUpperCase()}</Avatar>
+        <Tooltip title="Загрузить аватар">
+          <IconButton component="label" disabled={avatarUploading} sx={{ position: 'absolute', right: -6, bottom: 6, bgcolor: 'primary.main', color: 'primary.contrastText', border: '2px solid', borderColor: 'background.paper', '&:hover': { bgcolor: 'primary.light' } }} size="small">
+            {avatarUploading ? <CircularProgress size={18} color="inherit" /> : <PhotoCamera fontSize="small" />}
+            <input hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={onAvatarChange} />
+          </IconButton>
+        </Tooltip>
+        {user?.avatar_url && (
+          <Tooltip title="Удалить аватар">
+            <IconButton disabled={avatarUploading} onClick={onAvatarDelete} sx={{ position: 'absolute', left: -6, bottom: 6, bgcolor: 'error.main', color: 'error.contrastText', border: '2px solid', borderColor: 'background.paper', '&:hover': { bgcolor: 'error.dark' } }} size="small">
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+      <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>{displayName}</Typography>
+      <Typography variant="body2" sx={{ mb: 3, fontWeight: 700, color: isAdmin ? 'warning.main' : 'text.secondary' }}>{isAdmin ? 'Роль: Администратор' : 'Роль: Пользователь'}</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Button variant="outlined" fullWidth onClick={onThemeToggle} startIcon={themeMode === 'dark' ? <LightMode /> : <DarkMode />}>{nextThemeLabel}</Button>
         <Button variant="contained" fullWidth onClick={onFiles} startIcon={<Folder />}>В файловый менеджер</Button>
+        <Button variant="outlined" fullWidth onClick={onTrash} startIcon={<RestoreFromTrash />}>Корзина файлов</Button>
         {isAdmin && <Button variant="contained" color="warning" fullWidth onClick={onAdmin} startIcon={<Shield />}>Войти в админ-панель</Button>}
         <Button variant="outlined" color="error" fullWidth onClick={onLogout} startIcon={<Logout />}>Выйти из аккаунта</Button>
       </Box>
@@ -70,12 +96,12 @@ function StatsCard({ user, stats }) {
   const total = stats?.storage_limit || 1024 * 1024 * 1024;
   const percent = Math.min(stats?.usage_percent ?? Math.round((used / total) * 100), 100);
   return (
-    <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff', height: '100%' }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', mb: 3 }}>Данные учетной записи</Typography>
+    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px', height: '100%' }}>
+      <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 3 }}>Данные учетной записи</Typography>
       <Typography variant="body2" color="text.secondary">Электронная почта</Typography>
       <Typography variant="body1" sx={{ fontWeight: 500, mb: 3 }}>{user?.email || '-'}</Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><Storage sx={{ color: '#64748b' }} /><Typography variant="body2">Занято {formatFileSize(used)} из {formatFileSize(total)}</Typography></Box>
-      <Box sx={{ width: '100%', height: 8, bgcolor: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: percent > 85 ? '#ef4444' : '#2196F3' }} /></Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><Storage sx={{ color: 'text.secondary' }} /><Typography variant="body2">Занято {formatFileSize(used)} из {formatFileSize(total)}</Typography></Box>
+      <Box sx={{ width: '100%', height: 8, bgcolor: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: percent > 85 ? 'error.main' : 'primary.main' }} /></Box>
       <Typography variant="caption" color="text.secondary">{percent}% использовано</Typography>
     </Paper>
   );
@@ -83,11 +109,11 @@ function StatsCard({ user, stats }) {
 
 function ChangePasswordCard({ form, loading, open, error, onChange, onSubmit, onToggle }) {
   return (
-    <Paper elevation={0} sx={{ p: 4, borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px' }}>
       <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>Смена пароля</Typography>
-          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>После изменения понадобится войти заново.</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Смена пароля</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>После изменения понадобится войти заново.</Typography>
         </Box>
         <Button variant={open ? 'outlined' : 'contained'} onClick={onToggle} endIcon={<ExpandMore sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }} />}>
           {open ? 'Скрыть' : 'Сменить пароль'}
@@ -122,8 +148,9 @@ function FavoriteCard({ item, onDownload, onPreview }) {
           minHeight: 104,
           height: '100%',
           borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          backgroundColor: '#fff',
+          border: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: (theme) => theme.ep.panel,
           display: 'grid',
           gridTemplateColumns: '48px minmax(0, 1fr) auto',
           alignItems: 'center',
@@ -131,31 +158,31 @@ function FavoriteCard({ item, onDownload, onPreview }) {
           cursor: canPreview(item) ? 'pointer' : 'default',
           transition: 'border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
           '&:hover': {
-            borderColor: '#93c5fd',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+            borderColor: 'primary.main',
+            boxShadow: (theme) => theme.ep.shadow,
             transform: 'translateY(-1px)',
           },
         }}
       >
         <FavoriteFileIcon item={item} />
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.name}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
             {FavoriteMeta({ item })}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {canPreview(item) && (
             <Tooltip title="Предпросмотр">
-              <IconButton size="small" onClick={(event) => { event.stopPropagation(); onPreview(item); }} sx={{ color: '#2563eb' }}>
+              <IconButton size="small" onClick={(event) => { event.stopPropagation(); onPreview(item); }} sx={{ color: 'primary.main' }}>
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
           <Tooltip title={item.type === 'folder' ? 'Скачать как ZIP-архив' : 'Скачать файл'}>
-            <IconButton size="small" onClick={(event) => { event.stopPropagation(); onDownload(item.id, item.name, item.type); }} sx={{ color: '#2563eb' }}>
+            <IconButton size="small" onClick={(event) => { event.stopPropagation(); onDownload(item.id, item.name, item.type); }} sx={{ color: 'primary.main' }}>
               <DownloadIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -170,16 +197,16 @@ function FavoritesSection({ favorites, onDownload, onPreview }) {
     <Box sx={{ mt: 5 }}>
       <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 38, height: 38, borderRadius: '8px', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Star sx={{ color: '#f59e0b', fontSize: 24 }} />
+          <Box sx={{ width: 38, height: 38, borderRadius: '8px', backgroundColor: 'rgba(244, 185, 95, 0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Star sx={{ color: 'secondary.main', fontSize: 24 }} />
           </Box>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>Избранные объекты</Typography>
-            <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>{favorites.length} {favorites.length === 1 ? 'объект' : 'объектов'}</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>Избранные объекты</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>{favorites.length} {favorites.length === 1 ? 'объект' : 'объектов'}</Typography>
           </Box>
         </Box>
       </Box>
-      {favorites.length === 0 ? <Paper elevation={0} sx={{ p: 4, textAlign: 'center', borderRadius: '12px', border: '1px solid #e2e8f0' }}><Typography color="text.secondary">У вас пока нет избранных файлов.</Typography></Paper> : (
+      {favorites.length === 0 ? <Paper elevation={0} sx={{ ...panelSx, p: 4, textAlign: 'center', borderRadius: '12px' }}><Typography color="text.secondary">У вас пока нет избранных файлов.</Typography></Paper> : (
         <Grid container spacing={2}>{favorites.map((item) => <FavoriteCard key={`${item.type}-${item.id}`} item={item} onDownload={onDownload} onPreview={onPreview} />)}</Grid>
       )}
     </Box>
@@ -189,8 +216,8 @@ function FavoritesSection({ favorites, onDownload, onPreview }) {
 function TaskWidget({ tasks, clearTasks }) {
   if (tasks.length === 0) return null;
   return (
-    <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, borderRadius: '12px', zIndex: 2000, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0' }}><Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Скачивания: {tasks.filter((task) => task.status === 'downloading').length}</Typography><IconButton size="small" onClick={clearTasks}><Close fontSize="small" /></IconButton></Box>
+    <Paper elevation={4} sx={{ ...panelSx, position: 'fixed', bottom: 24, right: 24, width: 360, borderRadius: '12px', zIndex: 2000, overflow: 'hidden' }}>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}><Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Скачивания: {tasks.filter((task) => task.status === 'downloading').length}</Typography><IconButton size="small" onClick={clearTasks}><Close fontSize="small" /></IconButton></Box>
       <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>{tasks.map((task) => <TaskItem key={task.id} task={task} />)}</Box>
     </Paper>
   );
@@ -198,15 +225,16 @@ function TaskWidget({ tasks, clearTasks }) {
 
 function TaskItem({ task }) {
   return (
-    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-      {task.status === 'downloading' ? <CircularProgress size={24} /> : <CheckCircle sx={{ color: task.status === 'success' ? '#16a34a' : '#ef4444' }} />}
+    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.subtle }}>
+      {task.status === 'downloading' ? <CircularProgress size={24} /> : <CheckCircle sx={{ color: task.status === 'success' ? 'success.main' : 'error.main' }} />}
       <Box sx={{ overflow: 'hidden' }}><Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>{task.name}</Typography><Typography variant="caption" color="text.secondary">{task.subText}</Typography></Box>
     </Box>
   );
 }
 
 export default function Files({ onPreviewFile }) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const { mode, toggleMode } = useThemeMode();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [storageStats, setStorageStats] = useState(null);
@@ -220,6 +248,7 @@ export default function Files({ onPreviewFile }) {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   useEffect(() => {
     Promise.all([api.get('/storage/stats/'), api.get('/favorites/all/')]).then(([statsRes, favsRes]) => {
@@ -244,6 +273,35 @@ export default function Files({ onPreviewFile }) {
 
   const isAdmin = Boolean(user?.is_staff || user?.is_superuser);
   const handleLogout = () => { logout(); navigate('/login'); };
+  const handleAvatarChange = async (event) => {
+    const avatar = event.target.files?.[0];
+    event.target.value = '';
+    if (!avatar) return;
+    const formData = new FormData();
+    formData.append('avatar', avatar);
+    try {
+      setAvatarUploading(true);
+      const response = await api.post('/auth/avatar/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      updateUser(response.data.user);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось загрузить аватар');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+  const handleAvatarDelete = async () => {
+    try {
+      setAvatarUploading(true);
+      const response = await api.delete('/auth/avatar/');
+      updateUser(response.data.user);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не удалось удалить аватар');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
   const handlePasswordChange = (field, value) => {
     setPasswordForm((prev) => ({ ...prev, [field]: value }));
     setPasswordError('');
@@ -272,7 +330,7 @@ export default function Files({ onPreviewFile }) {
     <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
       <Grid container spacing={4}>
-        <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} onFiles={() => navigate('/file-manager')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
+        <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
         <Grid item xs={12} md={7}>
           <Box sx={{ display: 'grid', gap: 3 }}>
             <StatsCard user={user} stats={storageStats} />

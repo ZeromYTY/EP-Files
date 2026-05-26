@@ -94,6 +94,118 @@ def test_file_permission_grant_list_revoke(settings, tmp_path):
     assert response.status_code == 200
     assert not Permission.objects.filter(user=target, file=file_obj).exists()
 
+    response = auth_client(target).get(f"/api/files/{file_obj.id}/content/")
+    assert response.status_code == 403
+
+    response = auth_client(target).post(
+        f"/api/files/{file_obj.id}/save/",
+        {"content": "should stay blocked"},
+        format="json",
+    )
+    assert response.status_code == 403
+
+    response = auth_client(target).get("/api/files/")
+    assert response.status_code == 200
+    assert all(item["id"] != file_obj.id for item in response.data)
+
+
+@pytest.mark.django_db
+def test_file_access_roles_and_direct_id_bypass_are_blocked(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("roles_owner@example.com")
+    invited = make_user("roles_invited@example.com")
+    stranger = make_user("roles_stranger@example.com")
+    file_obj = make_file(owner, name="roles.txt", content=b"owner secret")
+    Permission.objects.create(
+        user=invited,
+        granted_by=owner,
+        file=file_obj,
+        permission_type=Permission.READ,
+    )
+
+    owner_client = auth_client(owner)
+    invited_client = auth_client(invited)
+    stranger_client = auth_client(stranger)
+
+    response = owner_client.get(f"/api/files/{file_obj.id}/detail/")
+    assert response.status_code == 200
+    assert response.data["can_write"] is True
+
+    response = owner_client.post(
+        f"/api/files/{file_obj.id}/save/",
+        {"content": "owner update"},
+        format="json",
+    )
+    assert response.status_code == 200
+
+    response = invited_client.get(f"/api/files/{file_obj.id}/detail/")
+    assert response.status_code == 200
+    assert response.data["can_write"] is False
+
+    response = invited_client.get(f"/api/files/{file_obj.id}/content/")
+    assert response.status_code == 200
+    assert response.data["content"] == "owner update"
+
+    response = invited_client.get(f"/api/files/{file_obj.id}/download/")
+    assert response.status_code == 200
+
+    response = invited_client.post(
+        f"/api/files/{file_obj.id}/save/",
+        {"content": "invited edit"},
+        format="json",
+    )
+    assert response.status_code == 403
+
+    response = invited_client.patch(
+        f"/api/files/{file_obj.id}/",
+        {"name": "renamed-by-invited.txt"},
+        format="json",
+    )
+    assert response.status_code == 403
+
+    response = invited_client.patch(
+        f"/api/files/{file_obj.id}/move/",
+        {"folder_id": ""},
+        format="json",
+    )
+    assert response.status_code == 403
+
+    response = invited_client.delete(f"/api/files/{file_obj.id}/")
+    assert response.status_code == 403
+
+    blocked_requests = [
+        stranger_client.get(f"/api/files/{file_obj.id}/detail/"),
+        stranger_client.get(f"/api/files/{file_obj.id}/content/"),
+        stranger_client.get(f"/api/files/{file_obj.id}/download/"),
+        stranger_client.post(
+            f"/api/files/{file_obj.id}/save/",
+            {"content": "stranger edit"},
+            format="json",
+        ),
+        stranger_client.patch(
+            f"/api/files/{file_obj.id}/",
+            {"name": "renamed-by-stranger.txt"},
+            format="json",
+        ),
+        stranger_client.patch(
+            f"/api/files/{file_obj.id}/move/",
+            {"folder_id": ""},
+            format="json",
+        ),
+        stranger_client.delete(f"/api/files/{file_obj.id}/"),
+    ]
+    assert [response.status_code for response in blocked_requests] == [403] * len(blocked_requests)
+
+    response = stranger_client.get("/api/files/")
+    assert response.status_code == 200
+    assert all(item["id"] != file_obj.id for item in response.data)
+
+    file_obj.refresh_from_db()
+    assert file_obj.name == "roles.txt"
+    with file_obj.file.open("rb") as stored_file:
+        assert stored_file.read() == b"owner update"
+
 
 @pytest.mark.django_db
 def test_read_only_file_permission_can_read_but_not_edit(settings, tmp_path):
@@ -327,4 +439,85 @@ def test_public_file_metadata_for_ui(settings, tmp_path):
     file_obj.save(update_fields=["public_expires_at"])
 
     response = APIClient().get(f"/api/public/files/{token}/?meta=1")
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_public_file_link_active_disabled_and_missing_token(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("public_file_owner@example.com")
+    stranger = make_user("public_file_stranger@example.com")
+    file_obj = make_file(owner, name="public-link.txt", content=b"public link content")
+
+    response = auth_client(stranger).post(f"/api/files/{file_obj.id}/public-link/", {}, format="json")
+    assert response.status_code == 404
+
+    owner_client = auth_client(owner)
+    response = owner_client.post(f"/api/files/{file_obj.id}/public-link/", {}, format="json")
+    assert response.status_code == 200
+    token = response.data["public_token"]
+
+    anonymous_client = APIClient()
+    response = anonymous_client.get(f"/api/public/files/{token}/?meta=1")
+    assert response.status_code == 200
+    assert response.data["name"] == "public-link.txt"
+
+    response = anonymous_client.get(f"/api/public/files/{token}/")
+    assert response.status_code == 200
+
+    response = anonymous_client.get("/api/public/files/not-a-real-token/")
+    assert response.status_code == 404
+
+    response = auth_client(stranger).delete(f"/api/files/{file_obj.id}/public-link/disable/")
+    assert response.status_code == 404
+
+    response = owner_client.delete(f"/api/files/{file_obj.id}/public-link/disable/")
+    assert response.status_code == 200
+
+    response = anonymous_client.get(f"/api/public/files/{token}/?meta=1")
+    assert response.status_code == 404
+
+    file_obj.refresh_from_db()
+    assert file_obj.is_public is False
+    assert file_obj.public_token is None
+
+
+@pytest.mark.django_db
+def test_public_folder_link_blocks_file_id_bypass(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("public_folder_owner@example.com")
+    stranger = make_user("public_folder_stranger@example.com")
+    shared_folder = Folder.objects.create(name="Shared Public", owner=owner)
+    private_folder = Folder.objects.create(name="Private Sibling", owner=owner)
+    shared_file = make_file(owner, name="shared.txt", content=b"shared", folder=shared_folder)
+    private_file = make_file(owner, name="private.txt", content=b"private", folder=private_folder)
+
+    response = auth_client(stranger).post(f"/api/folders/{shared_folder.id}/public-link/", {}, format="json")
+    assert response.status_code == 404
+
+    owner_client = auth_client(owner)
+    response = owner_client.post(f"/api/folders/{shared_folder.id}/public-link/", {}, format="json")
+    assert response.status_code == 200
+    token = response.data["public_token"]
+
+    anonymous_client = APIClient()
+    response = anonymous_client.get(f"/api/public/folders/{token}/")
+    assert response.status_code == 200
+    assert {item["id"] for item in response.data["files"]} == {shared_file.id}
+
+    response = anonymous_client.get(f"/api/public/folders/{token}/files/{shared_file.id}/")
+    assert response.status_code == 200
+
+    response = anonymous_client.get(f"/api/public/folders/{token}/files/{private_file.id}/")
+    assert response.status_code == 404
+
+    response = anonymous_client.get("/api/public/folders/not-a-real-token/")
+    assert response.status_code == 404
+
+    response = owner_client.delete(f"/api/folders/{shared_folder.id}/public-link/disable/")
+    assert response.status_code == 200
+
+    response = anonymous_client.get(f"/api/public/folders/{token}/")
     assert response.status_code == 404

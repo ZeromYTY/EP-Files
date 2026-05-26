@@ -21,7 +21,7 @@ function AdminRoute() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: '#0f172a',
+          background: (theme) => theme.ep.pageGradient,
           p: 3,
         }}
       >

@@ -189,7 +189,7 @@ class HasFileReadPermission(permissions.BasePermission):
         has_object_permission(request, view, obj): Проверяет права доступа
             к конкретному файлу через сервис авторизации.
     """
-    
+
     def has_object_permission(self, request, view, obj):
         """Проверяет возможность чтения конкретного объекта файла пользователем.
 
@@ -221,7 +221,7 @@ class HasFileWritePermission(permissions.BasePermission):
     """
     Проверяет права на запись файла (владелец или есть права доступа)
     """
-    
+
     def has_object_permission(self, request, view, obj):
         return permission_service.can_write_file(request.user, obj)
 
@@ -237,7 +237,7 @@ class HasFolderReadPermission(permissions.BasePermission):
         has_object_permission(request, view, obj): Проверяет права доступа
             к конкретному файлу на изменение через сервис авторизации.
     """
-    
+
     def has_object_permission(self, request, view, obj):
         """Проверяет возможность записи в конкретный объект файла пользователем.
 
@@ -276,7 +276,7 @@ class HasFolderWritePermission(permissions.BasePermission):
         has_object_permission(request, view, obj): Проверяет права доступа
             к конкретной папке на изменение через сервис авторизации.
     """
-    
+
     def has_object_permission(self, request, view, obj):
         """Проверяет возможность записи в конкретный объект папки пользователем.
 

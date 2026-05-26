@@ -36,7 +36,7 @@ class Permission(models.Model):
 
     READ = 'read'
     READ_WRITE = 'read_write'
-    
+
     PERMISSION_CHOICES = [
         (READ, 'Чтение'),
         (READ_WRITE, 'Чтение и запись'),
@@ -88,7 +88,7 @@ class Permission(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = 'Право доступа'
         verbose_name_plural = 'Права доступа'
@@ -103,7 +103,7 @@ class Permission(models.Model):
             models.Index(fields=['file']),
             models.Index(fields=['folder']),
         ]
-    
+
     def clean(self):
         """Выполняет комплексную проверку целостности бизнес-логики права доступа.
 
@@ -118,7 +118,7 @@ class Permission(models.Model):
         """
         if self.file and self.folder:
             raise ValidationError('Нельзя указать одновременно файл и папку')
-        
+
         if not self.file and not self.folder:
             raise ValidationError('Необходимо указать файл или папку')
 
@@ -127,10 +127,10 @@ class Permission(models.Model):
 
         if self.file and self.file.owner != self.granted_by:
             raise ValidationError('Только владелец файла может выдавать права')
-        
+
         if self.folder and self.folder.owner != self.granted_by:
             raise ValidationError('Только владелец папки может выдавать права')
-    
+
     def save(self, *args, **kwargs):
         """Сохраняет запись права доступа в БД с предварительной проверкой чистоты данных.
 
@@ -139,11 +139,11 @@ class Permission(models.Model):
         """
         self.clean()
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
         resource = self.file.name if self.file else self.folder.name
         return f"{self.user.email} - {self.get_permission_type_display()} - {resource}"
-    
+
     @property
     def resource_type(self):
         """Возвращает строковый маркер типа защищаемого ресурса.
@@ -153,7 +153,7 @@ class Permission(models.Model):
             или ``'folder'``, если право выдано на директорию.
         """
         return 'file' if self.file else 'folder'
-    
+
     @property
     def resource(self):
         """Возвращает непосредственный объект модели, на который наложено право.
@@ -163,7 +163,7 @@ class Permission(models.Model):
             от заполненного внешнего ключа.
         """
         return self.file if self.file else self.folder
-    
+
     @property
     def can_write(self):
         """Определяет, предоставляет ли текущее правило полномочия на модификацию ресурса.
@@ -172,7 +172,7 @@ class Permission(models.Model):
             bool: True, если тип разрешения эквивалентен ``READ_WRITE``, иначе False.
         """
         return self.permission_type == self.READ_WRITE
-    
+
     @property
     def can_read(self):
         """Определяет, предоставляет ли текущее правило полномочия на чтение ресурса.

@@ -46,7 +46,7 @@ class FileEvent:
     new_value: Optional[str] = None
     details: Dict[str, Any] = None
     ip_address: Optional[str] = None
-    
+
     def __post_init__(self):
         """Выполняет пост-инициализацию объекта события после сборки конструктора.
 
@@ -69,7 +69,7 @@ class FileObserver(ABC):
     на операции с файлами (например, подсистемы аудита, квотирования, индексации или
     уведомлений), должен наследоваться от данного класса и реализовывать его интерфейс.
     """
-    
+
     @abstractmethod
     def update(self, event: FileEvent) -> None:
         """Абстрактный метод обработки входящего файлового события.
@@ -106,11 +106,11 @@ class FileSubject:
         detach(observer): Удаляет существующего наблюдателя из списка рассылки.
         notify(event): Оповещает всех зарегистрированных наблюдателей о событии.
     """
-    
+
     def __init__(self):
         """Инициализирует пустой список для хранения зарегистрированных наблюдателей."""
         self._observers: list[FileObserver] = []
-    
+
     def attach(self, observer: FileObserver) -> None:
         """Регистрирует (подписывает) нового наблюдателя на получение событий.
 
@@ -123,7 +123,7 @@ class FileSubject:
         """
         if observer not in self._observers:
             self._observers.append(observer)
-    
+
     def detach(self, observer: FileObserver) -> None:
         """Удаляет (отписывает) наблюдателя из списка рассылки событий.
 
@@ -135,7 +135,7 @@ class FileSubject:
         """
         if observer in self._observers:
             self._observers.remove(observer)
-    
+
     def notify(self, event: FileEvent) -> None:
         """Последовательно уведомляет всех зарегистрированных наблюдателей о новом событии.
 

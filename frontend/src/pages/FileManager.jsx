@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContextValue';
-import { createFolder, renameSelectedItem, toggleFavoriteItem, useDownloadCommand, useSelectionDialogs, useUploadCommand } from './file-manager/useFileManagerCommands';
+import { createFolder, moveFileToFolder, renameSelectedItem, toggleFavoriteItem, useDownloadCommand, useSelectionDialogs, useUploadCommand } from './file-manager/useFileManagerCommands';
 import { currentLocationName, isEditableTextFile, sortedFileManagerItems } from './file-manager/fileManagerHelpers';
 import FileManagerView from './file-manager/FileManagerView';
 import useFileManagerData from './file-manager/useFileManagerData';
@@ -9,7 +9,7 @@ import useTaskQueue from './file-manager/useTaskQueue';
 import useTextEditor from './file-manager/useTextEditor';
 import api from '../api/axios';
 
-function buildListProps({ viewMode, setCurrentFolderId, download, onPreviewFile, textEditor, dialogs, processUpload, user }) {
+function buildListProps({ viewMode, setCurrentFolderId, download, onPreviewFile, textEditor, dialogs, processUpload, moveFile, user }) {
   return {
     viewMode,
     currentUserEmail: user?.email,
@@ -22,29 +22,29 @@ function buildListProps({ viewMode, setCurrentFolderId, download, onPreviewFile,
     onMenuOpen: dialogs.openItemMenu,
     onReportClick: dialogs.openReport,
     onFileDropped: processUpload,
+    onMoveFileToFolder: moveFile,
   };
 }
 
-function buildHandlers({ user, navigate, logout, state, data, commands, dialogs, textEditor, onPreviewFile }) {
+function buildHandlers({ user, state, data, commands, dialogs, textEditor, onPreviewFile }) {
   const back = () => {
     const current = data.breadcrumbs.find((folder) => folder.id === state.currentFolderId);
     state.setCurrentFolderId(current?.parent_id || null);
   };
   return {
-    logout: () => { logout(); navigate('/login'); },
     manualUpload: (event) => commands.manualUpload(event),
     back,
     home: () => state.setCurrentFolderId(null),
     breadcrumbClick: state.setCurrentFolderId,
     canEdit: isEditableTextFile,
-    listProps: buildListProps({ viewMode: state.viewMode, setCurrentFolderId: state.setCurrentFolderId, download: commands.download, onPreviewFile, textEditor, dialogs, processUpload: commands.processUpload, user }),
+    listProps: buildListProps({ viewMode: state.viewMode, setCurrentFolderId: state.setCurrentFolderId, download: commands.download, onPreviewFile, textEditor, dialogs, processUpload: commands.processUpload, moveFile: commands.moveFile, user }),
     user,
   };
 }
 
 function buildDialogs({ state, data, commands, selection, textEditor, report }) {
   const closeCreateFolder = () => state.setCreateFolderOpen(false);
-  const closeItemMenu = () => state.setMenuAnchor(null);
+  const closeItemMenu = () => { state.setMenuAnchor(null); state.setMenuAnchorPosition(null); };
   const closeRename = () => { selection.setRenameDialogOpen(false); selection.setNewName(''); };
   return {
     anchorEl: state.anchorEl,
@@ -78,8 +78,20 @@ function buildDialogs({ state, data, commands, selection, textEditor, report }) 
 function buildItemDialogs({ state, data, commands, selection, textEditor, closeItemMenu, report }) {
   return {
     menuAnchor: state.menuAnchor,
+    menuAnchorPosition: state.menuAnchorPosition,
     selectedItem: selection.selectedItem,
-    openItemMenu: (event, item, type) => { event.stopPropagation(); state.setMenuAnchor(event.currentTarget); selection.setSelectedItem({ ...item, type }); },
+    openItemMenu: (event, item, type) => {
+      event.preventDefault();
+      event.stopPropagation();
+      selection.setSelectedItem({ ...item, type });
+      if (event.type === 'contextmenu') {
+        state.setMenuAnchor(null);
+        state.setMenuAnchorPosition({ top: event.clientY, left: event.clientX });
+      } else {
+        state.setMenuAnchorPosition(null);
+        state.setMenuAnchor(event.currentTarget);
+      }
+    },
     closeItemMenu,
     moveDialogOpen: selection.moveDialogOpen,
     closeMove: () => selection.setMoveDialogOpen(false),
@@ -110,13 +122,14 @@ function buildItemMenuActions({ commands, selection, textEditor, closeItemMenu, 
 }
 
 export default function FileManager({ onPreviewFile }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('list');
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuAnchorPosition, setMenuAnchorPosition] = useState(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
@@ -129,7 +142,7 @@ export default function FileManager({ onPreviewFile }) {
   const download = useDownloadCommand(taskQueue);
   const textEditor = useTextEditor({ setError: data.setError, setSuccess: data.setSuccess, loadData: data.loadData });
   const selection = useSelectionDialogs({ loadData: data.loadData, setError: data.setError, setSuccess: data.setSuccess, taskQueue });
-  const state = { currentFolderId, setCurrentFolderId, viewMode, setViewMode, anchorEl, setAnchorEl, menuAnchor, setMenuAnchor, createFolderOpen, setCreateFolderOpen, newFolderName, setNewFolderName };
+  const state = { currentFolderId, setCurrentFolderId, viewMode, setViewMode, anchorEl, setAnchorEl, menuAnchor, setMenuAnchor, menuAnchorPosition, setMenuAnchorPosition, createFolderOpen, setCreateFolderOpen, newFolderName, setNewFolderName };
   const commands = {
     processUpload,
     download,
@@ -137,6 +150,7 @@ export default function FileManager({ onPreviewFile }) {
     createFolder: () => createFolder({ name: newFolderName, currentFolderId, setName: setNewFolderName, setOpen: setCreateFolderOpen, setError: data.setError, loadData: data.loadData }),
     rename: () => renameSelectedItem({ selectedItem: selection.selectedItem, newName: selection.newName, setRenameDialogOpen: selection.setRenameDialogOpen, setNewName: selection.setNewName, setError: data.setError, loadData: data.loadData }),
     favorite: (selectedItem) => toggleFavoriteItem({ selectedItem, setFavoriteIds: data.setFavoriteIds, setError: data.setError, setSuccess: data.setSuccess }),
+    moveFile: (file, targetFolder) => moveFileToFolder({ file, targetFolder, setError: data.setError, setSuccess: data.setSuccess, loadData: data.loadData }),
   };
   const report = {
     reportDialogOpen,
@@ -162,7 +176,7 @@ export default function FileManager({ onPreviewFile }) {
     },
   };
   const dialogs = buildDialogs({ state, data, commands, selection, textEditor, report });
-  const handlers = buildHandlers({ user, navigate, logout, state, data, commands, dialogs, textEditor, onPreviewFile });
+  const handlers = buildHandlers({ user, state, data, commands, dialogs, textEditor, onPreviewFile });
   const sortedItems = sortedFileManagerItems(data.folders, data.files, data.favoriteIds);
   const locationName = currentLocationName(currentFolderId, data.breadcrumbs);
   return <FileManagerView user={user} navigate={navigate} searchQuery={searchQuery} setSearchQuery={setSearchQuery} viewMode={viewMode} setViewMode={setViewMode} currentFolderId={currentFolderId} breadcrumbs={data.breadcrumbs} sortedItems={sortedItems} loading={data.loading} error={data.error} success={data.success} setError={data.setError} setSuccess={data.setSuccess} locationName={locationName} handlers={handlers} dialogs={dialogs} tasks={taskQueue} textEditor={textEditor} />;

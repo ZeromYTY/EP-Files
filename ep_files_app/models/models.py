@@ -48,6 +48,7 @@ class User(models.Model):
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100, blank=True, default="")
+    avatar = models.ImageField(upload_to="avatars", null=True, blank=True)
     password_hash = models.CharField(max_length=128)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
@@ -97,6 +98,8 @@ class Folder(models.Model):
     )
     is_public = models.BooleanField(default=False)
     public_expires_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -131,14 +134,14 @@ class Folder(models.Model):
     def get_total_size(self):
         """Вычисляет общий размер всех файлов в папке и подпапках."""
         from django.db.models import Sum
-        
+
         total_size = 0
-        direct_files_size = self.files.aggregate(total=Sum('size'))['total'] or 0
+        direct_files_size = self.files.filter(is_deleted=False).aggregate(total=Sum('size'))['total'] or 0
         total_size += direct_files_size
-        
+
         for child in self.children.all():
             total_size += child.get_total_size()
-        
+
         return total_size
 
 
@@ -166,6 +169,8 @@ class File(models.Model):
     )
     is_public = models.BooleanField(default=False)
     public_expires_at = models.DateTimeField(null=True, blank=True)
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name if self.name else "Unnamed File"

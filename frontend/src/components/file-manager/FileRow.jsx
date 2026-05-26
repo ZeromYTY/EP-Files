@@ -1,5 +1,7 @@
+import React, { useState } from 'react';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Download as DownloadIcon, Edit, MoreVert, Star } from '@mui/icons-material';
+import { getDraggedManagerItem, hasDraggedManagerItem, setDraggedManagerItem } from './dragDrop';
 
 function isEditableTextFile(file) {
   if (file?.can_write === false) return false;
@@ -46,12 +48,41 @@ function UploaderEmail({ file, currentUserEmail }) {
 }
 
 export default function FileRow({ file, getFileIcon, formatFileSize, formatDate, onFolderClick, ...actions }) {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const isFolder = file.type === 'folder';
+  const isDraggableFile = file.type === 'file' && file.can_write !== false;
   const openItem = () => {
-    if (file.type === 'folder') onFolderClick?.(file.id);
+    if (isFolder) onFolderClick?.(file.id);
     else actions.onPreviewClick?.(file);
   };
+  const openContextMenu = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    actions.onMenuOpen?.(event, file, file.type);
+  };
+  const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e) => {
+    stop(e);
+    setIsDragActive(false);
+    const movedItem = getDraggedManagerItem(e);
+    if (movedItem && isFolder) {
+      actions.onMoveFileToFolder?.(movedItem, file);
+      return;
+    }
+    if (movedItem) return;
+    const droppedFiles = Array.from(e.dataTransfer?.files || []);
+    if (droppedFiles.length === 0) return;
+    if (isFolder) actions.onFileDropped?.(droppedFiles, file.id);
+    else actions.onFileDropped?.(droppedFiles);
+  };
+  const handleDragOver = (e) => {
+    if (hasDraggedManagerItem(e) && !isFolder) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = hasDraggedManagerItem(e) ? 'move' : 'copy';
+    setIsDragActive(true);
+  };
   return (
-    <Box onClick={openItem} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}>
+    <Box draggable={isDraggableFile} onDragStart={(event) => setDraggedManagerItem(event, file)} onClick={openItem} onContextMenu={openContextMenu} onDragOver={handleDragOver} onDragLeave={() => setIsDragActive(false)} onDrop={handleDrop} sx={{ display: 'grid', gridTemplateColumns: '56px minmax(0, 1fr) minmax(140px, 220px) 150px 120px 120px', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid', borderColor: 'divider', cursor: isDraggableFile ? 'grab' : 'pointer', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'inherit', '&:hover': { backgroundColor: (theme) => theme.ep.hover }, '&:active': { cursor: isDraggableFile ? 'grabbing' : 'pointer' } }}>
       <Box>{getFileIcon(file, 32)}</Box>
       <Typography variant="body2" sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Typography>
       <UploaderEmail file={file} currentUserEmail={actions.currentUserEmail} />

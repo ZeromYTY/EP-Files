@@ -1,6 +1,10 @@
+from io import BytesIO
+
 import pytest
 from django.contrib.auth.hashers import check_password
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from PIL import Image
 
 from ep_files_app.models.models import User
 
@@ -221,6 +225,54 @@ def test_protected_endpoint_with_invalid_token_returns_401(api_client):
     )
 
     assert response.status_code == 401
+
+
+def test_avatar_upload_and_delete(api_client, user_factory, token_factory, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    user = user_factory(email="avatar@example.com", password="StrongPass123")
+    access_token = token_factory(user)
+    image_buffer = BytesIO()
+    Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+    avatar = SimpleUploadedFile(
+        "avatar.png",
+        image_buffer.getvalue(),
+        content_type="image/png",
+    )
+
+    response = api_client.post(
+        reverse("avatar"),
+        {"avatar": avatar},
+        format="multipart",
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 200
+    assert response.data["user"]["avatar_url"]
+    user.refresh_from_db()
+    assert user.avatar
+
+    response = api_client.delete(reverse("avatar"), HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+    assert response.status_code == 200
+    assert response.data["user"]["avatar_url"] is None
+    user.refresh_from_db()
+    assert not user.avatar
+
+
+def test_avatar_rejects_non_image(api_client, user_factory, token_factory):
+    user = user_factory(email="bad_avatar@example.com", password="StrongPass123")
+    access_token = token_factory(user)
+    avatar = SimpleUploadedFile("avatar.txt", b"not image", content_type="text/plain")
+
+    response = api_client.post(
+        reverse("avatar"),
+        {"avatar": avatar},
+        format="multipart",
+        HTTP_AUTHORIZATION=f"Bearer {access_token}",
+    )
+
+    assert response.status_code == 400
 
 
 def test_protected_endpoint_with_valid_token_returns_200(

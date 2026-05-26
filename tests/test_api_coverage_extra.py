@@ -111,10 +111,113 @@ def test_delete_api_success_forbidden_and_not_found(settings, tmp_path):
 
     response = auth_client(owner).delete(f"/api/files/{file_obj.id}/")
     assert response.status_code == 200
-    assert not File.objects.filter(id=file_obj.id).exists()
+    file_obj.refresh_from_db()
+    assert file_obj.is_deleted is True
+    assert file_obj.deleted_at is not None
 
     response = auth_client(owner).delete("/api/files/999999/")
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_trash_api_list_restore_delete_and_clear(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("trash_owner@example.com")
+    stranger = make_user("trash_stranger@example.com")
+    client = auth_client(owner)
+
+    first_file = make_file(owner, "first.txt", b"first")
+    second_file = make_file(owner, "second.txt", b"second")
+    stranger_file = make_file(stranger, "hidden.txt", b"hidden")
+
+    assert client.delete(f"/api/files/{first_file.id}/").status_code == 200
+    assert client.delete(f"/api/files/{second_file.id}/").status_code == 200
+    assert auth_client(stranger).delete(f"/api/files/{stranger_file.id}/").status_code == 200
+
+    response = client.get("/api/trash/")
+    assert response.status_code == 200
+    trash_ids = {item["id"] for item in response.data["items"]}
+    assert trash_ids == {first_file.id, second_file.id}
+
+    response = client.get("/api/files/")
+    assert response.status_code == 200
+    assert first_file.id not in {item["id"] for item in response.data}
+
+    response = client.patch(f"/api/trash/{first_file.id}/restore/")
+    assert response.status_code == 200
+    first_file.refresh_from_db()
+    assert first_file.is_deleted is False
+    assert first_file.deleted_at is None
+
+    response = auth_client(stranger).patch(f"/api/trash/{second_file.id}/restore/")
+    assert response.status_code == 404
+
+    response = client.delete(f"/api/trash/{second_file.id}/")
+    assert response.status_code == 200
+    assert not File.objects.filter(id=second_file.id).exists()
+
+    third_file = make_file(owner, "third.txt", b"third")
+    assert client.delete(f"/api/files/{third_file.id}/").status_code == 200
+    response = client.delete("/api/trash/clear/")
+    assert response.status_code == 200
+    assert response.data["deleted_count"] == 1
+    assert not File.objects.filter(id=third_file.id).exists()
+    assert File.objects.filter(id=stranger_file.id).exists()
+
+
+@pytest.mark.django_db
+def test_trash_api_handles_non_empty_folders(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    owner = make_user("trash_folder_owner@example.com")
+    client = auth_client(owner)
+
+    folder = Folder.objects.create(owner=owner, name="Project")
+    nested_file = make_file(owner, "brief.txt", b"brief", folder=folder)
+
+    response = client.delete(f"/api/folders/{folder.id}/delete/")
+    assert response.status_code == 200
+    assert response.data["status"] == "moved_to_trash"
+
+    folder.refresh_from_db()
+    nested_file.refresh_from_db()
+    assert folder.is_deleted is True
+    assert nested_file.is_deleted is True
+
+    response = client.get("/api/trash/")
+    assert response.status_code == 200
+    folder_items = [item for item in response.data["items"] if item["type"] == "folder"]
+    assert [item["id"] for item in folder_items] == [folder.id]
+
+    response = client.get(f"/api/trash/?folder_id={folder.id}")
+    assert response.status_code == 200
+    assert response.data["current_folder"]["id"] == folder.id
+    assert response.data["items"][0]["id"] == nested_file.id
+    assert response.data["items"][0]["type"] == "file"
+
+    response = client.patch(f"/api/trash/{nested_file.id}/restore/")
+    assert response.status_code == 200
+    nested_file.refresh_from_db()
+    assert nested_file.is_deleted is False
+    assert nested_file.folder is None
+
+    response = client.get("/api/trash/")
+    assert response.status_code == 200
+    assert response.data["items"] == []
+
+    nested_file.folder = folder
+    nested_file.is_deleted = True
+    nested_file.deleted_at = folder.deleted_at
+    nested_file.save(update_fields=["folder", "is_deleted", "deleted_at"])
+
+    response = client.patch(f"/api/trash/folders/{folder.id}/restore/")
+    assert response.status_code == 200
+    folder.refresh_from_db()
+    nested_file.refresh_from_db()
+    assert folder.is_deleted is False
+    assert nested_file.is_deleted is False
+    assert nested_file.folder_id == folder.id
 
 
 @pytest.mark.django_db

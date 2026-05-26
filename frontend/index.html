@@ -5,6 +5,36 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EP Files</title>
+    <script>
+      (function () {
+        var mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.dataset.theme = mode;
+      }());
+    </script>
+    <style>
+      :root {
+        --app-bg: radial-gradient(circle at 18% 0%, rgba(68, 215, 182, 0.16), transparent 28%),
+          radial-gradient(circle at 100% 10%, rgba(244, 185, 95, 0.12), transparent 24%),
+          #0b0d10;
+      }
+
+      :root[data-theme='light'] {
+        --app-bg: radial-gradient(circle at 18% 0%, rgba(20, 184, 166, 0.14), transparent 28%),
+          radial-gradient(circle at 100% 10%, rgba(246, 199, 110, 0.16), transparent 24%),
+          #f5f7fb;
+      }
+
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        background: var(--app-bg);
+      }
+
+      body {
+        margin: 0;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

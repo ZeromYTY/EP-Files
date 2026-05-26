@@ -55,7 +55,7 @@ def get_upload_folder(request):
     if not folder_id:
         return None, None
     try:
-        folder = Folder.objects.get(id=folder_id)
+        folder = Folder.objects.get(id=folder_id, is_deleted=False)
     except Folder.DoesNotExist:
         return None, Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -85,7 +85,7 @@ def create_uploaded_file(uploaded_file, request, folder):
 
 
 def validate_storage_limit(user, incoming_size, replaced_size=0):
-    current_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+    current_size = File.objects.filter(owner=user, is_deleted=False).aggregate(total=Sum("size"))["total"] or 0
     projected_size = current_size - replaced_size + incoming_size
     if projected_size > user.storage_limit:
         available_space = max(user.storage_limit - current_size, 0)
@@ -151,7 +151,7 @@ def list_files(request):
 @permission_classes([IsAuthenticated])
 def download_file(request, file_id):
     try:
-        file_rec = File.objects.get(id=file_id)
+        file_rec = File.objects.get(id=file_id, is_deleted=False)
         if not permission_service.can_read_file(request.user, file_rec):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         if not file_rec.file or not os.path.exists(file_rec.file.path):
@@ -180,52 +180,50 @@ def download_file(request, file_id):
 @permission_classes([IsAuthenticated])
 def delete_file(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
-        
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
+
         if request.method == "PATCH":
             if not permission_service.can_write_file(request.user, file_obj):
                 return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
             new_name = request.data.get("name", "").strip()
             if not new_name:
                 return Response({"error": "New name is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             old_name = file_obj.name
             file_obj.name = new_name
             file_obj.save(update_fields=["name"])
-            
+
             logger.info("File renamed: %s -> %s by user %s", old_name, new_name, request.user.email)
             return Response({
                 "message": "File renamed successfully",
                 "file": FileSerializer(file_obj).data
             })
-        
+
         if file_obj.owner != request.user:
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
 
         filename = file_obj.name
         file_id_for_event = file_obj.id
-        if file_obj.file:
-            try:
-                file_obj.file.delete(save=False)
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.error("Error deleting physical file: %s", str(exc))
-        file_obj.delete()
+        file_obj.is_deleted = True
+        file_obj.deleted_at = timezone.now()
+        file_obj.save(update_fields=["is_deleted", "deleted_at"])
         file_event_service.emit_delete_event(
             file_id=file_id_for_event,
             file_name=filename,
             user=request.user,
             ip_address=request.META.get("REMOTE_ADDR"),
         )
-        logger.info("File deleted: %s by user %s", filename, request.user.email)
-        return Response({"message": f'File "{filename}" deleted successfully'})
+        logger.info("File moved to trash: %s by user %s", filename, request.user.email)
+        return Response({"message": f'File "{filename}" moved to trash successfully'})
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def file_move(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
     except File.DoesNotExist:
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -237,7 +235,7 @@ def file_move(request, file_id):
 
     if target_folder_id not in (None, ""):
         try:
-            target_folder = Folder.objects.get(id=target_folder_id)
+            target_folder = Folder.objects.get(id=target_folder_id, is_deleted=False)
         except (Folder.DoesNotExist, ValueError, TypeError):
             return Response({"error": "Target folder not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -277,7 +275,7 @@ def file_move(request, file_id):
 @permission_classes([IsAuthenticated])
 def file_detail(request, file_id):
     try:
-        file_obj = File.objects.get(id=file_id)
+        file_obj = File.objects.get(id=file_id, is_deleted=False)
         if not permission_service.can_read_file(request.user, file_obj):
             return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         data = FileSerializer(file_obj).data
@@ -348,7 +346,11 @@ def search_files(request):
         if not query:
             return Response({"error": "Search parameter 'q' is required"},
                             status=status.HTTP_400_BAD_REQUEST)
-        files = File.objects.filter(owner=request.user, name__icontains=query).order_by("-date")
+        files = File.objects.filter(
+            owner=request.user,
+            is_deleted=False,
+            name__icontains=query,
+        ).order_by("-date")
         return Response({
             "query": query,
             "count": files.count(),
@@ -363,14 +365,15 @@ def search_files(request):
 def user_storage_stats(request):
     try:
         user = request.user
-        total_files = File.objects.filter(owner=user).count()
-        total_size = File.objects.filter(owner=user).aggregate(total=Sum("size"))["total"] or 0
+        active_files = File.objects.filter(owner=user, is_deleted=False)
+        total_files = active_files.count()
+        total_size = active_files.aggregate(total=Sum("size"))["total"] or 0
         storage_limit = user.storage_limit
         usage_percent = (total_size / storage_limit * 100) if storage_limit > 0 else 0
         week_ago = timezone.now() - timedelta(days=7)
-        recent_files = File.objects.filter(owner=user, date__gte=week_ago).count()
+        recent_files = active_files.filter(date__gte=week_ago).count()
         file_types = {}
-        for file in File.objects.filter(owner=user):
+        for file in active_files:
             ext = os.path.splitext(file.name)[1].lower() or "no extension"
             file_types[ext] = file_types.get(ext, 0) + 1
         return Response({

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, Container, Grid, InputAdornment, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
-import { Block, CheckCircleOutline, DeleteOutline, Download, ExitToApp, LinkOff, Refresh, Save, Verified } from '@mui/icons-material';
+import { ArrowBack, Block, CheckCircleOutline, DeleteOutline, Download, LinkOff, Refresh, Save, Verified } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 
@@ -242,13 +242,13 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f172a' }}><CircularProgress /></Box>;
+  if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: (theme) => theme.ep.pageGradient }}><CircularProgress /></Box>;
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Alert severity="warning" sx={{ mb: 3 }}>РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ - будьте аккуратны с деструктивными действиями.</Alert>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 800 }}>Админ-панель EP Files</Typography>
-        <Button variant="outlined" startIcon={<ExitToApp />} onClick={() => navigate('/files')}>Выйти из админки</Button>
+        <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate('/files')}>К личному кабинету</Button>
       </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>Реальные пользователи, статистика и административные действия</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}

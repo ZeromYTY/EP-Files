@@ -48,7 +48,7 @@ class FileHistory(models.Model):
     EVENT_MOVE = 'move'
     EVENT_DELETE = 'delete'
     EVENT_UPDATE = 'update'
-    
+
     EVENT_CHOICES = [
         (EVENT_UPLOAD, 'Загрузка'),
         (EVENT_DOWNLOAD, 'Скачивание'),
@@ -59,8 +59,8 @@ class FileHistory(models.Model):
     ]
 
     file = models.ForeignKey(
-        File, 
-        on_delete=models.CASCADE, 
+        File,
+        on_delete=models.CASCADE,
         related_name='history',
         null=True,
         blank=True,
@@ -107,7 +107,7 @@ class FileHistory(models.Model):
         blank=True,
         help_text='IP адрес пользователя'
     )
-    
+
     class Meta:
         ordering = ['-timestamp']
         verbose_name = 'История файла'
@@ -117,10 +117,10 @@ class FileHistory(models.Model):
             models.Index(fields=['user', '-timestamp']),
             models.Index(fields=['event_type', '-timestamp']),
         ]
-    
+
     def __str__(self):
         return f"{self.get_event_type_display()}: {self.file_name} by {self.user} at {self.timestamp}"
-    
+
     @property
     def event_display(self):
         """Генерирует форматированное человекочитаемое описание зафиксированного события.
@@ -139,7 +139,7 @@ class FileHistory(models.Model):
             'Система загрузил файл doc.pdf'
         """
         user_name = self.user.name or self.user.email if self.user else 'Система'
-        
+
         if self.event_type == self.EVENT_UPLOAD:
             return f"{user_name} загрузил файл {self.file_name}"
         elif self.event_type == self.EVENT_DOWNLOAD:

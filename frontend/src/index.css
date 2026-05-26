@@ -6,8 +6,6 @@
 
 body {
   font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #f8f9fa;
-  color: #202124;
   line-height: 1.5;
 }
 
@@ -25,14 +23,26 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #0b0d10;
+}
+
+:root[data-theme='light'] ::-webkit-scrollbar-track {
+  background: #f5f7fb;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #323b46;
   border-radius: 4px;
 }
 
+:root[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: #c7d0dc;
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: #4b5968;
+}
+
+:root[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: #9aa8ba;
 }

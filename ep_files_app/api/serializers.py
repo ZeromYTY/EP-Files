@@ -26,6 +26,8 @@ class UserSerializer(serializers.ModelSerializer):
             ``['id', 'name', 'email', 'is_staff', 'is_superuser', 'is_active', 'storage_limit', 'date_joined']``.
     """
 
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -37,7 +39,15 @@ class UserSerializer(serializers.ModelSerializer):
             "is_active",
             "storage_limit",
             "date_joined",
+            "avatar_url",
         ]
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        url = obj.avatar.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -194,6 +204,8 @@ class FileSerializer(serializers.ModelSerializer):
             "is_public",
             "public_token",
             "public_expires_at",
+            "is_deleted",
+            "deleted_at",
         ]
 
     def get_download_url(self, obj):
@@ -239,7 +251,7 @@ class FileHistorySerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     event_display = serializers.CharField(read_only=True)
     event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
-    
+
     class Meta:
         model = FileHistory
         fields = [
@@ -259,7 +271,7 @@ class FileHistorySerializer(serializers.ModelSerializer):
             'ip_address',
         ]
         read_only_fields = fields
-    
+
     def get_user_name(self, obj):
         """Определяет текстовое имя пользователя, инициировавшего системное событие.
 
@@ -306,7 +318,7 @@ class PermissionSerializer(serializers.ModelSerializer):
     resource_type = serializers.CharField(read_only=True)
     resource_name = serializers.SerializerMethodField()
     permission_type_display = serializers.CharField(source='get_permission_type_display', read_only=True)
-    
+
     class Meta:
         model = Permission
         fields = [
@@ -328,7 +340,7 @@ class PermissionSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = fields
-    
+
     def get_resource_name(self, obj):
         """Извлекает название целевого объекта (файла или папки), на который выдано право.
 
