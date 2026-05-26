@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   CircularProgress,
+  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -33,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
 import api from '../api/axios';
+import { useAuth } from '../context/authContextValue';
 
 function formatFileSize(bytes) {
   if (!bytes) return '0 Б';
@@ -53,6 +56,8 @@ function formatDate(dateString) {
 }
 
 function getErrorMessage(error, fallback) {
+  if (error.code === 'ECONNABORTED') return 'Сервер не ответил вовремя. Попробуйте еще раз.';
+  if (!error.response) return 'Нет соединения с сервером. Проверьте интернет или попробуйте позже.';
   return error.response?.data?.error || error.response?.data?.detail || fallback;
 }
 
@@ -60,19 +65,79 @@ function itemLabel(item) {
   return item?.type === 'folder' ? 'Папка' : 'Файл';
 }
 
+const panelSx = {
+  backgroundColor: (theme) => theme.ep.panel,
+  border: '1px solid',
+  borderColor: 'divider',
+  boxShadow: (theme) => theme.ep.shadow,
+};
+
+function TrashHeader({ user, navigate }) {
+  const initials = user?.name?.[0] || user?.email?.[0] || 'U';
+
+  return (
+    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+      <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
+      </Box>
+      <Tooltip title="Личный кабинет">
+        <IconButton onClick={() => navigate('/files')} sx={{ p: 0, '&:hover': { opacity: 0.9 } }}>
+          <Avatar src={user?.avatar_url || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '1rem', fontWeight: 700 }}>
+            {initials.toUpperCase()}
+          </Avatar>
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
+
+function TrashHero({ currentFolder, itemsCount, totalSize, busyId, onClear }) {
+  return (
+    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.25, md: 4 }, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', gap: { xs: 2, md: 3 }, flexDirection: { xs: 'column', md: 'row' }, position: 'relative', zIndex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+          <Box sx={{ width: { xs: 52, sm: 64 }, height: { xs: 52, sm: 64 }, borderRadius: '8px', background: 'linear-gradient(135deg, rgba(68, 215, 182, 0.2), rgba(244, 185, 95, 0.18))', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <RestoreFromTrash sx={{ fontSize: { xs: 30, sm: 36 }, color: 'primary.main' }} />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0, lineHeight: 1.15, fontSize: { xs: '1.6rem', sm: '2.125rem' }, overflowWrap: 'anywhere' }}>
+              {currentFolder ? currentFolder.name : 'Корзина файлов'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75 }}>
+              {itemsCount} объектов · {formatFileSize(totalSize)}
+            </Typography>
+          </Box>
+        </Box>
+        <Button variant="contained" color="error" startIcon={<DeleteSweep />} disabled={itemsCount === 0 || Boolean(busyId)} onClick={onClear} sx={{ alignSelf: { xs: 'stretch', md: 'center' }, minHeight: 44, px: 3 }}>
+          Очистить корзину
+        </Button>
+      </Box>
+    </Paper>
+  );
+}
+
+function TrashToolbar({ currentFolder, navigate, onBack, onRoot }) {
+  return (
+    <Paper elevation={0} sx={{ ...panelSx, p: 1.5, borderRadius: '12px' }}>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button variant="outlined" size="small" startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')} sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>К файлам</Button>
+        {currentFolder && <Button variant="outlined" size="small" onClick={onBack}>Назад в корзине</Button>}
+        {currentFolder && <Button variant="outlined" size="small" onClick={onRoot}>Корень корзины</Button>}
+      </Box>
+    </Paper>
+  );
+}
+
 function EmptyTrash() {
   return (
     <Paper
       elevation={0}
       sx={{
+        ...panelSx,
         py: 10,
         px: 3,
-        border: '1px solid',
-        borderColor: 'divider',
         borderRadius: '12px',
         textAlign: 'center',
-        backgroundColor: (theme) => theme.ep.panel,
-        boxShadow: (theme) => theme.ep.shadow,
       }}
     >
       <Box
@@ -119,8 +184,8 @@ function ConfirmDialog({ open, title, text, confirmLabel, confirmColor = 'error'
 
 function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
   return (
-    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', backgroundColor: (theme) => theme.ep.panel, boxShadow: (theme) => theme.ep.shadow }}>
-      <Table>
+    <TableContainer component={Paper} elevation={0} sx={{ ...panelSx, borderRadius: '12px', overflowX: 'auto' }}>
+      <Table sx={{ minWidth: 760 }}>
         <TableHead>
           <TableRow sx={{ bgcolor: (theme) => theme.ep.subtle }}>
             <TableCell sx={{ fontWeight: 800 }}>Объект</TableCell>
@@ -141,7 +206,7 @@ function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
                 key={rowKey}
                 hover
                 onClick={isFolder ? () => onOpenFolder(item) : undefined}
-                sx={{ cursor: isFolder ? 'pointer' : 'default' }}
+                sx={{ cursor: isFolder ? 'pointer' : 'default', '&:hover': { backgroundColor: (theme) => theme.ep.hover } }}
               >
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
@@ -195,6 +260,7 @@ function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
 
 export default function Trash() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [folderStack, setFolderStack] = useState([]);
@@ -314,59 +380,31 @@ export default function Trash() {
   };
 
   return (
-    <Box sx={{ display: 'grid', gap: 3 }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0 }}>
-              {currentFolder ? currentFolder.name : 'Корзина файлов'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-              {items.length} объектов · {formatFileSize(totalSize)}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<DeleteSweep />}
-            disabled={items.length === 0 || Boolean(busyId)}
-            onClick={() => setClearDialogOpen(true)}
-            sx={{ alignSelf: { xs: 'stretch', sm: 'center' } }}
-          >
-            Очистить корзину
-          </Button>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: (theme) => theme.ep.subtle }}>
-          <Button variant="outlined" size="small" startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')}>К файлам</Button>
-          {currentFolder && <Button variant="outlined" size="small" onClick={goBack}>Назад в корзине</Button>}
-          {currentFolder && <Button variant="outlined" size="small" onClick={goToRoot}>Корень корзины</Button>}
-          <Button variant="outlined" size="small" onClick={() => loadTrash(currentFolder?.id || null)}>Обновить</Button>
-        </Box>
-      </Box>
+    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
+      <TrashHeader user={user} navigate={navigate} />
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 }, display: 'grid', gap: { xs: 2, md: 3 } }}>
+        <TrashHero currentFolder={currentFolder} itemsCount={items.length} totalSize={totalSize} busyId={busyId} onClear={() => setClearDialogOpen(true)} />
+        <TrashToolbar currentFolder={currentFolder} navigate={navigate} onBack={goBack} onRoot={goToRoot} />
 
-      {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>}
+        {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+        {success && <Alert severity="success" onClose={() => setSuccess('')}>{success}</Alert>}
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-          <CircularProgress />
-        </Box>
-      ) : items.length === 0 ? (
-        <EmptyTrash />
-      ) : (
-        <TrashTable
-          items={items}
-          busyId={busyId}
-          onOpenFolder={openFolder}
-          onRestore={restoreItem}
-          onDelete={setItemToDelete}
-        />
-      )}
+        {loading ? (
+          <Paper elevation={0} sx={{ ...panelSx, borderRadius: '12px', py: 10, display: 'flex', justifyContent: 'center' }}>
+            <CircularProgress />
+          </Paper>
+        ) : items.length === 0 ? (
+          <EmptyTrash />
+        ) : (
+          <TrashTable
+            items={items}
+            busyId={busyId}
+            onOpenFolder={openFolder}
+            onRestore={restoreItem}
+            onDelete={setItemToDelete}
+          />
+        )}
+      </Container>
 
       <ConfirmDialog
         open={Boolean(itemToDelete)}

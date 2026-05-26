@@ -1,4 +1,6 @@
 export function getApiErrorMessage(err, fallbackMessage = 'Произошла ошибка') {
+  if (err.code === 'ECONNABORTED') return 'Сервер не ответил вовремя. Проверьте соединение и попробуйте снова.';
+  if (!err.response) return 'Нет соединения с сервером. Проверьте интернет или попробуйте позже.';
   const serverMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message;
   if (!serverMessage) return fallbackMessage;
   const translations = {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Container } from '@mui/material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
+import { getApiErrorMessage } from './file-manager/fileManagerHelpers';
 import {
   GuestCta,
   HomeFooter,
@@ -43,7 +44,7 @@ async function uploadQuickFile({ file, setUploadError, setIsQuickUploading, setQ
     await refresh();
   } catch (err) {
     console.error('Ошибка быстрой загрузки файла:', err);
-    setUploadError(err.response?.data?.error || err.response?.data?.detail || 'Не удалось загрузить файл');
+    setUploadError(getApiErrorMessage(err, 'Не удалось загрузить файл'));
   } finally {
     setIsQuickUploading(false);
     setTimeout(() => setQuickUploadProgress(0), 800);
@@ -66,6 +67,7 @@ function useHomePageData(user) {
       setRecentFiles(files.slice(0, 5));
     } catch (err) {
       console.error('Ошибка загрузки файлов:', err);
+      setUploadError(getApiErrorMessage(err, 'Не удалось загрузить недавние файлы'));
     } finally {
       setLoading(false);
     }
@@ -77,6 +79,7 @@ function useHomePageData(user) {
       setStorageStats(response.data);
     } catch (err) {
       console.error('Ошибка загрузки статистики:', err);
+      setUploadError(getApiErrorMessage(err, 'Не удалось загрузить статистику хранилища'));
     }
   };
 
@@ -113,10 +116,9 @@ export default function HomePage() {
     <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <input id="home-quick-upload-input" type="file" style={{ display: 'none' }} onChange={handleQuickUploadChange} />
       <HomeHeader user={user} />
-      <Container maxWidth="lg" sx={{ py: 6 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 } }}>
         <HomeHero user={user} />
         {user && <StorageStatsPanel stats={homeData.storageStats} formatFileSize={formatFileSize} isUploading={homeData.isQuickUploading} onUploadClick={handleQuickUploadClick} />}
-        {user && <RecentFilesPanel files={homeData.recentFiles} loading={homeData.loading} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={() => navigate('/file-manager')} />}
         {!user && <GuestCta />}
         {user && (
           <QuickActionsPanel
@@ -128,6 +130,7 @@ export default function HomePage() {
             onUploadClick={handleQuickUploadClick}
           />
         )}
+        {user && <RecentFilesPanel files={homeData.recentFiles} loading={homeData.loading} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={() => navigate('/file-manager')} />}
       </Container>
       <HomeFooter />
     </Box>

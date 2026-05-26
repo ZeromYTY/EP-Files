@@ -3,6 +3,9 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 import { alpha, createTheme } from '@mui/material/styles';
 import { ThemeModeContext } from './themeMode';
 
+const THEME_STORAGE_KEY = 'ep_theme_mode';
+const themeModes = new Set(['light', 'dark']);
+
 function modeTokens(mode) {
   const dark = mode === 'dark';
   return {
@@ -176,6 +179,8 @@ function createAppTheme(mode) {
 }
 
 function getInitialMode() {
+  const savedMode = localStorage.getItem(THEME_STORAGE_KEY);
+  if (themeModes.has(savedMode)) return savedMode;
   return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
@@ -184,9 +189,13 @@ export function AppThemeProvider({ children }) {
   const theme = useMemo(() => createAppTheme(mode), [mode]);
   const value = useMemo(() => ({
     mode,
-    followsSystem: true,
+    followsSystem: !localStorage.getItem(THEME_STORAGE_KEY),
     toggleMode: () => {
-      setMode((currentMode) => (currentMode === 'dark' ? 'light' : 'dark'));
+      setMode((currentMode) => {
+        const nextMode = currentMode === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(THEME_STORAGE_KEY, nextMode);
+        return nextMode;
+      });
     },
   }), [mode]);
 
@@ -195,6 +204,7 @@ export function AppThemeProvider({ children }) {
   }, [mode]);
 
   useEffect(() => {
+    if (localStorage.getItem(THEME_STORAGE_KEY)) return undefined;
     if (!window.matchMedia) return undefined;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');

@@ -83,14 +83,14 @@ function formatPublicExpiration(expiresAt) {
 function PermissionsList({ permissions, busy, onRevoke }) {
   if (permissions.length === 0) {
     return (
-      <Box sx={{ py: 2.5, textAlign: 'center', color: 'text.secondary', border: '1px dashed #d7dee8', borderRadius: 2 }}>
+      <Box sx={{ py: 2.5, textAlign: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2, backgroundColor: (theme) => theme.ep.subtle }}>
         <Typography variant="body2">Права другим пользователям не выданы</Typography>
       </Box>
     );
   }
 
   return (
-    <List disablePadding sx={{ border: '1px solid #e5eaf1', borderRadius: 2, overflow: 'hidden' }}>
+    <List disablePadding sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
       {permissions.map((permission) => (
         <ListItem
           key={permission.id}
@@ -103,7 +103,7 @@ function PermissionsList({ permissions, busy, onRevoke }) {
               </span>
             </Tooltip>
           }
-          sx={{ borderBottom: '1px solid #eef2f7', '&:last-child': { borderBottom: 0 } }}
+          sx={{ borderBottom: '1px solid', borderColor: 'divider', pr: 13, '&:last-child': { borderBottom: 0 }, '&:hover': { backgroundColor: (theme) => theme.ep.hover } }}
         >
           <ListItemText
             primary={getPermissionUser(permission)}
@@ -206,16 +206,16 @@ function PublicLinkPanel({ item, publicToken, setPublicToken, publicExpiresAt, s
   };
 
   return (
-    <Box sx={{ p: 2, border: '1px solid #e5eaf1', borderRadius: 2, backgroundColor: '#fbfcfe' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, backgroundColor: (theme) => theme.ep.subtle }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', gap: 2, mb: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Public color={isEnabled ? 'success' : 'disabled'} />
           <Typography sx={{ fontWeight: 800 }}>Публичная ссылка</Typography>
           <Chip size="small" label={isEnabled ? 'Включена' : 'Отключена'} color={isEnabled ? 'success' : 'default'} />
         </Box>
         {isEnabled && <Typography variant="caption" color="text.secondary">Активна {formatPublicExpiration(publicExpiresAt)}</Typography>}
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '220px auto auto' }, gap: 1, alignItems: 'center', mb: isEnabled ? 1.5 : 0 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(180px, 220px) auto auto' }, gap: 1, alignItems: 'center', mb: isEnabled ? 1.5 : 0 }}>
         <FormControl size="small">
           <InputLabel>Срок действия</InputLabel>
           <Select label="Срок действия" value={duration} onChange={(event) => setDuration(event.target.value)}>
@@ -229,7 +229,7 @@ function PublicLinkPanel({ item, publicToken, setPublicToken, publicExpiresAt, s
       </Box>
       {isEnabled && (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <TextField size="small" value={publicUrl} fullWidth InputProps={{ readOnly: true, startAdornment: <LinkIcon sx={{ mr: 1, color: '#64748b' }} /> }} />
+          <TextField size="small" value={publicUrl} fullWidth InputProps={{ readOnly: true, startAdornment: <LinkIcon sx={{ mr: 1, color: 'text.secondary' }} /> }} />
           <Tooltip title="Скопировать">
             <span>
               <IconButton color="primary" disabled={busy} onClick={copyLink}>
