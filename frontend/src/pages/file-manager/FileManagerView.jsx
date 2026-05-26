@@ -56,14 +56,14 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
   const initials = user?.name?.[0] || user?.email?.[0] || 'U';
 
   return (
-    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 2, display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
       <Box component="a" href="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
-      <Box sx={{ flex: 1, maxWidth: 600, mx: 4 }}>
+      <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' }, maxWidth: { xs: 'none', sm: 600 }, mx: { xs: 0, sm: 2, md: 4 } }}>
         <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: 'text.secondary' }} /></InputAdornment>, sx: { borderRadius: '8px' } }} />
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
         <Tooltip title="Корзина">
           <IconButton onClick={() => navigate('/trash')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}>
             <RestoreFromTrash />
@@ -134,8 +134,8 @@ function EmptyState({ onFileDropped }) {
     if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
   };
   return (
-    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyY: 'center', py: 12, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
-      <Box sx={{ width: 96, height: 96, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyX: 'center', mb: 3, mx: 'auto' }}>
+    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 12, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
+      <Box sx={{ width: 96, height: 96, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, mx: 'auto' }}>
         <CloudUpload sx={{ fontSize: 48, color: 'primary.main', margin: 'auto' }} />
       </Box>
       <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: '2rem' }}>Пусто</Typography>

@@ -20,8 +20,8 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  AccountCircle,
   CloudUpload,
-  Dashboard,
   Folder,
   InsertDriveFile,
   Login as LoginIcon,
@@ -37,8 +37,18 @@ const panelSx = {
   boxShadow: (theme) => theme.ep.shadow,
 };
 
+const homeHeaderButtonSx = {
+  minWidth: 150,
+  height: 40,
+  whiteSpace: 'nowrap',
+};
+
+const quickActionButtonSx = {
+  minWidth: 180,
+  px: 4,
+};
+
 export function HomeHeader({ user }) {
-  const initials = user?.name?.[0] || user?.email?.[0] || 'U';
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', py: 2, position: 'sticky', top: 0, zIndex: 1000 }}>
       <Container maxWidth="lg">
@@ -55,23 +65,8 @@ export function HomeHeader({ user }) {
               </>
             ) : (
               <>
-                <Chip
-                  component={Link}
-                  to="/files"
-                  clickable
-                  avatar={<Avatar src={user.avatar_url || undefined} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>{initials}</Avatar>}
-                  label={user.name || user.email}
-                  sx={{
-                    px: 1,
-                    bgcolor: (theme) => theme.ep.subtle,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    color: 'text.primary',
-                    textDecoration: 'none',
-                    '&:hover': { bgcolor: (theme) => theme.ep.hover },
-                  }}
-                />
-                <Button variant="contained" component={Link} to="/file-manager" startIcon={<Dashboard />}>Мои файлы</Button>
+                <Button variant="contained" component={Link} to="/files" startIcon={<AccountCircle />} sx={homeHeaderButtonSx}>Личный кабинет</Button>
+                <Button variant="outlined" component={Link} to="/file-manager" startIcon={<Folder />} sx={homeHeaderButtonSx}>Мои файлы</Button>
               </>
             )}
           </Box>
@@ -158,7 +153,7 @@ export function RecentFilesPanel({ files, loading, formatFileSize, formatDate, o
     <Paper sx={{ ...panelSx, p: 3, mb: 6, borderRadius: '12px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Недавние файлы</Typography>
-        <Button component={Link} to="/file-manager" endIcon={<Dashboard />}>Все файлы</Button>
+        <Button component={Link} to="/file-manager" endIcon={<Folder />}>Все файлы</Button>
       </Box>
       {loading ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><LinearProgress sx={{ width: '100%', maxWidth: 320 }} /></Box> : (
         <List>{files.map((file, index) => <RecentFileItem key={file.id} file={file} index={index} count={files.length} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={onOpen} />)}</List>
@@ -184,8 +179,9 @@ export function QuickActionsPanel({ uploadError, onClearError, onFileDropped, is
       {uploadError && <Alert severity="error" sx={{ mb: 3 }} onClose={onClearError}>{uploadError}</Alert>}
       <FilesPageUploader onFileDropped={onFileDropped} isUploading={isUploading} uploadProgress={uploadProgress} />
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <Button variant="contained" size="large" onClick={onUploadClick} startIcon={<CloudUpload />} disabled={isUploading} sx={{ px: 4 }}>Загрузить файл</Button>
-        <Button variant="outlined" size="large" component={Link} to="/file-manager" startIcon={<Folder />} sx={{ px: 4 }}>Мои файлы</Button>
+        <Button variant="contained" size="large" onClick={onUploadClick} startIcon={<CloudUpload />} disabled={isUploading} sx={quickActionButtonSx}>Загрузить файл</Button>
+        <Button variant="outlined" size="large" component={Link} to="/files" startIcon={<AccountCircle />} sx={quickActionButtonSx}>Личный кабинет</Button>
+        <Button variant="outlined" size="large" component={Link} to="/file-manager" startIcon={<Folder />} sx={quickActionButtonSx}>Мои файлы</Button>
       </Box>
     </Paper>
   );

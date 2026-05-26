@@ -4,6 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,8 +29,9 @@ api.interceptors.response.use(
     const isAuthRequest =
       requestUrl.includes('/auth/login/') ||
       requestUrl.includes('/auth/register/');
+    const isAuthCheckRequest = requestUrl.includes('/auth/me/');
 
-    if ((isUnauthorized || isBlocked) && !isAuthRequest) {
+    if ((isBlocked || (isUnauthorized && !isAuthCheckRequest)) && !isAuthRequest) {
       localStorage.removeItem('token');
       if (isBlocked) {
         sessionStorage.setItem('auth_error', 'Ваш аккаунт заблокирован администратором.');

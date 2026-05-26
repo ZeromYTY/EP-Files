@@ -49,7 +49,7 @@ export default function useFileManagerData(currentFolderId, searchQuery) {
       setBreadcrumbs(data.breadcrumbs);
     } catch (err) {
       console.error('Error loading data:', err);
-      setError('Ошибка загрузки данных');
+      setError(getApiErrorMessage(err, 'Не удалось загрузить файлы и папки'));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -81,7 +81,7 @@ async function searchFiles(searchQuery, setFiles, setFolders, setError, setLoadi
     setError('');
   } catch (err) {
     console.error('Ошибка при поиске:', err);
-    setError(getApiErrorMessage(err, 'Ошибка при поиске'));
+    setError(getApiErrorMessage(err, 'Не удалось выполнить поиск'));
   } finally {
     setLoading(false);
   }

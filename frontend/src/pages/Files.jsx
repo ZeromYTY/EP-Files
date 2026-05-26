@@ -5,6 +5,7 @@ import { CheckCircle, Close, DarkMode, DeleteOutline, Description, Download as D
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 import { useThemeMode } from '../themeMode';
+import { getApiErrorMessage } from './file-manager/fileManagerHelpers';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 Б';
@@ -253,7 +254,7 @@ export default function Files({ onPreviewFile }) {
   useEffect(() => {
     Promise.all([api.get('/storage/stats/'), api.get('/favorites/all/')]).then(([statsRes, favsRes]) => {
       setStorageStats(statsRes.data); setFavorites(favsRes.data.items || []); setError('');
-    }).catch(() => setError('Не удалось загрузить актуальный список избранного'));
+    }).catch((err) => setError(getApiErrorMessage(err, 'Не удалось загрузить данные личного кабинета')));
   }, []);
 
   const handleDownloadFav = async (id, name, type) => {
@@ -285,7 +286,7 @@ export default function Files({ onPreviewFile }) {
       updateUser(response.data.user);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Не удалось загрузить аватар');
+      setError(getApiErrorMessage(err, 'Не удалось загрузить аватар'));
     } finally {
       setAvatarUploading(false);
     }
@@ -297,7 +298,7 @@ export default function Files({ onPreviewFile }) {
       updateUser(response.data.user);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Не удалось удалить аватар');
+      setError(getApiErrorMessage(err, 'Не удалось удалить аватар'));
     } finally {
       setAvatarUploading(false);
     }

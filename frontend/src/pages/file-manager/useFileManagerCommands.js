@@ -40,7 +40,7 @@ export function useUploadCommand({ currentFolderId, loadData, taskQueue }) {
         setTimeout(() => loadData(), 100);
       } catch (err) {
         console.error(`Критическая ошибка при отправке файла ${cleanFile.name}:`, err);
-        taskQueue.updateTask(taskId, { title: 'Ошибка загрузки', subText: err.response?.data?.error || 'Не удалось загрузить файл', status: 'error' });
+        taskQueue.updateTask(taskId, { title: 'Ошибка загрузки', subText: getApiErrorMessage(err, 'Не удалось загрузить файл'), status: 'error' });
       }
       taskQueue.removeTaskWithTimer(taskId);
     }
@@ -60,7 +60,7 @@ export function useDownloadCommand(taskQueue) {
       taskQueue.updateTask(taskId, { title: isFolder ? 'Архив успешно скачан' : 'Скачивание завершено', subText: 'Сохранено на устройство', status: 'success' });
     } catch (err) {
       console.error('Ошибка при скачивании:', err);
-      taskQueue.updateTask(taskId, { title: 'Ошибка скачивания', subText: err.response?.status === 404 ? 'Объект не найден' : 'Нет прав доступа', status: 'error' });
+      taskQueue.updateTask(taskId, { title: 'Ошибка скачивания', subText: getApiErrorMessage(err, err.response?.status === 404 ? 'Объект не найден' : 'Не удалось скачать объект'), status: 'error' });
     }
     taskQueue.removeTaskWithTimer(taskId);
   };
@@ -83,7 +83,7 @@ export function useSelectionDialogs({ loadData, taskQueue }) {
     setDeleteDialogOpen(false);
     try {
       await api.delete(fileToDelete.type === 'folder' ? `/folders/${fileToDelete.id}/delete/` : `/files/${fileToDelete.id}/`);
-      taskQueue.updateTask(taskId, { title: 'Удалено успешно', subText: 'Файл полностью стерт', status: 'success' });
+      taskQueue.updateTask(taskId, { title: 'Удалено успешно', subText: 'Объект перемещен в корзину', status: 'success' });
       loadData();
     } catch (err) {
       taskQueue.updateTask(taskId, { title: 'Ошибка удаления', subText: getApiErrorMessage(err, 'Не удалось удалить объект'), status: 'error' });
