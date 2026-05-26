@@ -66,7 +66,7 @@ function canReportFile(file, currentUserEmail) {
 }
 
 function GridActionButtons({ file, onFavoriteClick, onDownloadClick, onEditClick, onMenuOpen }) {
-  const buttonSx = { opacity: 0, transition: 'opacity 0.2s', zIndex: 30 };
+  const buttonSx = { opacity: { xs: 1, sm: 0 }, transition: 'opacity 0.2s', zIndex: 30 };
   return (
     <>
       <Tooltip title={file.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'}><IconButton className="favorite-btn" onClick={(event) => { event.stopPropagation(); onFavoriteClick?.(file); }} sx={{ ...buttonSx, position: 'absolute', top: 8, right: 104, color: file.is_favorite ? '#f59e0b' : '#2196F3' }} size="small"><Star fontSize="small" /></IconButton></Tooltip>
@@ -113,7 +113,7 @@ function GridCard({ file, handlers }) {
     <Paper elevation={0} draggable={isDraggableFile} onDragStart={(event) => setDraggedManagerItem(event, file)} onClick={open} onContextMenu={openContextMenu} onDragOver={handleDragOver} onDragLeave={() => setIsDragOver(false)} onDrop={handleDropOnCard} sx={{ p: 2, borderRadius: '12px', border: '1px solid', borderColor: isDragOver ? 'primary.main' : 'divider', position: 'relative', cursor: isDraggableFile ? 'grab' : 'pointer', backgroundColor: (theme) => (isDragOver ? 'rgba(68, 215, 182, 0.08)' : theme.ep.panel), transition: 'transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease', '&:hover': { boxShadow: (theme) => theme.ep.shadow, transform: 'translateY(-2px)', borderColor: 'primary.main', '& .grid-menu-btn,.download-btn,.favorite-btn,.edit-btn': { opacity: 1 } }, '&:active': { cursor: isDraggableFile ? 'grabbing' : 'pointer' } }}>
       {isFolder ? <FolderActions folder={file} handlers={handlers} /> : <GridActionButtons file={file} {...handlers} />}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}><FileVisual file={file} size={44} /></Box>
-      <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 6 }}>{file.name}</Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: { xs: 0, sm: 6 } }}>{file.name}</Typography>
       {uploaderText && <Tooltip title={uploaderText}><Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mb: 0.5 }}>{uploaderText}</Typography></Tooltip>}
       <Typography variant="caption" color="text.secondary">{formatDate(file.created_at || file.updated_at || file.date || new Date().toISOString())}{file.size && ` • ${formatFileSize(file.size)}`}</Typography>
     </Paper>
@@ -123,8 +123,8 @@ function GridCard({ file, handlers }) {
 function FolderActions({ folder, handlers }) {
   return (
     <>
-      <Tooltip title="Скачать как ZIP"><IconButton className="download-btn" onClick={(event) => { event.stopPropagation(); handlers.onDownloadClick?.(folder.id, folder.name, 'folder'); }} sx={{ position: 'absolute', top: 8, right: 40, opacity: 0, color: 'primary.main', zIndex: 30 }} size="small"><DownloadIcon fontSize="small" /></IconButton></Tooltip>
-      <IconButton className="grid-menu-btn" onClick={(event) => { event.stopPropagation(); handlers.onMenuOpen?.(event, folder, 'folder'); }} sx={{ position: 'absolute', top: 8, right: 8, opacity: 0, color: 'text.secondary', zIndex: 30 }} size="small"><MoreVert fontSize="small" /></IconButton>
+      <Tooltip title="Скачать как ZIP"><IconButton className="download-btn" onClick={(event) => { event.stopPropagation(); handlers.onDownloadClick?.(folder.id, folder.name, 'folder'); }} sx={{ position: 'absolute', top: 8, right: 40, opacity: { xs: 1, sm: 0 }, color: 'primary.main', zIndex: 30 }} size="small"><DownloadIcon fontSize="small" /></IconButton></Tooltip>
+      <IconButton className="grid-menu-btn" onClick={(event) => { event.stopPropagation(); handlers.onMenuOpen?.(event, folder, 'folder'); }} sx={{ position: 'absolute', top: 8, right: 8, opacity: { xs: 1, sm: 0 }, color: 'text.secondary', zIndex: 30 }} size="small"><MoreVert fontSize="small" /></IconButton>
     </>
   );
 }

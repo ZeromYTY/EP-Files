@@ -56,7 +56,7 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
   const initials = user?.name?.[0] || user?.email?.[0] || 'U';
 
   return (
-    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 2, display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 2, md: 3 }, py: 2, display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000, gap: { xs: 1.25, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
       <Box component="a" href="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
@@ -83,12 +83,12 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
 
 function BreadcrumbBar({ currentFolderId, breadcrumbs, viewMode, setViewMode, onBack, onHome, onBreadcrumbClick }) {
   return (
-    <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.panel }}>
+    <Paper elevation={0} sx={{ p: { xs: 1.25, sm: 2 }, mb: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.panel }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
         <IconButton size="small" onClick={onBack} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? 'text.disabled' : 'primary.main' }}><ArrowBack /></IconButton>
         <IconButton size="small" onClick={onHome} disabled={currentFolderId === null} sx={{ color: currentFolderId === null ? 'text.disabled' : 'primary.main' }}><Home /></IconButton>
         <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, maxWidth: '100%', flexWrap: 'wrap' }}>
           <MuiLink component="button" variant="body1" onClick={() => onBreadcrumbClick(null)} sx={{ textDecoration: 'none', color: 'primary.main', cursor: 'pointer' }}>Корень</MuiLink>
           {breadcrumbs.map((folder) => <BreadcrumbItem key={folder.id} folder={folder} onClick={onBreadcrumbClick} />)}
         </Box>
@@ -112,7 +112,7 @@ function ContentArea({ loading, sortedItems, locationName, listProps }) {
   return (
     <>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>{locationName}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '1.35rem', sm: '1.5rem' }, overflowWrap: 'anywhere' }}>{locationName}</Typography>
         <Typography variant="body2" color="text.secondary">{sortedItems.length} объектов</Typography>
       </Box>
       {loading ? <LoadingState /> : sortedItems.length === 0 ? <EmptyState onFileDropped={listProps?.onFileDropped} /> : <FileList files={sortedItems} {...listProps} />}
@@ -134,11 +134,11 @@ function EmptyState({ onFileDropped }) {
     if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
   };
   return (
-    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 12, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
-      <Box sx={{ width: 96, height: 96, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, mx: 'auto' }}>
-        <CloudUpload sx={{ fontSize: 48, color: 'primary.main', margin: 'auto' }} />
+    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 7, sm: 12 }, px: 2, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
+      <Box sx={{ width: { xs: 76, sm: 96 }, height: { xs: 76, sm: 96 }, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, mx: 'auto' }}>
+        <CloudUpload sx={{ fontSize: { xs: 38, sm: 48 }, color: 'primary.main', margin: 'auto' }} />
       </Box>
-      <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: '2rem' }}>Пусто</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: { xs: '1.55rem', sm: '2rem' } }}>Пусто</Typography>
       <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 320, lineHeight: 1.6 }}>Попробуйте добавить файлы, перетащив их сюда или нажав круглую кнопку справа внизу</Typography>
     </Box>
   );
@@ -147,11 +147,11 @@ function EmptyState({ onFileDropped }) {
 function CreateFab({ tasks, anchorEl, onCreateClick }) {
   const isOpen = Boolean(anchorEl);
   return (
-    <Box sx={{ position: 'fixed', bottom: tasks.length > 0 ? 116 : 48, right: 48, zIndex: 1100, transition: 'bottom 0.3s ease' }}>
+    <Box sx={{ position: 'fixed', bottom: { xs: tasks.length > 0 ? 96 : 20, sm: tasks.length > 0 ? 116 : 48 }, right: { xs: 20, sm: 48 }, zIndex: 1100, transition: 'bottom 0.3s ease' }}>
       <Tooltip title="Создать или загрузить" placement="left">
-        <Fab variant="extended" onClick={onCreateClick} sx={{ background: 'linear-gradient(135deg, #44d7b6 0%, #f4b95f 100%)', color: '#06110f', px: 5, py: 4, borderRadius: '9999px', textTransform: 'none', gap: 1.5, boxShadow: '0 18px 42px rgba(68, 215, 182, 0.28)', '&:hover': { filter: 'brightness(1.08)' } }}>
-          <Add sx={{ transform: isOpen ? 'rotate(135deg)' : 'rotate(0deg)', transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontSize: '1.8rem' }} />
-          <Typography variant="button" sx={{ fontWeight: 800, letterSpacing: '0.5px', fontSize: '1.05rem' }}>Создать</Typography>
+        <Fab variant="extended" onClick={onCreateClick} sx={{ background: 'linear-gradient(135deg, #44d7b6 0%, #f4b95f 100%)', color: '#06110f', px: { xs: 2.25, sm: 5 }, py: { xs: 2.25, sm: 4 }, minWidth: { xs: 56, sm: 64 }, borderRadius: '9999px', textTransform: 'none', gap: { xs: 0, sm: 1.5 }, boxShadow: '0 18px 42px rgba(68, 215, 182, 0.28)', '&:hover': { filter: 'brightness(1.08)' } }}>
+          <Add sx={{ transform: isOpen ? 'rotate(135deg)' : 'rotate(0deg)', transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', fontSize: { xs: '1.6rem', sm: '1.8rem' } }} />
+          <Typography variant="button" sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 800, letterSpacing: 0, fontSize: '1.05rem' }}>Создать</Typography>
         </Fab>
       </Tooltip>
     </Box>
@@ -243,7 +243,7 @@ function TaskWidget({ tasks, isMinimized, setIsMinimized, clearTasks }) {
   if (tasks.length === 0) return null;
   const activeCount = tasks.filter((task) => ['uploading', 'downloading', 'deleting'].includes(task.status)).length;
   return (
-    <Paper elevation={4} sx={{ position: 'fixed', bottom: 24, right: 24, width: 360, backgroundColor: (theme) => theme.ep.panel, borderRadius: '12px', boxShadow: (theme) => theme.ep.shadow, zIndex: 2000, overflow: 'hidden', border: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+    <Paper elevation={4} sx={{ position: 'fixed', bottom: { xs: 12, sm: 24 }, right: { xs: 12, sm: 24 }, left: { xs: 12, sm: 'auto' }, width: { xs: 'auto', sm: 360 }, backgroundColor: (theme) => theme.ep.panel, borderRadius: '12px', boxShadow: (theme) => theme.ep.shadow, zIndex: 2000, overflow: 'hidden', border: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Выполняется операций: {activeCount}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -275,7 +275,7 @@ export default function FileManagerView(props) {
     <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, position: 'relative' }}>
       <input type="file" id="manual-file-input" onChange={handlers.manualUpload} style={{ display: 'none' }} />
       <FileManagerHeader user={user} searchQuery={searchQuery} setSearchQuery={setSearchQuery} navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
         <BreadcrumbBar currentFolderId={currentFolderId} breadcrumbs={breadcrumbs} viewMode={viewMode} setViewMode={setViewMode} onBack={handlers.back} onHome={handlers.home} onBreadcrumbClick={handlers.breadcrumbClick} />

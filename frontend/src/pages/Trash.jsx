@@ -76,7 +76,7 @@ function TrashHeader({ user, navigate }) {
   const initials = user?.name?.[0] || user?.email?.[0] || 'U';
 
   return (
-    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+    <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
@@ -93,14 +93,14 @@ function TrashHeader({ user, navigate }) {
 
 function TrashHero({ currentFolder, itemsCount, totalSize, busyId, onClear }) {
   return (
-    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 3, md: 4 }, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
-      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', gap: 3, flexDirection: { xs: 'column', md: 'row' }, position: 'relative', zIndex: 1 }}>
+    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.25, md: 4 }, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', gap: { xs: 2, md: 3 }, flexDirection: { xs: 'column', md: 'row' }, position: 'relative', zIndex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-          <Box sx={{ width: 64, height: 64, borderRadius: '8px', background: 'linear-gradient(135deg, rgba(68, 215, 182, 0.2), rgba(244, 185, 95, 0.18))', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <RestoreFromTrash sx={{ fontSize: 36, color: 'primary.main' }} />
+          <Box sx={{ width: { xs: 52, sm: 64 }, height: { xs: 52, sm: 64 }, borderRadius: '8px', background: 'linear-gradient(135deg, rgba(68, 215, 182, 0.2), rgba(244, 185, 95, 0.18))', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <RestoreFromTrash sx={{ fontSize: { xs: 30, sm: 36 }, color: 'primary.main' }} />
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0, lineHeight: 1.15 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 0, lineHeight: 1.15, fontSize: { xs: '1.6rem', sm: '2.125rem' }, overflowWrap: 'anywhere' }}>
               {currentFolder ? currentFolder.name : 'Корзина файлов'}
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75 }}>
@@ -120,7 +120,7 @@ function TrashToolbar({ currentFolder, navigate, onBack, onRoot }) {
   return (
     <Paper elevation={0} sx={{ ...panelSx, p: 1.5, borderRadius: '12px' }}>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        <Button variant="outlined" size="small" startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')}>К файлам</Button>
+        <Button variant="outlined" size="small" startIcon={<ArrowBack />} onClick={() => navigate('/file-manager')} sx={{ flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>К файлам</Button>
         {currentFolder && <Button variant="outlined" size="small" onClick={onBack}>Назад в корзине</Button>}
         {currentFolder && <Button variant="outlined" size="small" onClick={onRoot}>Корень корзины</Button>}
       </Box>
@@ -184,8 +184,8 @@ function ConfirmDialog({ open, title, text, confirmLabel, confirmColor = 'error'
 
 function TrashTable({ items, busyId, onOpenFolder, onRestore, onDelete }) {
   return (
-    <TableContainer component={Paper} elevation={0} sx={{ ...panelSx, borderRadius: '12px', overflow: 'hidden' }}>
-      <Table>
+    <TableContainer component={Paper} elevation={0} sx={{ ...panelSx, borderRadius: '12px', overflowX: 'auto' }}>
+      <Table sx={{ minWidth: 760 }}>
         <TableHead>
           <TableRow sx={{ bgcolor: (theme) => theme.ep.subtle }}>
             <TableCell sx={{ fontWeight: 800 }}>Объект</TableCell>
@@ -382,7 +382,7 @@ export default function Trash() {
   return (
     <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <TrashHeader user={user} navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: 4, display: 'grid', gap: 3 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 }, display: 'grid', gap: { xs: 2, md: 3 } }}>
         <TrashHero currentFolder={currentFolder} itemsCount={items.length} totalSize={totalSize} busyId={busyId} onClear={() => setClearDialogOpen(true)} />
         <TrashToolbar currentFolder={currentFolder} navigate={navigate} onBack={goBack} onRoot={goToRoot} />
 

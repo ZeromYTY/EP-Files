@@ -62,9 +62,9 @@ function FavoriteMeta({ item }) {
 function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, onAvatarChange, onAvatarDelete, onThemeToggle, onFiles, onTrash, onAdmin, onLogout }) {
   const nextThemeLabel = themeMode === 'dark' ? 'Светлая тема' : 'Темная тема';
   return (
-    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px', textAlign: 'center' }}>
-      <Box sx={{ position: 'relative', width: 112, height: 112, mx: 'auto', mb: 2 }}>
-        <Avatar src={user?.avatar_url || undefined} sx={{ width: 112, height: 112, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '2.6rem', fontWeight: 800 }}>{(user?.name || user?.email || 'U')[0]?.toUpperCase()}</Avatar>
+    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.5, sm: 4 }, borderRadius: '16px', textAlign: 'center' }}>
+      <Box sx={{ position: 'relative', width: { xs: 96, sm: 112 }, height: { xs: 96, sm: 112 }, mx: 'auto', mb: 2 }}>
+        <Avatar src={user?.avatar_url || undefined} sx={{ width: { xs: 96, sm: 112 }, height: { xs: 96, sm: 112 }, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: { xs: '2.2rem', sm: '2.6rem' }, fontWeight: 800 }}>{(user?.name || user?.email || 'U')[0]?.toUpperCase()}</Avatar>
         <Tooltip title="Загрузить аватар">
           <IconButton component="label" disabled={avatarUploading} sx={{ position: 'absolute', right: -6, bottom: 6, bgcolor: 'primary.main', color: 'primary.contrastText', border: '2px solid', borderColor: 'background.paper', '&:hover': { bgcolor: 'primary.light' } }} size="small">
             {avatarUploading ? <CircularProgress size={18} color="inherit" /> : <PhotoCamera fontSize="small" />}
@@ -79,7 +79,7 @@ function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, o
           </Tooltip>
         )}
       </Box>
-      <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>{displayName}</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, overflowWrap: 'anywhere' }}>{displayName}</Typography>
       <Typography variant="body2" sx={{ mb: 3, fontWeight: 700, color: isAdmin ? 'warning.main' : 'text.secondary' }}>{isAdmin ? 'Роль: Администратор' : 'Роль: Пользователь'}</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Button variant="outlined" fullWidth onClick={onThemeToggle} startIcon={themeMode === 'dark' ? <LightMode /> : <DarkMode />}>{nextThemeLabel}</Button>
@@ -94,7 +94,7 @@ function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, o
 
 function FilesHeader({ navigate }) {
   return (
-    <Box sx={{ minHeight: 73, backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+    <Box sx={{ minHeight: 73, backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 2, md: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>ep-files</Typography>
       </Box>
@@ -107,10 +107,10 @@ function StatsCard({ user, stats }) {
   const total = stats?.storage_limit || 1024 * 1024 * 1024;
   const percent = Math.min(stats?.usage_percent ?? Math.round((used / total) * 100), 100);
   return (
-    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px', height: '100%' }}>
+    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.5, sm: 4 }, borderRadius: '16px', height: '100%' }}>
       <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 3 }}>Данные учетной записи</Typography>
       <Typography variant="body2" color="text.secondary">Электронная почта</Typography>
-      <Typography variant="body1" sx={{ fontWeight: 500, mb: 3 }}>{user?.email || '-'}</Typography>
+      <Typography variant="body1" sx={{ fontWeight: 500, mb: 3, overflowWrap: 'anywhere' }}>{user?.email || '-'}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}><Storage sx={{ color: 'text.secondary' }} /><Typography variant="body2">Занято {formatFileSize(used)} из {formatFileSize(total)}</Typography></Box>
       <Box sx={{ width: '100%', height: 8, bgcolor: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}><Box sx={{ width: `${percent}%`, height: '100%', bgcolor: percent > 85 ? 'error.main' : 'primary.main' }} /></Box>
       <Typography variant="caption" color="text.secondary">{percent}% использовано</Typography>
@@ -120,13 +120,13 @@ function StatsCard({ user, stats }) {
 
 function ChangePasswordCard({ form, loading, open, error, onChange, onSubmit, onToggle }) {
   return (
-    <Paper elevation={0} sx={{ ...panelSx, p: 4, borderRadius: '16px' }}>
+    <Paper elevation={0} sx={{ ...panelSx, p: { xs: 2.5, sm: 4 }, borderRadius: '16px' }}>
       <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Смена пароля</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>После изменения понадобится войти заново.</Typography>
         </Box>
-        <Button variant={open ? 'outlined' : 'contained'} onClick={onToggle} endIcon={<ExpandMore sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }} />}>
+        <Button variant={open ? 'outlined' : 'contained'} onClick={onToggle} fullWidth={false} sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, ml: { sm: 'auto' }, minWidth: { sm: 170 }, flexShrink: 0 }} endIcon={<ExpandMore sx={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 160ms ease' }} />}>
           {open ? 'Скрыть' : 'Сменить пароль'}
         </Button>
       </Box>
@@ -136,7 +136,7 @@ function ChangePasswordCard({ form, loading, open, error, onChange, onSubmit, on
           <TextField fullWidth label="Текущий пароль" type="password" autoComplete="current-password" value={form.current_password} onChange={(event) => onChange('current_password', event.target.value)} disabled={loading} />
           <TextField fullWidth label="Новый пароль" type="password" autoComplete="new-password" value={form.new_password} onChange={(event) => onChange('new_password', event.target.value)} disabled={loading} />
           <TextField fullWidth label="Повторите новый пароль" type="password" autoComplete="new-password" value={form.confirm_password} onChange={(event) => onChange('confirm_password', event.target.value)} disabled={loading} />
-          <Button type="submit" variant="contained" startIcon={loading ? <CircularProgress color="inherit" size={18} /> : <LockReset />} disabled={loading} sx={{ justifySelf: 'flex-start' }}>
+          <Button type="submit" variant="contained" startIcon={loading ? <CircularProgress color="inherit" size={18} /> : <LockReset />} disabled={loading} sx={{ justifySelf: { xs: 'stretch', sm: 'flex-start' } }}>
             Изменить пароль
           </Button>
         </Box>
@@ -150,7 +150,7 @@ function FavoriteCard({ item, onDownload, onPreview }) {
     if (canPreview(item)) onPreview(item);
   };
   return (
-    <Grid item xs={12} sm={6} lg={4}>
+    <Grid item xs={12} sm={6} lg={4} sx={{ display: 'flex', justifyContent: { xs: 'center', sm: 'stretch' } }}>
       <Paper
         elevation={0}
         onClick={openPreview}
@@ -158,12 +158,14 @@ function FavoriteCard({ item, onDownload, onPreview }) {
           p: 2,
           minHeight: 104,
           height: '100%',
+          width: '100%',
+          maxWidth: { xs: 360, sm: 'none' },
           borderRadius: '8px',
           border: '1px solid',
           borderColor: 'divider',
           backgroundColor: (theme) => theme.ep.panel,
           display: 'grid',
-          gridTemplateColumns: '48px minmax(0, 1fr) auto',
+          gridTemplateColumns: { xs: '40px minmax(0, 1fr) auto', sm: '48px minmax(0, 1fr) auto' },
           alignItems: 'center',
           gap: 1.5,
           cursor: canPreview(item) ? 'pointer' : 'default',
@@ -205,7 +207,7 @@ function FavoriteCard({ item, onDownload, onPreview }) {
 
 function FavoritesSection({ favorites, onDownload, onPreview }) {
   return (
-    <Box sx={{ mt: 5 }}>
+    <Box sx={{ mt: 5, width: '100%', maxWidth: { xs: 360, sm: 'none' }, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', gap: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ width: 38, height: 38, borderRadius: '8px', backgroundColor: 'rgba(244, 185, 95, 0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -218,7 +220,7 @@ function FavoritesSection({ favorites, onDownload, onPreview }) {
         </Box>
       </Box>
       {favorites.length === 0 ? <Paper elevation={0} sx={{ ...panelSx, p: 4, textAlign: 'center', borderRadius: '12px' }}><Typography color="text.secondary">У вас пока нет избранных файлов.</Typography></Paper> : (
-        <Grid container spacing={2}>{favorites.map((item) => <FavoriteCard key={`${item.type}-${item.id}`} item={item} onDownload={onDownload} onPreview={onPreview} />)}</Grid>
+        <Grid container spacing={2} justifyContent={{ xs: 'center', sm: 'flex-start' }}>{favorites.map((item) => <FavoriteCard key={`${item.type}-${item.id}`} item={item} onDownload={onDownload} onPreview={onPreview} />)}</Grid>
       )}
     </Box>
   );
@@ -227,7 +229,7 @@ function FavoritesSection({ favorites, onDownload, onPreview }) {
 function TaskWidget({ tasks, clearTasks }) {
   if (tasks.length === 0) return null;
   return (
-    <Paper elevation={4} sx={{ ...panelSx, position: 'fixed', bottom: 24, right: 24, width: 360, borderRadius: '12px', zIndex: 2000, overflow: 'hidden' }}>
+    <Paper elevation={4} sx={{ ...panelSx, position: 'fixed', bottom: { xs: 12, sm: 24 }, right: { xs: 12, sm: 24 }, left: { xs: 12, sm: 'auto' }, width: { xs: 'auto', sm: 360 }, borderRadius: '12px', zIndex: 2000, overflow: 'hidden' }}>
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}><Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Скачивания: {tasks.filter((task) => task.status === 'downloading').length}</Typography><IconButton size="small" onClick={clearTasks}><Close fontSize="small" /></IconButton></Box>
       <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>{tasks.map((task) => <TaskItem key={task.id} task={task} />)}</Box>
     </Paper>
@@ -340,11 +342,11 @@ export default function Files({ onPreviewFile }) {
   return (
     <>
       <FilesHeader navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 }, position: 'relative' }}>
         {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
-          <Grid item xs={12} md={7}>
+        <Grid container spacing={{ xs: 2.5, md: 4 }} justifyContent={{ xs: 'center', md: 'flex-start' }}>
+          <Grid item xs={12} md={5} sx={{ maxWidth: { xs: '360px !important', md: 'none' } }}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
+          <Grid item xs={12} md={7} sx={{ maxWidth: { xs: '360px !important', md: 'none' } }}>
             <Box sx={{ display: 'grid', gap: 3 }}>
               <StatsCard user={user} stats={storageStats} />
               <ChangePasswordCard
