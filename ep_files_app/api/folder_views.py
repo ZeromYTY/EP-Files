@@ -153,6 +153,55 @@ def folder_move(request, folder_id):
     folder.save(update_fields=["parent", "updated_at"])
     return Response({"id": folder.id, "name": folder.name, "path": folder.get_full_path()})
 
+
+def folder_has_active_files(folder):
+    """Проверяет, есть ли в папке или подпапках активные файлы."""
+    if File.objects.filter(folder=folder, is_deleted=False).exists():
+        return True
+    return any(
+        folder_has_active_files(child)
+        for child in Folder.objects.filter(parent=folder, is_deleted=False)
+    )
+
+
+def delete_folder_recursive(folder):
+    """Удаляет пустую папку и вложенные элементы без помещения в корзину."""
+    files = File.objects.filter(folder_id=folder.id, is_deleted=False)
+    for file_rec in files:
+        try:
+            if file_rec.file and os.path.exists(file_rec.file.path):
+                os.remove(file_rec.file.path)
+        except Exception:
+            logger.exception("Failed to remove file from disk: %s", file_rec)
+        try:
+            file_rec.delete()
+        except Exception:
+            logger.exception("Failed to delete file record: %s", file_rec)
+
+    for subfolder in Folder.objects.filter(parent_id=folder.id):
+        delete_folder_recursive(subfolder)
+
+    try:
+        folder.delete()
+    except Exception:
+        logger.exception("Failed to delete folder: %s", folder)
+
+
+def move_folder_to_trash(folder, deleted_at):
+    """Помечает папку, вложенные папки и файлы как удаленные."""
+    folder.is_deleted = True
+    folder.deleted_at = deleted_at
+    folder.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+
+    File.objects.filter(folder=folder, is_deleted=False).update(
+        is_deleted=True,
+        deleted_at=deleted_at,
+    )
+
+    for child in Folder.objects.filter(parent=folder, is_deleted=False):
+        move_folder_to_trash(child, deleted_at)
+
+
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def folder_delete(request, folder_id):
@@ -161,49 +210,9 @@ def folder_delete(request, folder_id):
     except Folder.DoesNotExist:
         return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    def _has_active_files(fold):
-        if File.objects.filter(folder=fold, is_deleted=False).exists():
-            return True
-        return any(_has_active_files(child) for child in Folder.objects.filter(parent=fold, is_deleted=False))
-
-    def _delete_folder_recursive(fold):
-        files = File.objects.filter(folder_id=fold.id, is_deleted=False)
-        for file_rec in files:
-            try:
-                if file_rec.file and os.path.exists(file_rec.file.path):
-                    os.remove(file_rec.file.path)
-            except Exception:
-                logger.exception(f"Failed to remove file from disk: {file_rec}")
-            try:
-                file_rec.delete()
-            except Exception:
-                logger.exception(f"Failed to delete file record: {file_rec}")
-
-        subfolders = Folder.objects.filter(parent_id=fold.id)
-        for sub in subfolders:
-            _delete_folder_recursive(sub)
-
-        try:
-            fold.delete()
-        except Exception:
-            logger.exception(f"Failed to delete folder: {fold}")
-
-    def _move_folder_to_trash(fold, deleted_at):
-        fold.is_deleted = True
-        fold.deleted_at = deleted_at
-        fold.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
-
-        File.objects.filter(folder=fold, is_deleted=False).update(
-            is_deleted=True,
-            deleted_at=deleted_at,
-        )
-
-        for child in Folder.objects.filter(parent=fold, is_deleted=False):
-            _move_folder_to_trash(child, deleted_at)
-
-    if _has_active_files(folder):
-        _move_folder_to_trash(folder, timezone.now())
+    if folder_has_active_files(folder):
+        move_folder_to_trash(folder, timezone.now())
         return Response({"status": "moved_to_trash", "id": folder_id})
 
-    _delete_folder_recursive(folder)
+    delete_folder_recursive(folder)
     return Response({"status": "deleted", "id": folder_id})

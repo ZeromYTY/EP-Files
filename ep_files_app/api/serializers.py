@@ -251,7 +251,7 @@ class FileHistorySerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     event_display = serializers.CharField(read_only=True)
     event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
-    
+
     class Meta:
         model = FileHistory
         fields = [
@@ -271,7 +271,7 @@ class FileHistorySerializer(serializers.ModelSerializer):
             'ip_address',
         ]
         read_only_fields = fields
-    
+
     def get_user_name(self, obj):
         """Определяет текстовое имя пользователя, инициировавшего системное событие.
 
@@ -318,7 +318,7 @@ class PermissionSerializer(serializers.ModelSerializer):
     resource_type = serializers.CharField(read_only=True)
     resource_name = serializers.SerializerMethodField()
     permission_type_display = serializers.CharField(source='get_permission_type_display', read_only=True)
-    
+
     class Meta:
         model = Permission
         fields = [
@@ -340,7 +340,7 @@ class PermissionSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = fields
-    
+
     def get_resource_name(self, obj):
         """Извлекает название целевого объекта (файла или папки), на который выдано право.
 

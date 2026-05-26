@@ -4,7 +4,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
 from ep_files_app.api import views
-from ep_files_app.api.views import toggle_favorite
 
 
 def home_view(request):

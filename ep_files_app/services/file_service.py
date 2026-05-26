@@ -29,7 +29,7 @@ class FileActivityLogger:
 
 class FileService:
     """Сервис обработки и загрузки файлов."""
-    
+
     def __init__(self):
         """Инициализирует сервис с логгером активности."""
         self.logger = FileActivityLogger()

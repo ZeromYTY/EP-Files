@@ -4,7 +4,7 @@ from django.urls import path
 from .api import views
 from .api.views import (
     ChangePasswordView, RegisterView, LoginView, MeView, protected_test_view,
-    upload_file, list_files, download_file, delete_file,
+    upload_file, download_file, delete_file,
     file_move, file_detail, report_file, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
     file_history, user_activity_history, recent_activity,

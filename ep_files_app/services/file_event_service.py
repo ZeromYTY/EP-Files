@@ -26,27 +26,27 @@ class FileEventService(FileSubject):
         emit_delete_event(...): Формирует и рассылает событие удаления файла из системы.
         emit_update_event(...): Формирует и рассылает событие изменения содержимого файла.
     """
-    
+
     _instance = None
-    
+
     def __new__(cls):
         """Гарантирует существование строго одного экземпляра сервиса в системе."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self):
         """Инициализирует шину событий и подписывает стандартных наблюдателей истории."""
         if self._initialized:
             return
-        
+
         super().__init__()
 
         self.attach(FileHistoryObserver())
-        
+
         self._initialized = True
-    
+
     def emit_upload_event(
         self,
         file: File,
@@ -76,7 +76,7 @@ class FileEventService(FileSubject):
             ip_address=ip_address,
         )
         self.notify(event)
-    
+
     def emit_download_event(
         self,
         file: File,
@@ -106,7 +106,7 @@ class FileEventService(FileSubject):
             ip_address=ip_address,
         )
         self.notify(event)
-    
+
     def emit_rename_event(
         self,
         file: File,
@@ -142,7 +142,7 @@ class FileEventService(FileSubject):
             ip_address=ip_address,
         )
         self.notify(event)
-    
+
     def emit_move_event(
         self,
         file: File,
@@ -178,7 +178,7 @@ class FileEventService(FileSubject):
             ip_address=ip_address,
         )
         self.notify(event)
-    
+
     def emit_delete_event(
         self,
         file_id: int,
@@ -211,7 +211,7 @@ class FileEventService(FileSubject):
             ip_address=ip_address,
         )
         self.notify(event)
-    
+
     def emit_update_event(
         self,
         file: File,
