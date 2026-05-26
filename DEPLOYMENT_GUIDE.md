@@ -106,7 +106,7 @@ nginx -t
 systemctl reload nginx
 ```
 
-Frontend-контейнер сам проксирует `/api/`, `/admin/` и `/media/` в backend-контейнер.
+Frontend-контейнер проксирует `/api/` в backend-контейнер, отдаёт `/media/` из общего Docker volume и обслуживает React-route `/admin`.
 
 ## 6. HTTPS
 
@@ -119,7 +119,7 @@ certbot certificates
 
 ```bash
 curl -I https://ep-files.ru
-curl https://ep-files.ru/api/
+curl -i https://ep-files.ru/api/auth/me/
 ```
 
 ## 7. Обновление версии
@@ -148,9 +148,9 @@ docker compose ps
 docker compose logs --tail=100 backend
 docker compose logs --tail=100 frontend
 curl -I http://127.0.0.1:5173
-curl http://127.0.0.1:5173/api/
+curl -i http://127.0.0.1:5173/api/auth/me/
 curl -I https://ep-files.ru
-curl https://ep-files.ru/api/
+curl -i https://ep-files.ru/api/auth/me/
 ```
 
 Проверить в браузере:

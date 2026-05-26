@@ -24,6 +24,8 @@ services:
       dockerfile: ../Dockerfile.frontend
     ports:
       - "5173:80"
+    volumes:
+      - storage_data:/app/storage:ro
     env_file:
       - .env
     depends_on:

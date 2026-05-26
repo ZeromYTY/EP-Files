@@ -9,7 +9,8 @@
   -> внешний Nginx :80/:443
   -> frontend Docker container :5173
       -> nginx отдаёт React build
-      -> /api/, /admin/, /media/ проксируются в backend
+      -> /api/ проксируется в backend
+      -> /media/ отдаётся из общего storage volume
   -> backend Docker container :8000
   -> PostgreSQL Docker container :5432
 ```
@@ -38,7 +39,7 @@ docker compose ps
 docker compose logs --tail=100 backend
 docker compose logs --tail=100 frontend
 curl -I http://127.0.0.1:5173
-curl http://127.0.0.1:5173/api/
+curl -i http://127.0.0.1:5173/api/auth/me/
 ```
 
 Для HTTPS, Nginx-конфига, env-переменных, администратора и отката см. [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md).
