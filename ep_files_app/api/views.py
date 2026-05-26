@@ -13,6 +13,8 @@ from .file_views import (
     file_preview,
     search_files,
     user_storage_stats,
+)
+from .trash_views import (
     trash_list,
     trash_restore,
     trash_delete,

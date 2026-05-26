@@ -134,14 +134,14 @@ class Folder(models.Model):
     def get_total_size(self):
         """Вычисляет общий размер всех файлов в папке и подпапках."""
         from django.db.models import Sum
-        
+
         total_size = 0
         direct_files_size = self.files.filter(is_deleted=False).aggregate(total=Sum('size'))['total'] or 0
         total_size += direct_files_size
-        
+
         for child in self.children.all():
             total_size += child.get_total_size()
-        
+
         return total_size
 
 

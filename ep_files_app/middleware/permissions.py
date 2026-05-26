@@ -41,13 +41,13 @@ class PermissionCheckMiddleware:
         (r'^/api/files/(\d+)/detail/$', 'read'),
         (r'^/api/files/(\d+)/history/$', 'read'),
     ]
-    
+
     FOLDER_PATTERNS = [
         (r'^/api/folders/(\d+)/rename/$', 'write'),
         (r'^/api/folders/(\d+)/move/$', 'write'),
         (r'^/api/folders/(\d+)/delete/$', 'write'),
     ]
-    
+
     def __init__(self, get_response):
         """Инициализирует слой промежуточного ПО (middleware).
 
@@ -75,10 +75,10 @@ class PermissionCheckMiddleware:
             permission_check = self._check_permissions(request)
             if permission_check is not None:
                 return permission_check
-        
+
         response = self.get_response(request)
         return response
-    
+
     def _check_permissions(self, request):
         """Идентифицирует запрашиваемый ресурс по URL-шаблонам и проверяет права на него.
 
@@ -117,9 +117,9 @@ class PermissionCheckMiddleware:
                     folder_id,
                     required_permission
                 )
-        
+
         return None
-    
+
     def _check_file_permission(self, user, file_id, required_permission, method):
         """Осуществляет детальную верификацию прав доступа пользователя к конкретному файлу.
 
@@ -150,7 +150,7 @@ class PermissionCheckMiddleware:
             has_permission = permission_service.can_read_file(user, file)
         else:
             has_permission = permission_service.can_write_file(user, file)
-        
+
         if not has_permission:
             logger.warning(
                 f"Access denied: {user.email} tried to {required_permission} "
@@ -165,9 +165,9 @@ class PermissionCheckMiddleware:
                 },
                 status=403
             )
-        
+
         return None
-    
+
     def _check_folder_permission(self, user, folder_id, required_permission):
         """Осуществляет детальную верификацию прав доступа пользователя к конкретной папке.
 
@@ -194,7 +194,7 @@ class PermissionCheckMiddleware:
             has_permission = permission_service.can_read_folder(user, folder)
         else:
             has_permission = permission_service.can_write_folder(user, folder)
-        
+
         if not has_permission:
             logger.warning(
                 f"Access denied: {user.email} tried to {required_permission} "
@@ -209,5 +209,5 @@ class PermissionCheckMiddleware:
                 },
                 status=403
             )
-        
+
         return None

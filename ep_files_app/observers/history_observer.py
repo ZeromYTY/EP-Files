@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class FileHistoryObserver(FileObserver):
     """Наблюдатель для записи событий файлов в базу данных истории."""
-    
+
     def update(self, event: FileEvent) -> None:
         """Обрабатывает событие и создаёт запись в истории файлов."""
         try:
@@ -36,13 +36,13 @@ class FileHistoryObserver(FileObserver):
                 details=event.details,
                 ip_address=event.ip_address,
             )
-            
+
             logger.info(
                 f"History recorded: {event.event_type} for file '{event.file_name}' "
                 f"by user {event.user_email or 'unknown'}"
             )
-            
+
             return history_entry
-            
+
         except Exception as e:
             logger.error(f"Failed to record file history: {str(e)}", exc_info=True)
