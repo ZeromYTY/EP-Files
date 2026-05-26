@@ -78,7 +78,6 @@ function TrashHeader({ user, navigate }) {
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
-        <Folder sx={{ fontSize: 34, color: 'primary.main' }} />
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
       <Tooltip title="Личный кабинет">

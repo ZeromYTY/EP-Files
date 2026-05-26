@@ -51,34 +51,31 @@ const quickActionButtonSx = {
 export function HomeHeader({ user }) {
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', py: 2, position: 'sticky', top: 0, zIndex: 1000 }}>
-      <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
-            <Folder sx={{ fontSize: 40, color: 'primary.main' }} />
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>EP-Files</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {!user ? (
-              <>
-                <Button variant="outlined" component={Link} to="/login" startIcon={<LoginIcon />}>Вход</Button>
-                <Button variant="contained" component={Link} to="/register" startIcon={<PersonAdd />}>Регистрация</Button>
-              </>
+      <Box sx={{ px: { xs: 2, md: 3 }, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>ep-files</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {!user ? (
+            <>
+              <Button variant="outlined" component={Link} to="/login" startIcon={<LoginIcon />}>Вход</Button>
+              <Button variant="contained" component={Link} to="/register" startIcon={<PersonAdd />}>Регистрация</Button>
+            </>
             ) : (
               <>
-                <Button variant="contained" component={Link} to="/files" startIcon={<AccountCircle />} sx={homeHeaderButtonSx}>Личный кабинет</Button>
-                <Button variant="outlined" component={Link} to="/file-manager" startIcon={<Folder />} sx={homeHeaderButtonSx}>Мои файлы</Button>
+                <Button variant="contained" component={Link} to="/file-manager" startIcon={<Folder />} sx={{ ...homeHeaderButtonSx, backgroundColor: 'primary.dark', '&:hover': { backgroundColor: 'primary.main' } }}>Мои файлы</Button>
+                <Button variant="outlined" component={Link} to="/files" startIcon={<AccountCircle />} sx={{ ...homeHeaderButtonSx, backgroundColor: 'rgba(68, 215, 182, 0.08)', '&:hover': { backgroundColor: 'rgba(68, 215, 182, 0.14)' } }}>Личный кабинет</Button>
               </>
             )}
-          </Box>
         </Box>
-      </Container>
+      </Box>
     </Box>
   );
 }
 
 export function HomeHero({ user }) {
   return (
-    <Box sx={{ textAlign: 'center', mb: 6, py: { xs: 3, md: 5 } }}>
+    <Box sx={{ textAlign: 'center', mb: 1, pt: { xs: 3, md: 5 }, pb: 0 }}>
       <Typography variant="h2" sx={{ fontWeight: 900, mb: 2, color: 'text.primary', fontSize: { xs: '2.4rem', md: '3.75rem' } }}>
         {user ? `Добро пожаловать, ${user.name || 'Пользователь'}!` : 'Безопасное хранилище файлов'}
       </Typography>
@@ -174,14 +171,12 @@ export function GuestCta() {
 
 export function QuickActionsPanel({ uploadError, onClearError, onFileDropped, isUploading, uploadProgress, onUploadClick }) {
   return (
-    <Paper sx={{ ...panelSx, p: 4, textAlign: 'center', borderRadius: '12px' }}>
+    <Paper sx={{ ...panelSx, p: 4, mb: 6, textAlign: 'center', borderRadius: '12px' }}>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>Быстрые действия</Typography>
       {uploadError && <Alert severity="error" sx={{ mb: 3 }} onClose={onClearError}>{uploadError}</Alert>}
       <FilesPageUploader onFileDropped={onFileDropped} isUploading={isUploading} uploadProgress={uploadProgress} />
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Button variant="contained" size="large" onClick={onUploadClick} startIcon={<CloudUpload />} disabled={isUploading} sx={quickActionButtonSx}>Загрузить файл</Button>
-        <Button variant="outlined" size="large" component={Link} to="/files" startIcon={<AccountCircle />} sx={quickActionButtonSx}>Личный кабинет</Button>
-        <Button variant="outlined" size="large" component={Link} to="/file-manager" startIcon={<Folder />} sx={quickActionButtonSx}>Мои файлы</Button>
       </Box>
     </Paper>
   );
@@ -193,11 +188,11 @@ export function HomeFooter() {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>EP-Files</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>ep-files</Typography>
             <Typography variant="body2" sx={{ opacity: 0.7 }}>Безопасное облачное хранилище для ваших файлов. Загружайте, храните и управляйте документами с максимальной защитой.</Typography>
           </Grid>
           <Grid item xs={12} md={6} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-            <Typography variant="body2" sx={{ opacity: 0.7 }}>© 2026 EP-Files. Все права защищены.</Typography>
+            <Typography variant="body2" sx={{ opacity: 0.7 }}>© 2026 ep-files. Все права защищены.</Typography>
             <Typography variant="body2" sx={{ opacity: 0.7, mt: 1 }}>Сделано для безопасного хранения файлов</Typography>
           </Grid>
         </Grid>

@@ -92,6 +92,16 @@ function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, o
   );
 }
 
+function FilesHeader({ navigate }) {
+  return (
+    <Box sx={{ minHeight: 73, backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 2, md: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
+      <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>ep-files</Typography>
+      </Box>
+    </Box>
+  );
+}
+
 function StatsCard({ user, stats }) {
   const used = stats?.total_size || 0;
   const total = stats?.storage_limit || 1024 * 1024 * 1024;
@@ -328,27 +338,30 @@ export default function Files({ onPreviewFile }) {
     }
   };
   return (
-    <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
-      {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
-        <Grid item xs={12} md={7}>
-          <Box sx={{ display: 'grid', gap: 3 }}>
-            <StatsCard user={user} stats={storageStats} />
-            <ChangePasswordCard
-              form={passwordForm}
-              loading={passwordLoading}
-              open={passwordOpen}
-              error={passwordError}
-              onChange={handlePasswordChange}
-              onSubmit={handlePasswordSubmit}
-              onToggle={() => setPasswordOpen((prev) => !prev)}
-            />
-          </Box>
+    <>
+      <FilesHeader navigate={navigate} />
+      <Container maxWidth="lg" sx={{ py: 6, position: 'relative' }}>
+        {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={5}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
+          <Grid item xs={12} md={7}>
+            <Box sx={{ display: 'grid', gap: 3 }}>
+              <StatsCard user={user} stats={storageStats} />
+              <ChangePasswordCard
+                form={passwordForm}
+                loading={passwordLoading}
+                open={passwordOpen}
+                error={passwordError}
+                onChange={handlePasswordChange}
+                onSubmit={handlePasswordSubmit}
+                onToggle={() => setPasswordOpen((prev) => !prev)}
+              />
+            </Box>
+          </Grid>
         </Grid>
-      </Grid>
-      <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} onPreview={onPreviewFile} />
-      <TaskWidget tasks={tasks} clearTasks={() => setTasks([])} />
-    </Container>
+        <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} onPreview={onPreviewFile} />
+        <TaskWidget tasks={tasks} clearTasks={() => setTasks([])} />
+      </Container>
+    </>
   );
 }

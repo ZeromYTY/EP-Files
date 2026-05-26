@@ -6,7 +6,6 @@ import { AdminPanelSettings, Folder, RestoreFromTrash } from '@mui/icons-materia
 function Brand() {
   return (
     <Box component={Link} to="/" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', mr: 3 }}>
-      <img src="/logo.png" alt="ep-files logo" style={{ height: 40, width: 'auto', objectFit: 'contain', marginRight: 10 }} />
       <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, fontSize: '1.25rem' }}>ep-files</Typography>
     </Box>
   );

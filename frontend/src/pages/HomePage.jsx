@@ -119,7 +119,6 @@ export default function HomePage() {
       <Container maxWidth="lg" sx={{ py: 6 }}>
         <HomeHero user={user} />
         {user && <StorageStatsPanel stats={homeData.storageStats} formatFileSize={formatFileSize} isUploading={homeData.isQuickUploading} onUploadClick={handleQuickUploadClick} />}
-        {user && <RecentFilesPanel files={homeData.recentFiles} loading={homeData.loading} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={() => navigate('/file-manager')} />}
         {!user && <GuestCta />}
         {user && (
           <QuickActionsPanel
@@ -131,6 +130,7 @@ export default function HomePage() {
             onUploadClick={handleQuickUploadClick}
           />
         )}
+        {user && <RecentFilesPanel files={homeData.recentFiles} loading={homeData.loading} formatFileSize={formatFileSize} formatDate={formatDate} onOpen={() => navigate('/file-manager')} />}
       </Container>
       <HomeFooter />
     </Box>
