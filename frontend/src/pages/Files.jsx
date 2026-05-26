@@ -70,11 +70,17 @@ function ProfileCard({ user, isAdmin, displayName, themeMode, avatarUploading, o
             <input hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={onAvatarChange} />
           </IconButton>
         </Tooltip>
+        {user?.avatar_url && (
+          <Tooltip title="Удалить аватар">
+            <IconButton disabled={avatarUploading} onClick={onAvatarDelete} sx={{ position: 'absolute', left: -6, bottom: 6, bgcolor: 'error.main', color: 'error.contrastText', border: '2px solid', borderColor: 'background.paper', '&:hover': { bgcolor: 'error.dark' } }} size="small">
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
       <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>{displayName}</Typography>
       <Typography variant="body2" sx={{ mb: 3, fontWeight: 700, color: isAdmin ? 'warning.main' : 'text.secondary' }}>{isAdmin ? 'Роль: Администратор' : 'Роль: Пользователь'}</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {user?.avatar_url && <Button variant="outlined" color="error" fullWidth onClick={onAvatarDelete} disabled={avatarUploading} startIcon={<DeleteOutline />}>Удалить аватар</Button>}
         <Button variant="outlined" fullWidth onClick={onThemeToggle} startIcon={themeMode === 'dark' ? <LightMode /> : <DarkMode />}>{nextThemeLabel}</Button>
         <Button variant="contained" fullWidth onClick={onFiles} startIcon={<Folder />}>В файловый менеджер</Button>
         <Button variant="outlined" fullWidth onClick={onTrash} startIcon={<RestoreFromTrash />}>Корзина файлов</Button>

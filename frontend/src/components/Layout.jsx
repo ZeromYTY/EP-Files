@@ -1,7 +1,7 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../context/authContextValue';
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography } from '@mui/material';
-import { AdminPanelSettings, Folder, Logout, RestoreFromTrash } from '@mui/icons-material';
+import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
+import { AdminPanelSettings, Folder, RestoreFromTrash } from '@mui/icons-material';
 
 function Brand() {
   return (
@@ -21,26 +21,23 @@ function GuestNav() {
   );
 }
 
-function UserNav({ user, onLogout }) {
+function UserNav({ user }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
       <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.95rem', fontWeight: 500 }}>{user?.name || user?.email}</Typography>
       <Button color="inherit" component={Link} to="/admin" startIcon={<AdminPanelSettings />} sx={{ fontWeight: 600, backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>Админка</Button>
       <Button color="inherit" component={Link} to="/files" startIcon={<Folder />} sx={{ fontWeight: 500 }}>Файлы</Button>
       <Button color="inherit" component={Link} to="/trash" startIcon={<RestoreFromTrash />} sx={{ fontWeight: 500 }}>Корзина</Button>
-      <IconButton onClick={onLogout} size="small" sx={{ color: '#fff' }} title="Выйти"><Logout /></IconButton>
     </Box>
   );
 }
 
 export default function Layout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const { user } = useAuth();
   return (
     <>
       <AppBar position="static" sx={{ background: 'linear-gradient(90deg, #2196F3 0%, #03A9F4 100%)', boxShadow: '0 2px 10px rgba(33, 150, 243, 0.3)' }}>
-        <Toolbar><Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}><Brand /></Box>{user ? <UserNav user={user} onLogout={handleLogout} /> : <GuestNav />}</Toolbar>
+        <Toolbar><Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}><Brand /></Box>{user ? <UserNav user={user} /> : <GuestNav />}</Toolbar>
       </AppBar>
       <Container sx={{ mt: 4, mb: 4 }}><Outlet /></Container>
     </>

@@ -26,13 +26,12 @@ function buildListProps({ viewMode, setCurrentFolderId, download, onPreviewFile,
   };
 }
 
-function buildHandlers({ user, navigate, logout, state, data, commands, dialogs, textEditor, onPreviewFile }) {
+function buildHandlers({ user, state, data, commands, dialogs, textEditor, onPreviewFile }) {
   const back = () => {
     const current = data.breadcrumbs.find((folder) => folder.id === state.currentFolderId);
     state.setCurrentFolderId(current?.parent_id || null);
   };
   return {
-    logout: () => { logout(); navigate('/login'); },
     manualUpload: (event) => commands.manualUpload(event),
     back,
     home: () => state.setCurrentFolderId(null),
@@ -123,7 +122,7 @@ function buildItemMenuActions({ commands, selection, textEditor, closeItemMenu, 
 }
 
 export default function FileManager({ onPreviewFile }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,7 +176,7 @@ export default function FileManager({ onPreviewFile }) {
     },
   };
   const dialogs = buildDialogs({ state, data, commands, selection, textEditor, report });
-  const handlers = buildHandlers({ user, navigate, logout, state, data, commands, dialogs, textEditor, onPreviewFile });
+  const handlers = buildHandlers({ user, state, data, commands, dialogs, textEditor, onPreviewFile });
   const sortedItems = sortedFileManagerItems(data.folders, data.files, data.favoriteIds);
   const locationName = currentLocationName(currentFolderId, data.breadcrumbs);
   return <FileManagerView user={user} navigate={navigate} searchQuery={searchQuery} setSearchQuery={setSearchQuery} viewMode={viewMode} setViewMode={setViewMode} currentFolderId={currentFolderId} breadcrumbs={data.breadcrumbs} sortedItems={sortedItems} loading={data.loading} error={data.error} success={data.success} setError={data.setError} setSuccess={data.setSuccess} locationName={locationName} handlers={handlers} dialogs={dialogs} tasks={taskQueue} textEditor={textEditor} />;
