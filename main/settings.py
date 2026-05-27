@@ -1,15 +1,37 @@
 import os
 from pathlib import Path
-from datetime import timedelta
+from django.core.exceptions import ImproperlyConfigured
 from ep_files_app.core import config as app_config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-@1i!@693izgkyqoju_svjf9z00&mdu8@_6))4zmxzaw@x)8wa$')
+DEFAULT_DEV_SECRET_KEY = 'django-insecure-@1i!@693izgkyqoju_svjf9z00&mdu8@_6))4zmxzaw@x)8wa$'
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend').split(',')
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def env_list(name, default=''):
+    raw_value = os.environ.get(name, default)
+    return [item.strip() for item in raw_value.split(',') if item.strip()]
+
+
+DEBUG = env_bool('DEBUG', True)
+
+SECRET_KEY = os.environ.get('SECRET_KEY', DEFAULT_DEV_SECRET_KEY)
+if not DEBUG and SECRET_KEY == DEFAULT_DEV_SECRET_KEY:
+    raise ImproperlyConfigured('SECRET_KEY must be set to a unique value when DEBUG=False.')
+
+if not DEBUG and app_config.JWT_SECRET_KEY == 'your-super-secret-key-change-this-in-production-12345':
+    raise ImproperlyConfigured('JWT_SECRET_KEY must be set to a unique value when DEBUG=False.')
+
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,backend')
+if not DEBUG and (not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS):
+    raise ImproperlyConfigured('ALLOWED_HOSTS must be explicit and must not contain * when DEBUG=False.')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -102,6 +124,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # --- ФАЙЛЫ ---
 DATA_UPLOAD_MAX_MEMORY_SIZE = app_config.MAX_FILE_SIZE
@@ -131,7 +154,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': app_config.ACCESS_TOKEN_LIFETIME,
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': app_config.REFRESH_TOKEN_LIFETIME,
     'SIGNING_KEY': app_config.JWT_SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'ROTATE_REFRESH_TOKENS': True,
@@ -139,31 +162,47 @@ SIMPLE_JWT = {
 }
 
 # --- CORS ---
-_cors_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
-if _cors_env:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',')]
+if DEBUG:
+    _default_cors_origins = (
+        "http://localhost:3000,"
+        "http://localhost:5173,"
+        "http://localhost:5174,"
+        "http://127.0.0.1:3000,"
+        "http://127.0.0.1:5173,"
+        "http://127.0.0.1:5174"
+    )
+    CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', _default_cors_origins)
 else:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    ]
+    CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS')
+    if any(origin == '*' for origin in CORS_ALLOWED_ORIGINS):
+        raise ImproperlyConfigured('CORS_ALLOWED_ORIGINS must not contain * when DEBUG=False.')
+
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+if DEBUG and not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
 CORS_ALLOW_CREDENTIALS = True
 
 # --- SECURITY ---
 X_FRAME_OPTIONS = 'DENY'
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SAMESITE = os.environ.get('CSRF_COOKIE_SAMESITE', 'Lax')
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_HSTS_SECONDS = 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_HSTS_PRELOAD = False
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 31536000 if not DEBUG else 0))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', not DEBUG)
+
+# --- JWT COOKIES ---
+JWT_ACCESS_COOKIE_NAME = os.environ.get('JWT_ACCESS_COOKIE_NAME', 'ep_access_token')
+JWT_REFRESH_COOKIE_NAME = os.environ.get('JWT_REFRESH_COOKIE_NAME', 'ep_refresh_token')
+JWT_COOKIE_SECURE = env_bool('JWT_COOKIE_SECURE', not DEBUG)
+JWT_COOKIE_SAMESITE = os.environ.get('JWT_COOKIE_SAMESITE', 'Lax')
+JWT_ACCESS_COOKIE_PATH = os.environ.get('JWT_ACCESS_COOKIE_PATH', '/api/')
+JWT_REFRESH_COOKIE_PATH = os.environ.get('JWT_REFRESH_COOKIE_PATH', '/api/auth/')
 
 # --- LOGGING ---
 os.makedirs(BASE_DIR / 'logs', exist_ok=True)

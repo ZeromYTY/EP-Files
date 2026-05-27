@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -64,7 +65,9 @@ def test_register_normalizes_email_for_login(api_client):
     )
 
     assert login_response.status_code == 200
-    assert "token" in login_response.data
+    assert "user" in login_response.data
+    assert settings.JWT_ACCESS_COOKIE_NAME in login_response.cookies
+    assert settings.JWT_REFRESH_COOKIE_NAME in login_response.cookies
 
 
 def test_register_duplicate_email_is_case_insensitive(api_client, user_factory):
@@ -94,8 +97,11 @@ def test_login_success_returns_tokens(api_client, user_factory):
     response = api_client.post(reverse("login"), payload, format="json")
 
     assert response.status_code == 200
-    assert "token" in response.data
-    assert "refresh" in response.data
+    assert "user" in response.data
+    assert settings.JWT_ACCESS_COOKIE_NAME in response.cookies
+    assert settings.JWT_REFRESH_COOKIE_NAME in response.cookies
+    assert response.cookies[settings.JWT_ACCESS_COOKIE_NAME]["httponly"]
+    assert response.cookies[settings.JWT_REFRESH_COOKIE_NAME]["httponly"]
 
 
 def test_login_accepts_email_case_and_outer_spaces(api_client, user_factory):
@@ -111,7 +117,8 @@ def test_login_accepts_email_case_and_outer_spaces(api_client, user_factory):
     )
 
     assert response.status_code == 200
-    assert "token" in response.data
+    assert "user" in response.data
+    assert settings.JWT_ACCESS_COOKIE_NAME in response.cookies
 
 
 def test_login_wrong_password_returns_401(api_client, user_factory):
@@ -290,6 +297,50 @@ def test_protected_endpoint_with_valid_token_returns_200(
 
     assert response.status_code == 200
     assert response.data["message"] == "Access granted. JWT is working."
+
+
+def test_protected_endpoint_accepts_access_cookie(api_client, user_factory, token_factory, settings):
+    user = user_factory(email="cookie_auth@example.com", password="StrongPass123")
+    api_client.cookies[settings.JWT_ACCESS_COOKIE_NAME] = token_factory(user)
+
+    response = api_client.get(reverse("test_auth"))
+
+    assert response.status_code == 200
+    assert response.data["message"] == "Access granted. JWT is working."
+
+
+def test_refresh_uses_refresh_cookie(api_client, user_factory, settings):
+    user = user_factory(email="refresh_cookie@example.com", password="StrongPass123")
+    refresh = api_client.post(
+        reverse("login"),
+        {"email": user.email, "password": "StrongPass123"},
+        format="json",
+    ).cookies[settings.JWT_REFRESH_COOKIE_NAME].value
+    api_client.cookies[settings.JWT_REFRESH_COOKIE_NAME] = refresh
+    csrf_token = api_client.cookies["csrftoken"].value
+
+    response = api_client.post(reverse("token_refresh"), format="json", HTTP_X_CSRFTOKEN=csrf_token)
+
+    assert response.status_code == 200
+    assert settings.JWT_ACCESS_COOKIE_NAME in response.cookies
+
+
+def test_logout_clears_auth_cookies(api_client, user_factory, settings):
+    user = user_factory(email="logout_cookie@example.com", password="StrongPass123")
+    login_response = api_client.post(
+        reverse("login"),
+        {"email": user.email, "password": "StrongPass123"},
+        format="json",
+    )
+    api_client.cookies[settings.JWT_ACCESS_COOKIE_NAME] = login_response.cookies[settings.JWT_ACCESS_COOKIE_NAME].value
+    api_client.cookies[settings.JWT_REFRESH_COOKIE_NAME] = login_response.cookies[settings.JWT_REFRESH_COOKIE_NAME].value
+    csrf_token = api_client.cookies["csrftoken"].value
+
+    response = api_client.post(reverse("logout"), format="json", HTTP_X_CSRFTOKEN=csrf_token)
+
+    assert response.status_code == 200
+    assert response.cookies[settings.JWT_ACCESS_COOKIE_NAME].value == ""
+    assert response.cookies[settings.JWT_REFRESH_COOKIE_NAME].value == ""
 
 
 def test_blocked_user_token_returns_401(

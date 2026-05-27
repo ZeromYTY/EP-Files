@@ -11,4 +11,5 @@ os.makedirs(STORAGE_PATH, exist_ok=True)
 
 JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-super-secret-key-change-this-in-production-12345')
 
-ACCESS_TOKEN_LIFETIME = timedelta(seconds=int(os.environ.get('ACCESS_TOKEN_LIFETIME', 3600)))
+ACCESS_TOKEN_LIFETIME = timedelta(seconds=int(os.environ.get('ACCESS_TOKEN_LIFETIME', 900)))
+REFRESH_TOKEN_LIFETIME = timedelta(days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', 7)))

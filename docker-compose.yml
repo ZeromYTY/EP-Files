@@ -10,12 +10,10 @@ services:
     volumes:
       - storage_data:/app/storage
       - ./logs:/app/logs
-      - ./db.sqlite3:/app/db.sqlite3
     env_file:
       - .env
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      - db
 
   frontend:
     restart: unless-stopped
@@ -23,7 +21,7 @@ services:
       context: ./frontend
       dockerfile: ../Dockerfile.frontend
     ports:
-      - "5173:80"
+      - "80:80"
     volumes:
       - storage_data:/app/storage:ro
     env_file:

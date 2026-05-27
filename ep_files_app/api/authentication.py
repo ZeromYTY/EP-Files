@@ -1,3 +1,6 @@
+from django.conf import settings
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.authentication import CSRFCheck
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.settings import api_settings
@@ -17,6 +20,34 @@ class EpFilesJWTAuthentication(JWTAuthentication):
         get_user(validated_token): Извлекает пользователя из базы данных на основе
             данных из декодированного JWT-токена.
     """
+
+    def authenticate(self, request):
+        """Authenticate by Authorization header or by HttpOnly access-token cookie."""
+        header = self.get_header(request)
+        cookie_auth = False
+
+        if header is None:
+            raw_token = request.COOKIES.get(settings.JWT_ACCESS_COOKIE_NAME)
+            cookie_auth = bool(raw_token)
+        else:
+            raw_token = self.get_raw_token(header)
+
+        if raw_token is None:
+            return None
+
+        if cookie_auth and request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            self.enforce_csrf(request)
+
+        validated_token = self.get_validated_token(raw_token)
+        return self.get_user(validated_token), validated_token
+
+    def enforce_csrf(self, request):
+        """Require a valid CSRF token when JWT auth comes from cookies."""
+        check = CSRFCheck(lambda req: None)
+        check.process_request(request)
+        reason = check.process_view(request, None, (), {})
+        if reason:
+            raise PermissionDenied(f"CSRF Failed: {reason}")
 
     def get_user(self, validated_token):
         """Извлекает и верифицирует экземпляр пользователя из переданного JWT-токена.

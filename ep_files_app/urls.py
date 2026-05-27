@@ -3,7 +3,7 @@ from django.urls import path
 
 from .api import views
 from .api.views import (
-    ChangePasswordView, RegisterView, LoginView, MeView, protected_test_view,
+    ChangePasswordView, RegisterView, LoginView, LogoutView, MeView, RefreshView, protected_test_view,
     upload_file, download_file, delete_file,
     file_move, file_detail, report_file, user_storage_stats, search_files,
     folder_tree, folder_create, folder_rename, folder_move, folder_delete,
@@ -38,6 +38,8 @@ from .api.public_link_views import (
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/refresh/", RefreshView.as_view(), name="token_refresh"),
+    path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("auth/avatar/", views.avatar_view, name="avatar"),
