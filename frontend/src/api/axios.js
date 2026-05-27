@@ -53,7 +53,7 @@ api.interceptors.response.use(
       }
     }
 
-    if ((isBlocked || (isUnauthorized && !isAuthCheckRequest)) && !isAuthRequest) {
+    if ((isBlocked || (isUnauthorized && !isAuthCheckRequest && !isRefreshRequest)) && !isAuthRequest) {
       if (isBlocked) {
         sessionStorage.setItem('auth_error', 'Ваш аккаунт заблокирован администратором.');
       }

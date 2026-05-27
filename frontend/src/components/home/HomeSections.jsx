@@ -168,7 +168,7 @@ export function GuestCta() {
     <Paper sx={{ p: { xs: 3, sm: 6 }, textAlign: 'center', background: 'linear-gradient(135deg, #1d4ed8 0%, #44d7b6 100%)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 18px 48px rgba(0,0,0,0.32)', width: '100%', maxWidth: { xs: 360, sm: 'none' }, mx: 'auto' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.7rem', sm: '2.125rem' } }}>Готовы начать?</Typography>
       <Typography variant="h6" sx={{ mb: 4, opacity: 0.9, fontSize: { xs: '1rem', sm: '1.25rem' } }}>Создайте аккаунт за 30 секунд и получите 100 MB бесплатно</Typography>
-      <Button variant="contained" size="large" component={Link} fullWidth sx={{ maxWidth: { sm: 360 }, backgroundColor: '#fff', color: '#0f172a', px: 4, py: 1.5, fontSize: '1.1rem', '&:hover': { backgroundColor: '#ecfeff' } }}>Создать аккаунт бесплатно</Button>
+      <Button variant="contained" size="large" component={Link} to="/register" fullWidth sx={{ maxWidth: { sm: 360 }, backgroundColor: '#fff', color: '#0f172a', px: 4, py: 1.5, fontSize: '1.1rem', '&:hover': { backgroundColor: '#ecfeff' } }}>Создать аккаунт бесплатно</Button>
     </Paper>
   );
 }
