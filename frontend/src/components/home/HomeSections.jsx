@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import FilesPageUploader from '../upload/FilesPageUploader';
+import HeaderProfileButton from '../HeaderProfileButton';
 import {
   Alert,
   Avatar,
@@ -20,7 +21,6 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  AccountCircle,
   CloudUpload,
   Folder,
   InsertDriveFile,
@@ -35,6 +35,11 @@ const panelSx = {
   border: '1px solid',
   borderColor: 'divider',
   boxShadow: (theme) => theme.ep.shadow,
+  transition: 'border-color 220ms ease, box-shadow 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+  '&:hover': {
+    borderColor: 'primary.main',
+    transform: 'translateY(-2px)',
+  },
 };
 
 const homeHeaderButtonSx = {
@@ -68,7 +73,7 @@ export function HomeHeader({ user }) {
             ) : (
               <>
                 <Button variant="contained" component={Link} to="/file-manager" startIcon={<Folder />} sx={{ ...homeHeaderButtonSx, flex: { xs: 1, sm: 'initial' }, backgroundColor: 'primary.dark', '&:hover': { backgroundColor: 'primary.main' } }}>Мои файлы</Button>
-                <Button variant="outlined" component={Link} to="/files" startIcon={<AccountCircle />} sx={{ ...homeHeaderButtonSx, flex: { xs: 1, sm: 'initial' }, backgroundColor: 'rgba(68, 215, 182, 0.08)', '&:hover': { backgroundColor: 'rgba(68, 215, 182, 0.14)' } }}>Личный кабинет</Button>
+                <HeaderProfileButton user={user} component={Link} to="/files" sx={{ ...homeHeaderButtonSx, flex: { xs: 1, sm: 'initial' } }} />
               </>
             )}
         </Box>
@@ -99,10 +104,10 @@ export function HomeHero({ user }) {
 function StorageStatCard({ icon, value, label, caption, children, gradient }) {
   return (
     <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'center' }}>
-      <Card sx={{ height: '100%', width: '100%', maxWidth: { xs: 360, md: 'none' }, background: gradient, border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 18px 44px rgba(0,0,0,0.34)' }}>
+      <Card sx={{ height: '100%', width: '100%', maxWidth: { xs: 360, md: 'none' }, background: gradient, border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 18px 44px rgba(0,0,0,0.34)', backgroundSize: '140% 140%', '&:hover': { transform: 'translateY(-4px)', filter: 'brightness(1.04)', boxShadow: '0 24px 58px rgba(0,0,0,0.38)' }, '&:hover .storage-stat-icon': { transform: 'translateY(-2px) scale(1.08)' } }}>
         <CardContent sx={{ p: { xs: 2.25, sm: 3 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            {icon}
+            <Box className="storage-stat-icon" sx={{ display: 'flex', transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)' }}>{icon}</Box>
             <Box>
               <Typography variant="h3" sx={{ color: '#fff', fontWeight: 700, fontSize: { xs: '2rem', sm: '3rem' }, lineHeight: 1.1 }}>{value}</Typography>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>{label}</Typography>
@@ -138,7 +143,7 @@ function RecentFileItem({ file, index, count, formatFileSize, formatDate, onOpen
   const changedAt = file.updated_at || file.created_at || file.date;
   return (
     <Box>
-      <ListItem sx={{ px: { xs: 0.5, sm: 2 }, '&:hover': { backgroundColor: (theme) => theme.ep.hover, cursor: 'pointer' }, borderRadius: 1 }} onClick={onOpen}>
+      <ListItem sx={{ px: { xs: 0.5, sm: 2 }, transition: 'background-color 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)', '&:hover': { backgroundColor: (theme) => theme.ep.hover, cursor: 'pointer', transform: 'translateX(3px)' }, borderRadius: 1 }} onClick={onOpen}>
         <ListItemAvatar><Avatar sx={{ bgcolor: 'rgba(68, 215, 182, 0.13)', color: 'primary.main' }}><InsertDriveFile /></Avatar></ListItemAvatar>
         <ListItemText primary={file.name} secondary={`${formatFileSize(file.size)} • ${formatDate(changedAt)}`} primaryTypographyProps={{ noWrap: true }} sx={{ minWidth: 0 }} />
         <Chip label={formatDate(changedAt)} size="small" sx={{ display: { xs: 'none', sm: 'inline-flex' } }} />
@@ -165,7 +170,7 @@ export function RecentFilesPanel({ files, loading, formatFileSize, formatDate, o
 
 export function GuestCta() {
   return (
-    <Paper sx={{ p: { xs: 3, sm: 6 }, textAlign: 'center', background: 'linear-gradient(135deg, #1d4ed8 0%, #44d7b6 100%)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 18px 48px rgba(0,0,0,0.32)', width: '100%', maxWidth: { xs: 360, sm: 'none' }, mx: 'auto' }}>
+    <Paper sx={{ p: { xs: 3, sm: 6 }, textAlign: 'center', background: 'linear-gradient(135deg, #1d4ed8 0%, #44d7b6 100%)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 18px 48px rgba(0,0,0,0.32)', width: '100%', maxWidth: { xs: 360, sm: 'none' }, mx: 'auto', transition: 'filter 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)', '&:hover': { transform: 'translateY(-3px)', filter: 'brightness(1.03)' } }}>
       <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, fontSize: { xs: '1.7rem', sm: '2.125rem' } }}>Готовы начать?</Typography>
       <Typography variant="h6" sx={{ mb: 4, opacity: 0.9, fontSize: { xs: '1rem', sm: '1.25rem' } }}>Создайте аккаунт за 30 секунд и получите 100 MB бесплатно</Typography>
       <Button variant="contained" size="large" component={Link} to="/register" fullWidth sx={{ maxWidth: { sm: 360 }, backgroundColor: '#fff', color: '#0f172a', px: 4, py: 1.5, fontSize: '1.1rem', '&:hover': { backgroundColor: '#ecfeff' } }}>Создать аккаунт бесплатно</Button>

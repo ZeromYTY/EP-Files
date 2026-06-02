@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -29,7 +28,6 @@ import {
   ArrowBack,
   ArrowDropDown,
   ArrowDropUp,
-  CheckCircle,
   Close,
   CloudUpload,
   Delete,
@@ -50,11 +48,21 @@ import {
 } from '@mui/icons-material';
 import AccessControlDialog from '../../components/file-manager/AccessControlDialog';
 import FileList from '../../components/file-manager/FileList';
+import HeaderProfileButton from '../../components/HeaderProfileButton';
 import MoveFolderDialog from '../../components/file-manager/MoveFolderDialog';
+import TaskStatusItem from '../../components/TaskStatusItem';
 import TextFileEditorDialog from '../../components/file-manager/TextFileEditorDialog';
+import { hasDraggedSystemFiles } from '../../components/file-manager/dragDrop';
 
 function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
-  const initials = user?.name?.[0] || user?.email?.[0] || 'U';
+  const headerButtonSx = {
+    minWidth: { xs: 0, sm: 150 },
+    height: 40,
+    whiteSpace: 'nowrap',
+    px: { xs: 1.25, sm: 2 },
+    fontSize: { xs: '0.78rem', sm: '0.875rem' },
+    '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
+  };
 
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 2, md: 3 }, py: 2, display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000, gap: { xs: 1.25, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
@@ -64,19 +72,9 @@ function FileManagerHeader({ user, searchQuery, setSearchQuery, navigate }) {
       <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' }, maxWidth: { xs: 'none', sm: 600 }, mx: { xs: 0, sm: 2, md: 4 } }}>
         <TextField fullWidth placeholder="Поиск файлов..." size="small" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: 'text.secondary' }} /></InputAdornment>, sx: { borderRadius: '8px' } }} />
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
-        <Tooltip title="Корзина">
-          <IconButton onClick={() => navigate('/trash')} sx={{ backgroundColor: 'primary.main', color: 'primary.contrastText', '&:hover': { backgroundColor: 'primary.light' } }}>
-            <RestoreFromTrash />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={user?.email || 'Пользователь'}>
-          <IconButton onClick={() => navigate('/files')} sx={{ p: 0, '&:hover': { opacity: 0.9 } }}>
-            <Avatar src={user?.avatar_url || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '1rem', fontWeight: 700 }}>
-              {initials.toUpperCase()}
-            </Avatar>
-          </IconButton>
-        </Tooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, justifyContent: { xs: 'space-between', sm: 'flex-end' }, width: { xs: '100%', sm: 'auto' } }}>
+        <Button variant="contained" onClick={() => navigate('/trash')} startIcon={<RestoreFromTrash />} sx={{ ...headerButtonSx, flex: { xs: 1, sm: 'initial' }, backgroundColor: 'primary.dark', '&:hover': { backgroundColor: 'primary.main' } }}>Корзина</Button>
+        <HeaderProfileButton user={user} onClick={() => navigate('/files')} sx={{ ...headerButtonSx, flex: { xs: 1, sm: 'initial' } }} />
       </Box>
     </Box>
   );
@@ -135,8 +133,8 @@ function EmptyState({ onFileDropped }) {
     if (droppedFiles.length > 0) onFileDropped?.(droppedFiles);
   };
   return (
-    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 7, sm: 12 }, px: 2, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)' } : {}) }}>
-      <Box sx={{ width: { xs: 76, sm: 96 }, height: { xs: 76, sm: 96 }, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, mx: 'auto' }}>
+    <Box onDragOver={(e) => { stop(e); setIsDragActive(true); }} onDragLeave={(e) => { stop(e); setIsDragActive(false); }} onDrop={handleDrop} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 7, sm: 12 }, px: 2, textAlign: 'center', borderRadius: '12px', border: '1px dashed', borderColor: isDragActive ? 'primary.main' : 'divider', backgroundColor: isDragActive ? 'rgba(68, 215, 182, 0.08)' : 'rgba(255,255,255,0.02)', transition: 'background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)', ...(isDragActive ? { boxShadow: '0 0 0 3px rgba(68, 215, 182, 0.12)', transform: 'scale(1.01)' } : {}) }}>
+      <Box sx={{ width: { xs: 76, sm: 96 }, height: { xs: 76, sm: 96 }, backgroundColor: 'rgba(68, 215, 182, 0.12)', border: '1px solid rgba(68, 215, 182, 0.24)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, mx: 'auto', animation: 'epSoftPulse 2.8s ease-in-out infinite' }}>
         <CloudUpload sx={{ fontSize: { xs: 38, sm: 48 }, color: 'primary.main', margin: 'auto' }} />
       </Box>
       <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: { xs: '1.55rem', sm: '2rem' } }}>Пусто</Typography>
@@ -243,40 +241,109 @@ function ItemMenu({ anchorEl, anchorPosition, selectedItem, currentUserEmail, ca
 function TaskWidget({ tasks, isMinimized, setIsMinimized, clearTasks }) {
   if (tasks.length === 0) return null;
   const activeCount = tasks.filter((task) => ['uploading', 'downloading', 'deleting'].includes(task.status)).length;
+  const errorCount = tasks.filter((task) => task.status === 'error').length;
   return (
     <Paper elevation={4} sx={{ position: 'fixed', bottom: { xs: 12, sm: 24 }, right: { xs: 12, sm: 24 }, left: { xs: 12, sm: 'auto' }, width: { xs: 'auto', sm: 360 }, backgroundColor: (theme) => theme.ep.panel, borderRadius: '12px', boxShadow: (theme) => theme.ep.shadow, zIndex: 2000, overflow: 'hidden', border: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Выполняется операций: {activeCount}</Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Операции с файлами</Typography>
+          <Typography variant="caption" color={errorCount ? 'error.main' : 'text.secondary'}>{errorCount ? `Ошибок: ${errorCount}` : activeCount ? `В процессе: ${activeCount}` : `Задач: ${tasks.length}`}</Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={() => setIsMinimized(!isMinimized)}>{isMinimized ? <ArrowDropUp /> : <ArrowDropDown />}</IconButton>
           <IconButton size="small" sx={{ color: 'text.secondary' }} onClick={clearTasks}><Close fontSize="small" /></IconButton>
         </Box>
       </Box>
-      {!isMinimized && <Box sx={{ overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 300 }}>{tasks.map((task) => <TaskItem key={task.id} task={task} />)}</Box>}
+      {!isMinimized && <Box sx={{ overflowY: 'auto', p: 1, display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 360 }}>{tasks.map((task) => <TaskStatusItem key={task.id} task={task} />)}</Box>}
     </Paper>
   );
 }
 
-function TaskItem({ task }) {
-  const isActive = ['uploading', 'downloading', 'deleting'].includes(task.status);
+function GlobalDropOverlay({ active, locationName }) {
+  if (!active) return null;
   return (
-    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid', borderColor: 'divider', backgroundColor: task.status === 'success' ? 'rgba(74, 222, 128, 0.1)' : task.status === 'error' ? 'rgba(255, 107, 122, 0.1)' : 'rgba(255,255,255,0.035)' }}>
-      {isActive ? <CircularProgress variant={task.status === 'uploading' ? 'determinate' : 'indeterminate'} value={task.status === 'uploading' ? task.progress : undefined} size={32} thickness={4.5} sx={{ color: 'primary.main' }} /> : task.status === 'success' ? <CheckCircle sx={{ color: 'success.main', fontSize: 32, flexShrink: 0 }} /> : <Box sx={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'error.main', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>!</Box>}
-      <Box sx={{ overflow: 'hidden', flexGrow: 1 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.name}</Typography>
-        <Typography variant="caption" sx={{ color: task.status === 'success' ? 'success.main' : task.status === 'error' ? 'error.main' : 'text.secondary', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{task.subText}</Typography>
-      </Box>
+    <Box
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1900,
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 2, sm: 4 },
+        backgroundColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(5, 7, 10, 0.72)' : 'rgba(241, 245, 249, 0.74)'),
+        backdropFilter: 'blur(10px)',
+        animation: 'epScaleIn 140ms cubic-bezier(0.22, 1, 0.36, 1) both',
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          width: 'min(520px, 100%)',
+          p: { xs: 3, sm: 4 },
+          borderRadius: '16px',
+          border: '2px dashed',
+          borderColor: 'primary.main',
+          backgroundColor: (theme) => theme.ep.panel,
+          boxShadow: (theme) => theme.ep.menuShadow,
+          textAlign: 'center',
+        }}
+      >
+        <Box sx={{ width: 88, height: 88, mx: 'auto', mb: 2, borderRadius: '50%', display: 'grid', placeItems: 'center', backgroundColor: 'rgba(68, 215, 182, 0.13)', border: '1px solid rgba(68, 215, 182, 0.28)', animation: 'epSoftPulse 2.2s ease-in-out infinite' }}>
+          <CloudUpload sx={{ fontSize: 46, color: 'primary.main' }} />
+        </Box>
+        <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary', mb: 1 }}>
+          Отпустите файл, чтобы загрузить
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          Файл будет добавлен в папку "{locationName}"
+        </Typography>
+      </Paper>
     </Box>
   );
 }
 
 export default function FileManagerView(props) {
   const { user, navigate, searchQuery, setSearchQuery, viewMode, setViewMode, currentFolderId, breadcrumbs, sortedItems, loading, error, success, setError, setSuccess, locationName, handlers, dialogs, tasks, textEditor } = props;
+  const [globalDropActive, setGlobalDropActive] = useState(false);
+  const globalDragDepth = useRef(0);
+  const resetGlobalDrop = () => {
+    globalDragDepth.current = 0;
+    setGlobalDropActive(false);
+  };
+  const handleGlobalDragEnter = (event) => {
+    if (!hasDraggedSystemFiles(event)) return;
+    event.preventDefault();
+    globalDragDepth.current += 1;
+    setGlobalDropActive(true);
+  };
+  const handleGlobalDragOver = (event) => {
+    if (!hasDraggedSystemFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    setGlobalDropActive(true);
+  };
+  const handleGlobalDragLeave = (event) => {
+    if (!hasDraggedSystemFiles(event)) return;
+    event.preventDefault();
+    globalDragDepth.current = Math.max(0, globalDragDepth.current - 1);
+    if (globalDragDepth.current === 0) setGlobalDropActive(false);
+  };
+  const handleGlobalDrop = (event) => {
+    if (!hasDraggedSystemFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const droppedFiles = Array.from(event.dataTransfer?.files || []);
+    resetGlobalDrop();
+    if (droppedFiles.length > 0) handlers.listProps?.onFileDropped?.(droppedFiles);
+  };
   return (
-    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, position: 'relative' }}>
+    <Box className="ep-page" onDragEnter={handleGlobalDragEnter} onDragOver={handleGlobalDragOver} onDragLeave={handleGlobalDragLeave} onDrop={handleGlobalDrop} sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, position: 'relative' }}>
       <input type="file" id="manual-file-input" onChange={handlers.manualUpload} style={{ display: 'none' }} />
       <FileManagerHeader user={user} searchQuery={searchQuery} setSearchQuery={setSearchQuery} navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container className="ep-stagger" maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 } }}>
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
         <BreadcrumbBar currentFolderId={currentFolderId} breadcrumbs={breadcrumbs} viewMode={viewMode} setViewMode={setViewMode} onBack={handlers.back} onHome={handlers.home} onBreadcrumbClick={handlers.breadcrumbClick} />
@@ -303,6 +370,7 @@ export default function FileManagerView(props) {
       <AccessControlDialog open={dialogs.accessDialogOpen} item={dialogs.selectedItem} onClose={dialogs.closeAccess} onChanged={dialogs.onAccessChanged} />
       <ItemMenu anchorEl={dialogs.menuAnchor} anchorPosition={dialogs.menuAnchorPosition} selectedItem={dialogs.selectedItem} currentUserEmail={user?.email} canEdit={handlers.canEdit} onClose={dialogs.closeItemMenu} actions={dialogs.itemMenuActions} />
       <TaskWidget tasks={tasks.tasks} isMinimized={tasks.isWidgetMinimized} setIsMinimized={tasks.setIsWidgetMinimized} clearTasks={() => tasks.setTasks([])} />
+      <GlobalDropOverlay active={globalDropActive} locationName={locationName} />
     </Box>
   );
 }

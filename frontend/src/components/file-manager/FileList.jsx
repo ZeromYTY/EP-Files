@@ -15,7 +15,7 @@ import {
   TableChart,
 } from '@mui/icons-material';
 import FileRow from './FileRow';
-import { getDraggedManagerItem, hasDraggedManagerItem, setDraggedManagerItem } from './dragDrop';
+import { getDraggedManagerItem, hasDraggedManagerItem, hasDraggedSystemFiles, setDraggedManagerItem } from './dragDrop';
 
 const fileGroups = [
   { extensions: ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'], icon: Image, color: '#5eead4', bg: 'rgba(94, 234, 212, 0.12)' },
@@ -23,7 +23,7 @@ const fileGroups = [
   { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.13)' },
   { extensions: ['pdf'], icon: PictureAsPdf, color: '#fb7185', bg: 'rgba(251, 113, 133, 0.13)' },
   { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#4ade80', bg: 'rgba(74, 222, 128, 0.13)' },
-  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.13)' },
+  { extensions: ['ppt', 'pptx', 'pptm', 'potx', 'potm', 'ppsx', 'ppsm'], icon: Slideshow, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.13)' },
 ];
 
 function getExtension(file) {
@@ -148,7 +148,7 @@ export default function FileList({ files, viewMode, onFileDropped, ...handlers }
     boxShadow: isDragActive ? '0 0 0 3px rgba(68, 215, 182, 0.14)' : 'none',
   };
   return (
-    <Box onDragOver={(event) => { if (hasDraggedManagerItem(event)) return; event.preventDefault(); event.stopPropagation(); setIsDragActive(true); }} onDragLeave={() => setIsDragActive(false)} onDrop={handleDrop} sx={wrapperSx}>
+    <Box onDragOver={(event) => { if (!hasDraggedSystemFiles(event)) return; event.preventDefault(); event.stopPropagation(); setIsDragActive(true); }} onDragLeave={() => setIsDragActive(false)} onDrop={handleDrop} sx={wrapperSx}>
       {viewMode === 'grid' ? (
         <Grid container spacing={2}>{files.map((file) => <Grid item xs={12} sm={6} md={4} lg={3} key={`${file.type}-${file.id}`}><GridCard file={file} handlers={handlers} /></Grid>)}</Grid>
       ) : (

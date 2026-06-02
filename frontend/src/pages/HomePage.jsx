@@ -113,10 +113,10 @@ export default function HomePage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
+    <Box className="ep-page" sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <input id="home-quick-upload-input" type="file" style={{ display: 'none' }} onChange={handleQuickUploadChange} />
       <HomeHeader user={user} />
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 } }}>
+      <Container className="ep-stagger" maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 } }}>
         <HomeHero user={user} />
         {user && <StorageStatsPanel stats={homeData.storageStats} formatFileSize={formatFileSize} isUploading={homeData.isQuickUploading} onUploadClick={handleQuickUploadClick} />}
         {!user && <GuestCta />}

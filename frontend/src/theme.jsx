@@ -81,9 +81,80 @@ function createAppTheme(mode) {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          '@keyframes epFadeUp': {
+            from: {
+              opacity: 0,
+              transform: 'translate3d(0, 14px, 0)',
+            },
+            to: {
+              opacity: 1,
+              transform: 'translate3d(0, 0, 0)',
+            },
+          },
+          '@keyframes epScaleIn': {
+            from: {
+              opacity: 0,
+              transform: 'scale(0.98)',
+            },
+            to: {
+              opacity: 1,
+              transform: 'scale(1)',
+            },
+          },
+          '@keyframes epSoftPulse': {
+            '0%, 100%': {
+              transform: 'scale(1)',
+              boxShadow: `0 0 0 0 ${alpha(tokens.primary, 0.22)}`,
+            },
+            '50%': {
+              transform: 'scale(1.04)',
+              boxShadow: `0 0 0 12px ${alpha(tokens.primary, 0)}`,
+            },
+          },
+          '@keyframes epFloat': {
+            '0%, 100%': {
+              transform: 'translate3d(0, 0, 0)',
+            },
+            '50%': {
+              transform: 'translate3d(0, -6px, 0)',
+            },
+          },
           body: {
             background: tokens.pageGradient,
             color: tokens.text,
+            transition: 'background 220ms ease, color 220ms ease',
+          },
+          '.ep-page': {
+            animation: 'epFadeUp 460ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          },
+          '.ep-animate-in': {
+            animation: 'epFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          },
+          '.ep-scale-in': {
+            animation: 'epScaleIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          },
+          '.ep-stagger > *': {
+            animation: 'epFadeUp 520ms cubic-bezier(0.22, 1, 0.36, 1) both',
+          },
+          '.ep-stagger > *:nth-of-type(2)': {
+            animationDelay: '70ms',
+          },
+          '.ep-stagger > *:nth-of-type(3)': {
+            animationDelay: '140ms',
+          },
+          '.ep-stagger > *:nth-of-type(4)': {
+            animationDelay: '210ms',
+          },
+          '.ep-stagger > *:nth-of-type(5)': {
+            animationDelay: '280ms',
+          },
+          '@media (prefers-reduced-motion: reduce)': {
+            '*, *::before, *::after': {
+              animationDuration: '0.001ms !important',
+              animationIterationCount: '1 !important',
+              scrollBehavior: 'auto !important',
+              transitionDuration: '0.001ms !important',
+            },
           },
           '::selection': {
             backgroundColor: alpha(tokens.primary, 0.32),
@@ -106,6 +177,14 @@ function createAppTheme(mode) {
             backgroundImage: 'none',
             backgroundColor: tokens.paper,
             borderColor: tokens.line,
+            transition: 'background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            transition: 'border-color 220ms ease, box-shadow 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease',
           },
         },
       },
@@ -115,6 +194,7 @@ function createAppTheme(mode) {
             backgroundColor: tokens.elevated,
             border: `1px solid ${tokens.line}`,
             boxShadow: mode === 'dark' ? '0 24px 80px rgba(0, 0, 0, 0.55)' : '0 24px 80px rgba(15, 23, 42, 0.16)',
+            animation: 'epScaleIn 180ms cubic-bezier(0.22, 1, 0.36, 1) both',
           },
         },
       },
@@ -124,6 +204,7 @@ function createAppTheme(mode) {
             backgroundColor: tokens.elevated,
             border: `1px solid ${tokens.line}`,
             boxShadow: tokens.menuShadow,
+            animation: 'epScaleIn 160ms cubic-bezier(0.22, 1, 0.36, 1) both',
           },
         },
       },
@@ -144,9 +225,48 @@ function createAppTheme(mode) {
           root: {
             borderRadius: 8,
             fontWeight: 700,
+            transition: 'background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+            '&:hover': {
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0) scale(0.98)',
+            },
+            '&.Mui-disabled': {
+              transform: 'none',
+            },
           },
           outlined: {
             borderColor: tokens.line,
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, opacity 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+            '&:hover': {
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0) scale(0.94)',
+            },
+            '&.Mui-disabled': {
+              transform: 'none',
+            },
+          },
+        },
+      },
+      MuiFab: {
+        styleOverrides: {
+          root: {
+            transition: 'filter 180ms ease, box-shadow 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1)',
+            '&:hover': {
+              transform: 'translateY(-3px)',
+            },
+            '&:active': {
+              transform: 'translateY(0) scale(0.98)',
+            },
           },
         },
       },

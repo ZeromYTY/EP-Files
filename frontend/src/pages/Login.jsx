@@ -75,8 +75,8 @@ export default function Login() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper sx={{ p: 4, mt: 8 }}>
+    <Container className="ep-page" maxWidth="sm">
+      <Paper className="ep-scale-in" sx={{ p: 4, mt: 8, border: '1px solid', borderColor: 'divider', boxShadow: (theme) => theme.ep.shadow }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">Вход</Typography>
         <LoginForm register={register} errors={errors} isSubmitting={isSubmitting} onSubmit={onSubmit} handleSubmit={handleSubmit} error={error} notice={notice} />
       </Paper>

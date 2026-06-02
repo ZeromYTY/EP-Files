@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -20,7 +19,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -35,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
 import api from '../api/axios';
+import HeaderProfileButton from '../components/HeaderProfileButton';
 import { useAuth } from '../context/authContextValue';
 
 function formatFileSize(bytes) {
@@ -73,20 +72,21 @@ const panelSx = {
 };
 
 function TrashHeader({ user, navigate }) {
-  const initials = user?.name?.[0] || user?.email?.[0] || 'U';
+  const headerButtonSx = {
+    minWidth: { xs: 0, sm: 150 },
+    height: 40,
+    whiteSpace: 'nowrap',
+    px: { xs: 1.25, sm: 2 },
+    fontSize: { xs: '0.78rem', sm: '0.875rem' },
+    '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
+  };
 
   return (
     <Box sx={{ backgroundColor: (theme) => theme.ep.header, backdropFilter: 'blur(18px)', borderBottom: '1px solid', borderColor: 'divider', px: { xs: 1.5, sm: 3 }, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1000 }}>
       <Box component="button" type="button" onClick={() => navigate('/')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main', fontSize: '1.5rem' }}>ep-files</Typography>
       </Box>
-      <Tooltip title="Личный кабинет">
-        <IconButton onClick={() => navigate('/files')} sx={{ p: 0, '&:hover': { opacity: 0.9 } }}>
-          <Avatar src={user?.avatar_url || undefined} sx={{ width: 40, height: 40, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '1rem', fontWeight: 700 }}>
-            {initials.toUpperCase()}
-          </Avatar>
-        </IconButton>
-      </Tooltip>
+      <HeaderProfileButton user={user} onClick={() => navigate('/files')} sx={headerButtonSx} />
     </Box>
   );
 }
@@ -380,9 +380,9 @@ export default function Trash() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
+    <Box className="ep-page" sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <TrashHeader user={user} navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 }, display: 'grid', gap: { xs: 2, md: 3 } }}>
+      <Container className="ep-stagger" maxWidth="lg" sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, sm: 3 }, display: 'grid', gap: { xs: 2, md: 3 } }}>
         <TrashHero currentFolder={currentFolder} itemsCount={items.length} totalSize={totalSize} busyId={busyId} onClear={() => setClearDialogOpen(true)} />
         <TrashToolbar currentFolder={currentFolder} navigate={navigate} onBack={goBack} onRoot={goToRoot} />
 

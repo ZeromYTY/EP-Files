@@ -242,9 +242,9 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: (theme) => theme.ep.pageGradient }}><CircularProgress /></Box>;
+  if (loading) return <Box className="ep-page" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: (theme) => theme.ep.pageGradient }}><CircularProgress /></Box>;
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container className="ep-page ep-stagger" maxWidth="lg" sx={{ py: 4 }}>
       <Alert severity="warning" sx={{ mb: 3 }}>РЕЖИМ АДМИНИСТРАТОРА СИСТЕМЫ - будьте аккуратны с деструктивными действиями.</Alert>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 800 }}>Админ-панель EP Files</Typography>

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Avatar, Box, Button, CircularProgress, Collapse, Container, Grid, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material';
-import { CheckCircle, Close, DarkMode, DeleteOutline, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LightMode, LockReset, Logout, Movie, MusicNote, PhotoCamera, PictureAsPdf, RestoreFromTrash, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
+import { Close, DarkMode, DeleteOutline, Description, Download as DownloadIcon, ExpandMore, Folder, Image, LightMode, LockReset, Logout, Movie, MusicNote, PhotoCamera, PictureAsPdf, RestoreFromTrash, Shield, Slideshow, Star, Storage, TableChart, Visibility } from '@mui/icons-material';
 import api from '../api/axios';
 import { useAuth } from '../context/authContextValue';
 import { useThemeMode } from '../themeMode';
 import { getApiErrorMessage } from './file-manager/fileManagerHelpers';
+import TaskStatusItem from '../components/TaskStatusItem';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 Б';
@@ -20,7 +21,7 @@ const fileGroups = [
   { extensions: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'], icon: MusicNote, color: '#a78bfa', bg: 'rgba(167, 139, 250, 0.13)' },
   { extensions: ['pdf'], icon: PictureAsPdf, color: '#fb7185', bg: 'rgba(251, 113, 133, 0.13)' },
   { extensions: ['xlsx', 'xls', 'csv'], icon: TableChart, color: '#4ade80', bg: 'rgba(74, 222, 128, 0.13)' },
-  { extensions: ['pptx', 'ppt'], icon: Slideshow, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.13)' },
+  { extensions: ['ppt', 'pptx', 'pptm', 'potx', 'potm', 'ppsx', 'ppsm'], icon: Slideshow, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.13)' },
 ];
 
 const panelSx = {
@@ -28,6 +29,11 @@ const panelSx = {
   border: '1px solid',
   borderColor: 'divider',
   boxShadow: (theme) => theme.ep.shadow,
+  transition: 'border-color 220ms ease, box-shadow 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+  '&:hover': {
+    borderColor: 'primary.main',
+    transform: 'translateY(-2px)',
+  },
 };
 
 function getExtension(item) {
@@ -231,17 +237,8 @@ function TaskWidget({ tasks, clearTasks }) {
   return (
     <Paper elevation={4} sx={{ ...panelSx, position: 'fixed', bottom: { xs: 12, sm: 24 }, right: { xs: 12, sm: 24 }, left: { xs: 12, sm: 'auto' }, width: { xs: 'auto', sm: 360 }, borderRadius: '12px', zIndex: 2000, overflow: 'hidden' }}>
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}><Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Скачивания: {tasks.filter((task) => task.status === 'downloading').length}</Typography><IconButton size="small" onClick={clearTasks}><Close fontSize="small" /></IconButton></Box>
-      <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>{tasks.map((task) => <TaskItem key={task.id} task={task} />)}</Box>
+      <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>{tasks.map((task) => <TaskStatusItem key={task.id} task={task} />)}</Box>
     </Paper>
-  );
-}
-
-function TaskItem({ task }) {
-  return (
-    <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: '8px', border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.subtle }}>
-      {task.status === 'downloading' ? <CircularProgress size={24} /> : <CheckCircle sx={{ color: task.status === 'success' ? 'success.main' : 'error.main' }} />}
-      <Box sx={{ overflow: 'hidden' }}><Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>{task.name}</Typography><Typography variant="caption" color="text.secondary">{task.subText}</Typography></Box>
-    </Box>
   );
 }
 
@@ -340,9 +337,9 @@ export default function Files({ onPreviewFile }) {
     }
   };
   return (
-    <>
+    <Box className="ep-page" sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient }}>
       <FilesHeader navigate={navigate} />
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 }, position: 'relative' }}>
+      <Container className="ep-stagger" maxWidth="lg" sx={{ py: { xs: 3, md: 6 }, px: { xs: 2, sm: 3 }, position: 'relative' }}>
         {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>{error}</Alert>}
         <Grid container spacing={{ xs: 2.5, md: 4 }} justifyContent={{ xs: 'center', md: 'flex-start' }}>
           <Grid item xs={12} md={5} sx={{ maxWidth: { xs: '360px !important', md: 'none' } }}><ProfileCard user={user} isAdmin={isAdmin} displayName={user?.name || user?.email || 'Пользователь'} themeMode={mode} avatarUploading={avatarUploading} onAvatarChange={handleAvatarChange} onAvatarDelete={handleAvatarDelete} onThemeToggle={toggleMode} onFiles={() => navigate('/file-manager')} onTrash={() => navigate('/trash')} onAdmin={() => navigate('/admin')} onLogout={handleLogout} /></Grid>
@@ -364,6 +361,6 @@ export default function Files({ onPreviewFile }) {
         <FavoritesSection favorites={favorites} onDownload={handleDownloadFav} onPreview={onPreviewFile} />
         <TaskWidget tasks={tasks} clearTasks={() => setTasks([])} />
       </Container>
-    </>
+    </Box>
   );
 }

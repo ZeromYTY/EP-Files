@@ -15,6 +15,11 @@ export function hasDraggedManagerItem(event) {
   return Array.from(event.dataTransfer?.types || []).includes(FILE_MANAGER_ITEM_MIME);
 }
 
+export function hasDraggedSystemFiles(event) {
+  const types = Array.from(event.dataTransfer?.types || []);
+  return types.includes('Files') && !types.includes(FILE_MANAGER_ITEM_MIME);
+}
+
 export function getDraggedManagerItem(event) {
   if (!hasDraggedManagerItem(event)) return null;
   try {

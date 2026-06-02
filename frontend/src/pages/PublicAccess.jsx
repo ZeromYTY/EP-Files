@@ -38,14 +38,20 @@ function triggerDownload(blobData, filename) {
 function PublicPreview({ file, preview }) {
   const type = getPreviewType(file.name);
   const mediaSx = { maxWidth: '100%', maxHeight: '68vh', borderRadius: 2 };
+  const documentSurfaceSx = {
+    backgroundColor: '#fff',
+    color: '#0f172a',
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 10px 28px rgba(15, 23, 42, 0.08)',
+  };
 
   if (preview.loading) return <CircularProgress />;
   if (preview.error) return <Alert severity="error">{preview.error}</Alert>;
-  if (type === 'image') return <Box component="img" src={preview.url} alt={file.name} sx={mediaSx} />;
+  if (type === 'image') return <Box component="img" src={preview.url} alt={file.name} sx={{ ...mediaSx, backgroundColor: '#fff' }} />;
   if (type === 'video') return <Box component="video" src={preview.url} controls sx={{ ...mediaSx, width: '100%', backgroundColor: '#000' }} />;
   if (type === 'audio') return <Box component="audio" src={preview.url} controls sx={{ width: '100%' }} />;
-  if (type === 'pdf') return <Box component="object" data={preview.url} type="application/pdf" sx={{ width: '100%', height: '68vh' }} />;
-  if (type === 'text') return <Box component="pre" sx={{ width: '100%', maxHeight: '68vh', overflow: 'auto', m: 0, p: 2, borderRadius: 2, backgroundColor: '#fff', whiteSpace: 'pre-wrap' }}>{preview.content}</Box>;
+  if (type === 'pdf') return <Box component="object" data={preview.url} type="application/pdf" sx={{ width: '100%', height: '68vh', borderRadius: 2, ...documentSurfaceSx }} />;
+  if (type === 'text') return <Box component="pre" sx={{ width: '100%', maxHeight: '68vh', overflow: 'auto', m: 0, p: 2, borderRadius: 2, whiteSpace: 'pre-wrap', fontFamily: 'monospace', ...documentSurfaceSx }}>{preview.content}</Box>;
   return <Typography color="text.secondary">Предпросмотр недоступен, файл можно скачать.</Typography>;
 }
 
@@ -134,7 +140,7 @@ function PublicFilePage({ token }) {
               <Button variant="contained" startIcon={<Download />} onClick={download}>Скачать</Button>
             </Box>
           </Box>
-          <Box sx={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', borderRadius: 2, p: 2 }}>
+          <Box sx={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: (theme) => theme.ep.subtle, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
             <PublicPreview file={file} preview={preview} />
           </Box>
           <Dialog open={reportOpen} onClose={() => setReportOpen(false)} maxWidth="sm" fullWidth>
@@ -177,9 +183,9 @@ function PublicFolderPage({ token }) {
   return (
     <PublicShell title={folderData?.folder?.name || 'Публичная папка'} ownerEmail={folderData?.folder?.owner_email} error={error}>
       {folderData && (
-        <List disablePadding sx={{ border: '1px solid #e5eaf1', borderRadius: 2, overflow: 'hidden' }}>
+        <List disablePadding sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', backgroundColor: 'background.paper' }}>
           {folders.map((folder) => (
-            <ListItem key={`folder-${folder.id}`} sx={{ borderBottom: '1px solid #eef2f7' }}>
+            <ListItem key={`folder-${folder.id}`} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
               <Folder sx={{ mr: 1.5, color: '#d08a22' }} />
               <ListItemText primary={folder.name} secondary="Папка" />
             </ListItem>
@@ -188,7 +194,7 @@ function PublicFolderPage({ token }) {
             <ListItem
               key={`file-${file.id}`}
               secondaryAction={<Button href={file.download_url} startIcon={<Download />}>Скачать</Button>}
-              sx={{ borderBottom: '1px solid #eef2f7', '&:last-child': { borderBottom: 0 } }}
+              sx={{ borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 0 } }}
             >
               <InsertDriveFile sx={{ mr: 1.5, color: '#5274a3' }} />
               <ListItemText primary={file.name} secondary={formatFileSize(file.size)} />
@@ -203,14 +209,14 @@ function PublicFolderPage({ token }) {
 
 function PublicShell({ title, ownerEmail, error, children }) {
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f1f5f9', py: 5 }}>
+    <Box className="ep-page" sx={{ minHeight: '100vh', background: (theme) => theme.ep.pageGradient, color: 'text.primary', py: 5 }}>
       <Container maxWidth="md">
-        <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+        <Paper className="ep-scale-in" elevation={0} sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, border: '1px solid', borderColor: 'divider', backgroundColor: (theme) => theme.ep.panel, boxShadow: (theme) => theme.ep.shadow }}>
           <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'flex-start' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="overline" color="text.secondary">EP Files</Typography>
               <Typography variant="h4" sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}>{title}</Typography>
-              {ownerEmail && <Typography variant="body2" sx={{ color: '#475569', mt: 0.75, overflowWrap: 'anywhere' }}>Поделился: {ownerEmail}</Typography>}
+              {ownerEmail && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, overflowWrap: 'anywhere' }}>Поделился: {ownerEmail}</Typography>}
             </Box>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, flexShrink: 0 }}>
               <Button component={Link} to="/file-manager" variant="contained" startIcon={<Folder />}>Файловый менеджер</Button>

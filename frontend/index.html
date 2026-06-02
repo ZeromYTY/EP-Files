@@ -7,7 +7,10 @@
     <title>EP Files</title>
     <script>
       (function () {
-        var mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        var savedMode = localStorage.getItem('ep_theme_mode');
+        var mode = savedMode === 'light' || savedMode === 'dark'
+          ? savedMode
+          : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         document.documentElement.dataset.theme = mode;
       }());
     </script>

@@ -7,7 +7,7 @@ const previewGroups = {
   video: ['mp4', 'webm', 'ogv', 'mov', 'm4v', 'mpeg', 'mpg', 'avi'],
   audio: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac'],
   text: ['txt', 'md', 'json', 'js', 'jsx', 'ts', 'tsx', 'css', 'html', 'htm', 'xml', 'csv', 'log', 'py', 'java', 'c', 'cpp', 'sh'],
-  office: ['docx', 'pptx', 'xlsx', 'xls'],
+  office: ['docx', 'ppt', 'pptx', 'pptm', 'potx', 'potm', 'ppsx', 'ppsm', 'xlsx', 'xls'],
 };
 
 function getPreviewType(fileName) {
@@ -95,6 +95,7 @@ function parseXml(xmlText) {
 }
 
 function nodesByLocalName(root, localName) {
+  if (!root?.getElementsByTagName) return [];
   return Array.from(root.getElementsByTagName('*')).filter((node) => node.localName === localName);
 }
 
@@ -221,8 +222,8 @@ function applyTint(hexColor, tintValue) {
   return tinted.join('');
 }
 
-function parseThemeColors(entries) {
-  const themeXml = entries.get('xl/theme/theme1.xml');
+function parseThemeColors(entries, themePath = 'xl/theme/theme1.xml') {
+  const themeXml = entries.get(themePath);
   if (!themeXml) return [];
   const themeDoc = parseXml(decodeText(themeXml));
   const scheme = nodesByLocalName(themeDoc, 'clrScheme')[0];
@@ -508,13 +509,312 @@ function parseDocx(entries) {
   return { type: 'document', paragraphs };
 }
 
+function getAttributeByLocalName(node, localName) {
+  return Array.from(node?.attributes || []).find((attribute) => parseRelationshipId(attribute.name) === localName)?.value || '';
+}
+
+function normalizeZipPath(baseDir, target) {
+  if (!target || /^[a-z]+:/i.test(target)) return '';
+  if (target.startsWith('/')) return target.slice(1);
+  const parts = `${baseDir}/${target}`.split('/');
+  const normalized = [];
+  parts.forEach((part) => {
+    if (!part || part === '.') return;
+    if (part === '..') normalized.pop();
+    else normalized.push(part);
+  });
+  return normalized.join('/');
+}
+
+function parseRelationships(entries, relsPath, baseDir) {
+  const relsXml = entries.get(relsPath);
+  if (!relsXml) return {};
+  const relsDoc = parseXml(decodeText(relsXml));
+  return Object.fromEntries(nodesByLocalName(relsDoc, 'Relationship').map((node) => [
+    node.getAttribute('Id'),
+    {
+      target: normalizeZipPath(baseDir, node.getAttribute('Target') || ''),
+      type: node.getAttribute('Type') || '',
+    },
+  ]));
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function mimeTypeForImage(path) {
+  const extension = getExtension(path);
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'svg') return 'image/svg+xml';
+  if (extension === 'gif') return 'image/gif';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/png';
+}
+
+const pptSchemeColorIndexes = {
+  lt1: 0,
+  light1: 0,
+  bg1: 0,
+  dk1: 1,
+  dark1: 1,
+  tx1: 1,
+  lt2: 2,
+  light2: 2,
+  bg2: 2,
+  dk2: 3,
+  dark2: 3,
+  tx2: 3,
+  accent1: 4,
+  accent2: 5,
+  accent3: 6,
+  accent4: 7,
+  accent5: 8,
+  accent6: 9,
+  hlink: 10,
+  folHlink: 11,
+};
+
+function applyLum(hexColor, lumModValue, lumOffValue) {
+  if (!hexColor) return hexColor;
+  const lumMod = lumModValue ? Number(lumModValue) / 100000 : 1;
+  const lumOff = lumOffValue ? Number(lumOffValue) / 100000 : 0;
+  const channels = [0, 2, 4].map((offset) => parseInt(hexColor.slice(offset, offset + 2), 16));
+  return channels.map((channel) => Math.max(0, Math.min(255, Math.round((channel * lumMod) + (255 * lumOff)))).toString(16).padStart(2, '0').toUpperCase()).join('');
+}
+
+function parseDrawingColor(colorRoot, themeColors) {
+  if (!colorRoot) return '';
+  const srgb = nodesByLocalName(colorRoot, 'srgbClr')[0]?.getAttribute('val');
+  if (srgb) return `#${normalizeHexColor(srgb)}`;
+  const system = nodesByLocalName(colorRoot, 'sysClr')[0]?.getAttribute('lastClr');
+  if (system) return `#${normalizeHexColor(system)}`;
+  const schemeNode = nodesByLocalName(colorRoot, 'schemeClr')[0];
+  if (schemeNode) {
+    let themeColor = themeColors[pptSchemeColorIndexes[schemeNode.getAttribute('val')]];
+    const tint = nodesByLocalName(schemeNode, 'tint')[0]?.getAttribute('val');
+    const shade = nodesByLocalName(schemeNode, 'shade')[0]?.getAttribute('val');
+    const lumMod = nodesByLocalName(schemeNode, 'lumMod')[0]?.getAttribute('val');
+    const lumOff = nodesByLocalName(schemeNode, 'lumOff')[0]?.getAttribute('val');
+    if (themeColor) {
+      themeColor = applyLum(themeColor, lumMod, lumOff);
+      if (tint) return `#${applyTint(themeColor, Number(tint) / 100000)}`;
+      if (shade) return `#${applyTint(themeColor, -(1 - Number(shade) / 100000))}`;
+      return `#${themeColor}`;
+    }
+  }
+  const preset = nodesByLocalName(colorRoot, 'prstClr')[0]?.getAttribute('val');
+  const presetColors = { black: '#000000', white: '#ffffff', red: '#ff0000', blue: '#0000ff', green: '#008000', yellow: '#ffff00', gray: '#808080', dkGray: '#404040', ltGray: '#c0c0c0', orange: '#ffa500', purple: '#800080' };
+  return presetColors[preset] || '';
+}
+
+function hexToRgb(color) {
+  const hex = normalizeHexColor(color);
+  if (!hex) return null;
+  return [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+}
+
+function readableTextColor(backgroundColor) {
+  const rgb = hexToRgb(backgroundColor);
+  if (!rgb) return '#111827';
+  const [r, g, b] = rgb.map((value) => {
+    const channel = value / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.42 ? '#111827' : '#ffffff';
+}
+
+function parseSolidFill(root, themeColors) {
+  const solidFill = childNodesByLocalName(root || {}, 'solidFill')[0] || nodesByLocalName(root || {}, 'solidFill')[0];
+  return parseDrawingColor(solidFill, themeColors);
+}
+
+function parseSlideSize(entries) {
+  const presentationXml = entries.get('ppt/presentation.xml');
+  if (!presentationXml) return { width: 12192000, height: 6858000 };
+  const doc = parseXml(decodeText(presentationXml));
+  const size = nodesByLocalName(doc, 'sldSz')[0];
+  return {
+    width: Number(size?.getAttribute('cx')) || 12192000,
+    height: Number(size?.getAttribute('cy')) || 6858000,
+  };
+}
+
+function getSlidePaths(entries) {
+  const presentationXml = entries.get('ppt/presentation.xml');
+  if (!presentationXml) {
+    return Array.from(entries.keys()).filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => Number(a.match(/\d+/)?.[0] || 0) - Number(b.match(/\d+/)?.[0] || 0));
+  }
+  const doc = parseXml(decodeText(presentationXml));
+  const rels = parseRelationships(entries, 'ppt/_rels/presentation.xml.rels', 'ppt');
+  const ordered = nodesByLocalName(doc, 'sldId')
+    .map((node) => rels[getAttributeByLocalName(node, 'id')]?.target)
+    .filter(Boolean);
+  return ordered.length ? ordered : Array.from(entries.keys()).filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => Number(a.match(/\d+/)?.[0] || 0) - Number(b.match(/\d+/)?.[0] || 0));
+}
+
+function parseTransform(node, slideSize) {
+  const xfrm = nodesByLocalName(node, 'xfrm')[0];
+  const off = childNodesByLocalName(xfrm || {}, 'off')[0];
+  const ext = childNodesByLocalName(xfrm || {}, 'ext')[0];
+  const x = Number(off?.getAttribute('x')) || 0;
+  const y = Number(off?.getAttribute('y')) || 0;
+  const cx = Number(ext?.getAttribute('cx')) || slideSize.width;
+  const cy = Number(ext?.getAttribute('cy')) || slideSize.height;
+  return {
+    left: `${(x / slideSize.width) * 100}%`,
+    top: `${(y / slideSize.height) * 100}%`,
+    width: `${(cx / slideSize.width) * 100}%`,
+    height: `${(cy / slideSize.height) * 100}%`,
+  };
+}
+
+function parseLineStyle(spPr, themeColors) {
+  const line = childNodesByLocalName(spPr || {}, 'ln')[0];
+  if (!line || childNodesByLocalName(line, 'noFill').length) return {};
+  const width = Math.max(1, Math.round(Number(line.getAttribute('w') || 9525) / 9525));
+  const color = parseSolidFill(line, themeColors);
+  return color ? { border: `${width}px solid ${color}` } : {};
+}
+
+function parseShapeStyle(spPr, themeColors) {
+  if (!spPr) return {};
+  const fill = childNodesByLocalName(spPr, 'noFill').length ? '' : parseSolidFill(spPr, themeColors);
+  return {
+    fillColor: fill,
+    css: {
+    ...(fill ? { backgroundColor: fill } : {}),
+    ...parseLineStyle(spPr, themeColors),
+    },
+  };
+}
+
+function parseRunStyle(run, themeColors) {
+  const rPr = childNodesByLocalName(run, 'rPr')[0] || childNodesByLocalName(run, 'endParaRPr')[0];
+  const fontSize = Number(rPr?.getAttribute('sz'));
+  const color = parseSolidFill(rPr, themeColors);
+  return {
+    fontWeight: rPr?.getAttribute('b') === '1' ? 700 : undefined,
+    fontStyle: rPr?.getAttribute('i') === '1' ? 'italic' : undefined,
+    textDecoration: rPr?.getAttribute('u') && rPr.getAttribute('u') !== 'none' ? 'underline' : undefined,
+    color: color || undefined,
+    fontSize: fontSize ? `${Math.max(8, fontSize / 100)}pt` : undefined,
+    fontFamily: nodesByLocalName(rPr || {}, 'latin')[0]?.getAttribute('typeface') || undefined,
+  };
+}
+
+function parseTextParagraphs(txBody, themeColors) {
+  return childNodesByLocalName(txBody || {}, 'p').map((paragraph) => {
+    const pPr = childNodesByLocalName(paragraph, 'pPr')[0];
+    const runs = childNodesByLocalName(paragraph, 'r').map((run) => ({
+      text: firstTextByLocalName(run, 't'),
+      style: parseRunStyle(run, themeColors),
+    })).filter((run) => run.text);
+    return {
+      align: pPr?.getAttribute('algn') || 'left',
+      runs: runs.length ? runs : [{ text: textByLocalName(paragraph, 't').join(''), style: parseRunStyle(childNodesByLocalName(paragraph, 'endParaRPr')[0] || paragraph, themeColors) }],
+    };
+  }).filter((paragraph) => paragraph.runs.some((run) => run.text.trim()));
+}
+
+function parseSlideBackground(slideDoc, themeColors, fallback = '') {
+  const bg = nodesByLocalName(slideDoc, 'bgPr')[0] || nodesByLocalName(slideDoc, 'bgRef')[0];
+  return parseSolidFill(bg, themeColors) || parseDrawingColor(bg, themeColors) || fallback;
+}
+
+function parseSlideImage(entries, picture, slidePath, slideSize, rels, index) {
+    const blip = nodesByLocalName(picture, 'blip')[0];
+    const relationshipId = getAttributeByLocalName(blip, 'embed') || getAttributeByLocalName(blip, 'link');
+    const mediaPath = rels[relationshipId]?.target;
+    const bytes = mediaPath ? entries.get(mediaPath) : null;
+    if (!bytes) return null;
+    return {
+      id: `image-${slidePath}-${index}`,
+      kind: 'image',
+      box: parseTransform(picture, slideSize),
+      src: `data:${mimeTypeForImage(mediaPath)};base64,${bytesToBase64(bytes)}`,
+    };
+}
+
+function parseSlideShape(shape, slideSize, themeColors, index) {
+  const paragraphs = parseTextParagraphs(nodesByLocalName(shape, 'txBody')[0], themeColors);
+  const spPr = childNodesByLocalName(shape, 'spPr')[0] || nodesByLocalName(shape, 'spPr')[0];
+  if (!paragraphs.length && !spPr) return null;
+  const style = parseShapeStyle(spPr, themeColors);
+  return {
+    id: `shape-${index}`,
+    kind: 'text',
+    box: parseTransform(shape, slideSize),
+    style: style.css,
+    fillColor: style.fillColor,
+    paragraphs,
+  };
+}
+
+function parseSlideObjects(entries, slideDoc, slidePath, slideSize, themeColors, rels) {
+  const tree = nodesByLocalName(slideDoc, 'spTree')[0];
+  const children = childNodesByLocalName(tree || {}, 'sp').concat(childNodesByLocalName(tree || {}, 'pic'));
+  const orderedChildren = children.length ? Array.from(tree.children || []).filter((node) => ['sp', 'pic'].includes(node.localName)) : [];
+  const source = orderedChildren.length ? orderedChildren : children;
+  return source.map((node, index) => {
+    if (node.localName === 'pic') return parseSlideImage(entries, node, slidePath, slideSize, rels, index);
+    return parseSlideShape(node, slideSize, themeColors, index);
+  }).filter(Boolean);
+}
+
+function parseSlideLayer(entries, layerPath, slideSize, themeColors) {
+  if (!layerPath || !entries.has(layerPath)) return { background: '', objects: [] };
+  const doc = parseXml(decodeText(entries.get(layerPath)));
+  const baseDir = layerPath.split('/').slice(0, -1).join('/');
+  const fileName = layerPath.split('/').pop();
+  const rels = parseRelationships(entries, `${baseDir}/_rels/${fileName}.rels`, baseDir);
+  return {
+    background: parseSlideBackground(doc, themeColors),
+    objects: parseSlideObjects(entries, doc, layerPath, slideSize, themeColors, rels),
+  };
+}
+
+function isRenderableSlideObject(object) {
+  if (object.kind !== 'text') return true;
+  return Boolean(object.paragraphs?.length || object.style?.backgroundColor || object.style?.border);
+}
+
 function parsePptx(entries) {
-  const slideNames = Array.from(entries.keys()).filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => Number(a.match(/\d+/)?.[0] || 0) - Number(b.match(/\d+/)?.[0] || 0));
-  const slides = slideNames.map((name, index) => {
-    const doc = parseXml(decodeText(entries.get(name)));
-    return { title: `Слайд ${index + 1}`, lines: textByLocalName(doc, 't').map((text) => text.trim()).filter(Boolean) };
-  }).filter((slide) => slide.lines.length > 0);
-  return { type: 'presentation', slides };
+  const slideSize = parseSlideSize(entries);
+  const themeColors = parseThemeColors(entries, 'ppt/theme/theme1.xml');
+  const slidePaths = getSlidePaths(entries);
+  const slides = slidePaths.map((path, index) => {
+    const doc = parseXml(decodeText(entries.get(path)));
+    const relationshipPath = path.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+    const rels = parseRelationships(entries, relationshipPath, 'ppt/slides');
+    const layoutPath = Object.values(rels).find((rel) => rel.type.includes('/slideLayout'))?.target;
+    const layoutLayer = parseSlideLayer(entries, layoutPath, slideSize, themeColors);
+    const masterPath = layoutPath ? Object.values(parseRelationships(entries, `ppt/slideLayouts/_rels/${layoutPath.split('/').pop()}.rels`, 'ppt/slideLayouts')).find((rel) => rel.type.includes('/slideMaster'))?.target : '';
+    const masterLayer = parseSlideLayer(entries, masterPath, slideSize, themeColors);
+    const slideBackground = parseSlideBackground(doc, themeColors);
+    const background = slideBackground || layoutLayer.background || masterLayer.background || '#ffffff';
+    const slideObjects = parseSlideObjects(entries, doc, path, slideSize, themeColors, rels);
+    return {
+      id: path,
+      title: `Слайд ${index + 1}`,
+      background: background || '#ffffff',
+      objects: [
+        ...masterLayer.objects.filter(isRenderableSlideObject),
+        ...layoutLayer.objects.filter(isRenderableSlideObject),
+        ...slideObjects,
+      ],
+      textColor: readableTextColor(background),
+      plainText: textByLocalName(doc, 't').map((text) => text.trim()).filter(Boolean).join(' '),
+    };
+  });
+  if (!slides.length) throw new Error('Не удалось найти слайды PowerPoint-файла');
+  return { type: 'presentation', slideSize, slides };
 }
 
 function parseXlsx(entries) {
@@ -533,12 +833,13 @@ function parseXlsx(entries) {
 }
 
 async function parseOfficePreview(fileName, arrayBuffer) {
-  const entries = await readZipEntries(arrayBuffer);
   const extension = getExtension(fileName);
-  if (extension === 'docx') return parseDocx(entries);
-  if (extension === 'pptx') return parsePptx(entries);
-  if (extension === 'xlsx') return parseXlsx(entries);
+  if (extension === 'ppt') throw new Error('Предпросмотр старого бинарного формата PPT пока недоступен. Сохраните презентацию как PPTX или скачайте оригинал.');
   if (extension === 'xls') throw new Error('Предпросмотр старого формата XLS пока недоступен. Сохраните файл как XLSX или скачайте оригинал.');
+  const entries = await readZipEntries(arrayBuffer);
+  if (extension === 'docx') return parseDocx(entries);
+  if (['pptx', 'pptm', 'potx', 'potm', 'ppsx', 'ppsm'].includes(extension)) return parsePptx(entries);
+  if (extension === 'xlsx') return parseXlsx(entries);
   throw new Error('Предпросмотр доступен только для DOCX, PPTX и XLSX');
 }
 
@@ -665,21 +966,150 @@ function SpreadsheetPreview({ office, theme }) {
   );
 }
 
+function paragraphAlign(value) {
+  if (value === 'ctr') return 'center';
+  if (value === 'r') return 'right';
+  if (value === 'just') return 'justify';
+  return 'left';
+}
+
+function SlideCanvas({ slide, slideSize, theme, thumbnail = false }) {
+  const slideTextColor = slide.textColor || readableTextColor(slide.background);
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        aspectRatio: `${slideSize.width} / ${slideSize.height}`,
+        background: slide.background || '#fff',
+        color: slideTextColor,
+        overflow: 'hidden',
+        boxShadow: thumbnail ? 'none' : '0 18px 48px rgba(0,0,0,0.22)',
+      }}
+    >
+      {slide.objects.map((object, index) => {
+        const commonStyle = {
+          position: 'absolute',
+          left: object.box.left,
+          top: object.box.top,
+          width: object.box.width,
+          height: object.box.height,
+          zIndex: index + 1,
+        };
+        if (object.kind === 'image') {
+          return <img key={object.id} src={object.src} alt="" style={{ ...commonStyle, objectFit: 'fill' }} />;
+        }
+        return (
+          <div
+            key={object.id}
+            style={{
+              ...commonStyle,
+              ...object.style,
+              boxSizing: 'border-box',
+              padding: thumbnail ? 2 : '0.45%',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+            }}
+          >
+            {object.paragraphs.map((paragraph, paragraphIndex) => (
+              <p
+                key={`${object.id}-p-${paragraphIndex}`}
+                style={{
+                  margin: thumbnail ? '0 0 1px' : '0 0 0.35em',
+                  lineHeight: 1.12,
+                  textAlign: paragraphAlign(paragraph.align),
+                  color: slideTextColor,
+                }}
+              >
+                {paragraph.runs.map((run, runIndex) => (
+                  <span
+                    key={`${object.id}-p-${paragraphIndex}-r-${runIndex}`}
+                    style={{
+                      color: run.style.color || readableTextColor(object.fillColor || slide.background),
+                      fontFamily: run.style.fontFamily || 'Arial, sans-serif',
+                      fontSize: thumbnail ? undefined : run.style.fontSize || '18pt',
+                      fontWeight: run.style.fontWeight,
+                      fontStyle: run.style.fontStyle,
+                      textDecoration: run.style.textDecoration,
+                    }}
+                  >
+                    {run.text}
+                  </span>
+                ))}
+              </p>
+            ))}
+          </div>
+        );
+      })}
+      {!slide.objects.length && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: '8%', color: '#64748b', fontFamily: 'Arial, sans-serif', fontSize: thumbnail ? 8 : 22, textAlign: 'center' }}>
+          {slide.plainText || 'Пустой слайд'}
+        </div>
+      )}
+      {thumbnail && <div style={{ position: 'absolute', inset: 0, border: `1px solid ${theme.palette.divider}`, pointerEvents: 'none' }} />}
+    </div>
+  );
+}
+
+function PresentationPreview({ office, theme }) {
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const activeSlide = office.slides[Math.min(activeSlideIndex, office.slides.length - 1)];
+  const slideAspect = office.slideSize.width / office.slideSize.height;
+  if (!activeSlide) return <div style={{ color: theme.palette.text.secondary }}>В презентации нет слайдов для предпросмотра.</div>;
+
+  return (
+    <div style={{ width: '100%', height: '100%', minHeight: 0, display: 'grid', gridTemplateColumns: 'clamp(110px, 14vw, 170px) minmax(0, 1fr)', background: theme.palette.background.paper, overflow: 'hidden' }}>
+      <aside style={{ overflowY: 'auto', background: theme.palette.mode === 'dark' ? '#101317' : '#f3f4f6', borderRight: `1px solid ${theme.palette.divider}`, padding: 10 }}>
+        {office.slides.map((slide, index) => (
+          <button
+            key={slide.id}
+            type="button"
+            onClick={() => setActiveSlideIndex(index)}
+            title={slide.plainText || slide.title}
+            style={{
+              width: '100%',
+              display: 'grid',
+              gridTemplateColumns: '20px minmax(0, 1fr)',
+              gap: 6,
+              alignItems: 'start',
+              border: `2px solid ${index === activeSlideIndex ? theme.palette.primary.main : 'transparent'}`,
+              borderRadius: 6,
+              background: index === activeSlideIndex ? alpha(theme.palette.primary.main, 0.12) : 'transparent',
+              color: theme.palette.text.primary,
+              cursor: 'pointer',
+              marginBottom: 10,
+              padding: 5,
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 700, color: theme.palette.text.secondary, lineHeight: 1.3 }}>{index + 1}</span>
+            <span style={{ minWidth: 0 }}>
+              <SlideCanvas slide={slide} slideSize={office.slideSize} theme={theme} thumbnail />
+            </span>
+          </button>
+        ))}
+      </aside>
+      <main style={{ minWidth: 0, minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: theme.palette.mode === 'dark' ? '#20242b' : '#e5e7eb' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', borderBottom: `1px solid ${theme.palette.divider}`, background: theme.palette.background.paper }}>
+          <strong style={{ color: theme.palette.text.primary }}>{activeSlide.title}</strong>
+          <span style={{ color: theme.palette.text.secondary, fontSize: 12 }}>{activeSlideIndex + 1} из {office.slides.length}</span>
+        </div>
+        <div style={{ minWidth: 0, minHeight: 0, overflow: 'auto', display: 'grid', placeItems: 'center', padding: 24 }}>
+          <div style={{ width: `min(100%, calc((96vh - 180px) * ${slideAspect}))`, minWidth: 280, maxWidth: '1240px' }}>
+            <SlideCanvas slide={activeSlide} slideSize={office.slideSize} theme={theme} />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function OfficePreview({ office, theme }) {
   if (!office) return null;
   if (office.type === 'spreadsheet') return <SpreadsheetPreview office={office} theme={theme} />;
-  if (office.type === 'presentation') {
-    return (
-      <div style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', display: 'grid', gap: 12 }}>
-        {office.slides.map((slide) => (
-          <section key={slide.title} style={{ background: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 8, padding: 16, color: theme.palette.text.primary }}>
-            <strong style={{ display: 'block', marginBottom: 8 }}>{slide.title}</strong>
-            {slide.lines.map((line, index) => <p key={`${slide.title}-${index}`} style={{ margin: '4px 0' }}>{line}</p>)}
-          </section>
-        ))}
-      </div>
-    );
-  }
+  if (office.type === 'presentation') return <PresentationPreview office={office} theme={theme} />;
   return <div style={{ width: '100%', maxHeight: '70vh', overflow: 'auto', background: theme.palette.background.paper, color: theme.palette.text.primary, padding: 18, borderRadius: 8 }}>{office.paragraphs.map((paragraph, index) => <p key={`paragraph-${index}`} style={{ margin: '0 0 10px', lineHeight: 1.55 }}>{paragraph}</p>)}</div>;
 }
 
@@ -743,6 +1173,7 @@ export default function FilePreviewModal({ file, onClose }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [hoveredButton, setHoveredButton] = useState('');
+  const isPresentation = state.office?.type === 'presentation';
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -766,10 +1197,10 @@ export default function FilePreviewModal({ file, onClose }) {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: alpha('#000', theme.palette.mode === 'dark' ? 0.74 : 0.6), zIndex: 2000, padding: 16 }} onClick={onClose}>
-      <div style={{ background: theme.palette.background.paper, color: theme.palette.text.primary, border: `1px solid ${theme.palette.divider}`, boxShadow: theme.ep.menuShadow, borderRadius: 12, width: 'min(95vw, 920px)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: alpha('#000', theme.palette.mode === 'dark' ? 0.78 : 0.64), zIndex: 2000, padding: isPresentation ? 10 : 16 }} onClick={onClose}>
+      <div style={{ background: theme.palette.background.paper, color: theme.palette.text.primary, border: `1px solid ${theme.palette.divider}`, boxShadow: theme.ep.menuShadow, borderRadius: 12, width: isPresentation ? 'min(98vw, 1480px)' : 'min(95vw, 920px)', height: isPresentation ? '96vh' : undefined, maxHeight: isPresentation ? '96vh' : '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
         <div style={{ display: 'flex', alignItems: 'center', padding: 16, borderBottom: `1px solid ${theme.palette.divider}` }}><strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</strong></div>
-        <div style={{ flex: 1, overflow: 'auto', background: theme.ep.subtle, padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PreviewContent file={file} state={{ ...state, error: state.error || downloadError }} theme={theme} /></div>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', background: theme.ep.subtle, padding: isPresentation ? 0 : 24, display: 'flex', alignItems: isPresentation ? 'stretch' : 'center', justifyContent: 'center' }}><PreviewContent file={file} state={{ ...state, error: state.error || downloadError }} theme={theme} /></div>
         <div style={{ padding: 14, borderTop: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between', gap: 12 }}><button type="button" style={downloadButtonCurrentStyle} onMouseEnter={() => setHoveredButton('download')} onMouseLeave={() => setHoveredButton('')} onClick={() => downloadFile(file, setDownloadError, setDownloading)} disabled={downloading}>{downloading ? 'Скачивание...' : 'Скачать'}</button><button type="button" style={closeButtonCurrentStyle} onMouseEnter={() => setHoveredButton('close')} onMouseLeave={() => setHoveredButton('')} onClick={onClose}>Закрыть</button></div>
       </div>
     </div>
