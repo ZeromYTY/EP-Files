@@ -1,119 +1,177 @@
 # EP Files
 
-Файлообменник — веб-приложение для загрузки, хранения и обмена файлами.
+EP Files is a personal file workspace for uploading, organizing, previewing, sharing, and managing files in the browser.
 
-## Стек
+**Live application:** [ep-files-app.markk877.chatgpt.site](https://ep-files-app.markk877.chatgpt.site)
 
-- **Бэкенд:** Django 4.2 + Django REST Framework + JWT-аутентификация
-- **Фронтенд:** React 19 + Vite + MUI
-- **База данных:** PostgreSQL (SQLite для локальной разработки)
-- **Инфраструктура:** Docker + Docker Compose
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-## Быстрый старт
+> The current production application lives in `frontend/` and runs as a Cloudflare-compatible Worker with D1 and R2. The Django code at the repository root is retained as a legacy university implementation and is not used by the live deployment.
 
-### Через Docker (рекомендуется)
+## Features
+
+- Account registration and secure cookie-based sessions
+- File uploads up to 100 MB with real transfer and server-processing states
+- Nested folders, drag and drop, renaming, moving, and ZIP folder downloads
+- Image, video, audio, PDF, text, and modern Office file previews
+- HTTP range requests for efficient video and audio playback
+- Versioned, authenticated image-preview caching
+- Favorites, recent activity, storage usage, and full-text name search
+- Trash with restore, permanent deletion, and recursive folder handling
+- Public file and folder links with optional expiration
+- User-to-user read and read/write permissions with folder inheritance
+- In-browser editing for supported text files
+- File reports and an administrator dashboard
+- Avatar cropping with drag and zoom controls before upload
+- Responsive light and dark themes that follow the device preference by default
+
+## Technology
+
+| Area | Technology |
+| --- | --- |
+| UI | React 19, React Router, Material UI, Emotion |
+| Application runtime | vinext, Next.js 16 application shell, Cloudflare Workers |
+| Metadata and sessions | Cloudflare D1 / local Miniflare SQLite |
+| File storage | Cloudflare R2 / local Miniflare R2 |
+| Validation | React Hook Form, Yup |
+| Archive generation | fflate |
+| Build tooling | Vite 8, ESLint, Wrangler |
+| Hosting | OpenAI Sites on Cloudflare infrastructure |
+
+## Quick Start
+
+### Requirements
+
+- Node.js 20 or newer
+- npm 10 or newer
+
+### Run the current application locally
 
 ```bash
-git clone <url-репозитория>
-cd ep-files
-
-cp .env.example .env
-
-docker-compose up --build
+git clone https://github.com/escobar877-ic/ep-files.git
+cd ep-files/frontend
+npm ci
+npm run sites:dev -- --port 5173
 ```
 
-После запуска:
+Open [http://localhost:5173](http://localhost:5173).
 
-| Сервис | Адрес |
-|---|---|
-| Фронтенд | http://localhost:5173 |
-| API | http://localhost:8000/api/ |
-| Django Admin | http://localhost:8000/admin/ |
+The Sites development command starts the UI, Worker API, local D1 database, and local R2-compatible storage together. No Django server is required for this mode.
 
-### Локально без Docker
+On a new empty database, the first registered account receives administrator privileges. This behavior is intended for initial setup only.
 
-**Бэкенд:**
+## Available Commands
+
+Run these commands from `frontend/`:
+
+| Command | Purpose |
+| --- | --- |
+| `npm run sites:dev -- --port 5173` | Run the complete app with local D1 and R2 bindings |
+| `npm run sites:build` | Create the production Sites build |
+| `npm run lint` | Run ESLint with zero warnings allowed |
+| `npm run dev` | Run the legacy SPA development mode that expects a Django API on port 8000 |
+| `npm run build` | Build the legacy standalone SPA |
+| `npm run preview` | Preview the standalone SPA build |
+
+## Configuration
+
+The primary application uses logical bindings declared in [`frontend/.openai/hosting.json`](./frontend/.openai/hosting.json):
+
+```json
+{
+  "d1": "DB",
+  "r2": "FILES"
+}
+```
+
+- `DB` stores users, sessions, file metadata, folders, permissions, favorites, history, and reports.
+- `FILES` stores uploaded files and avatars.
+- Local bindings are configured in `frontend/vite.config.js` and persisted by Miniflare under `frontend/.wrangler/`.
+- Hosted resource creation and binding are managed by Sites.
+
+Do not commit runtime secrets or production credentials. The application does not require a client-side API secret.
+
+## Default Limits
+
+| Limit | Value |
+| --- | --- |
+| File size | 100 MB per file |
+| Initial user storage | 100 MB |
+| Maximum administrator-assigned storage | 2 GB per user |
+| Avatar size | 2 MB |
+| Editable text file size | 2 MB |
+| Session lifetime | 7 days |
+
+Potentially executable file extensions such as `.exe`, `.bat`, `.cmd`, `.jar`, `.msi`, `.sh`, and `.ps1` are rejected by the Worker API.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[React browser application] --> Worker[vinext Worker]
+    Worker --> Router[EP Files API router]
+    Router --> D1[(D1 metadata)]
+    Router --> R2[(R2 file objects)]
+    Worker --> Assets[Built static assets]
+```
+
+The Worker handles both the application shell and `/api/*`. Authentication is stored in a hashed server-side session record; the browser receives only a `Secure`, `HttpOnly`, `SameSite=Lax` cookie.
+
+See [Architecture](./docs/ARCHITECTURE.md) for request flows, storage design, permissions, and caching behavior.
+
+## API Example
+
+The API is served from `/api/`. Authenticated examples should preserve the session cookie:
 
 ```bash
-python -m venv venv
-venv\Scripts\activate       # Windows
-# source venv/bin/activate  # Linux/macOS
+curl -c cookies.txt \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Demo User","email":"demo@example.com","password":"secret123"}' \
+  http://localhost:5173/api/auth/register/
 
-pip install -r requirements.txt
-
-python manage.py migrate
-python manage.py runserver
+curl -b cookies.txt http://localhost:5173/api/files/
 ```
 
-**Фронтенд** (в отдельном терминале):
+See the complete [API Reference](./docs/API.md).
+
+## Repository Layout
+
+```text
+frontend/
+  app/                 vinext/Next application shell
+  src/                 React UI and client-side application logic
+  worker/              Worker API and request entry point
+  drizzle/             D1 schema migration
+  public/              Fonts, images, icons, and attribution notices
+  .openai/              Sites hosting metadata
+docs/                  Current English technical documentation
+ep_files_app/, main/   Legacy Django implementation
+tests/                 Legacy Django test suite
+```
+
+## Verification
+
+Before submitting a change to the current application:
 
 ```bash
 cd frontend
-
-npm install
-npm run dev
+npm run lint
+npm run sites:build
 ```
 
-## Переменные окружения
+The legacy Django suite can be run separately with `pytest` when modifying the root Python implementation.
 
-Скопируй `.env.example` в `.env` и заполни:
+## Documentation
 
-| Переменная | Описание |
-|---|---|
-| `SECRET_KEY` | Секретный ключ Django |
-| `DEBUG` | Режим отладки (`True` / `False`) |
-| `JWT_SECRET_KEY` | Ключ подписи JWT-токенов |
-| `DATABASE_URL` | Строка подключения к БД |
-| `CORS_ALLOWED_ORIGINS` | Разрешённые origins фронтенда |
-| `MAX_FILE_SIZE` | Максимальный размер файла в байтах |
+- [Documentation index](./docs/README.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [API reference](./docs/API.md)
+- [Deployment](./docs/DEPLOYMENT.md)
+- [Frontend development](./frontend/README.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)
+- [Asset attributions](./frontend/public/assets/ATTRIBUTIONS.md)
 
-## Ограничения и хранение файлов
+## License
 
-- Максимальный размер файла задаётся переменной `MAX_FILE_SIZE` (`104857600` байт по умолчанию).
-- Исполняемые и потенциально опасные расширения блокируются серверной валидацией.
-- Имена файлов очищаются от опасных символов и path traversal.
-- Загруженный контент хранится в `storage/files/` при локальном запуске.
-- При запуске через Docker пользовательские файлы хранятся в volume `storage_data`, база данных — в `postgres_data`.
-
-## Демо-данные
-
-Для локальной демонстрации можно создать администратора стандартной командой Django:
-
-```bash
-python manage.py createsuperuser
-```
-
-При запуске через Docker значения для тестового администратора можно указать в `.env`:
-
-| Переменная | Описание |
-|---|---|
-| `DJANGO_SUPERUSER_EMAIL` | Email администратора |
-| `DJANGO_SUPERUSER_USERNAME` | Имя администратора |
-| `DJANGO_SUPERUSER_PASSWORD` | Пароль администратора |
-
-## Документация
-
-Документация API и кода собирается через Sphinx и публикуется на GitLab Pages автоматически при merge в `master`.
-
-Собрать локально:
-
-```bash
-cd docs
-sphinx-build -b html source build/html
-```
-
-Открыть: `docs/build/html/index.html`
-
-## CI/CD
-
-Пайплайн запускается автоматически на merge request и ветке `dev`:
-
-| Стадия | Что делает |
-|---|---|
-| `lint` | Проверка кода через pylint (порог 8.0) |
-| `test` | Запуск pytest |
-| `docs` | Сборка Sphinx-документации |
-
-GitLab Pages обновляется при каждом merge в `master`.
-
-* [Обоснование архитектурных паттернов (Observer, Strategy, Facade)](./patterns.txt)
+EP Files is available under the [MIT License](./LICENSE). Third-party fonts and visual assets retain their original licenses; see the attribution files in `frontend/public/`.
